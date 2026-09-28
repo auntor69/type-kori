@@ -236,6 +236,21 @@ with the reason. Newest last.
 - 2026-09-28 — **`PracticeText.source` gained a `"custom"` value.** The alternative
   was to call a paste "original", which is a claim about provenance the app cannot
   make. The build-time content validator still accepts only `"original"`, so no
-  custom text can ever be counted as reviewed library content, and the review flag
-  on a custom text is set because the flag asks whether a native speaker checked
+  custom text can ever be counted as reviewed library content, and the review  flag on a custom text is set because the flag asks whether a native speaker checked
   text *this project* wrote, which is not a question about the user's paste.
+- 2026-09-28 — **Minimal, typography-first home page.** The owner asked for a
+  better UI with less text and approved a minimalist direction. The home page was
+  rebuilt around the practice island: a centred hero (wordmark, three-word h1,
+  one-sentence lead), the typing test immediately below it, and the old feature
+  grid, how-it-works cards, input-mode cards and closing card replaced by
+  borderless text sections — five feature one-liners, three numbered steps, four
+  short FAQ rows, one CTA block. The `homeCopy` interface lost `eyebrow`,
+  `secondaryCta`, `keyboardNote`, `toolsTitle`, `toolsLead`, `modesTitle`,
+  `modesLead`, `modes`, `featuresLead` and `closingBody`, and gained `tagline`,
+  `footnote` and `closingCta`. The input-mode distinction lives in the practice
+  toolbar's mode chip, so a dedicated home section was redundant. Colours, radii
+  and motion still come from the Section 6 tokens in `src/styles/tokens.css`; the
+  redesign changed layout and copy, not the palette. The header nav's "how it
+  works" link became a "FAQ" link (`nav.faq` added to both locales). Drop
+  shadows were removed from the practice results and custom-text panels for a
+  flat look; `--shadow-soft` stays defined for the settings drawer.

@@ -631,7 +631,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       {finished && (
         <section
           aria-labelledby="results-heading"
-          class="mt-6 rounded-card border border-border bg-surface p-6 shadow-[var(--shadow-soft)]"
+          class="mt-6 rounded-card border border-border bg-surface p-6"
         >
           <h3 id="results-heading" class="text-sm font-semibold uppercase tracking-wide text-muted">
             {t("results.heading")}
