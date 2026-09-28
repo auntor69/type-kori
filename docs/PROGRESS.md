@@ -53,12 +53,13 @@ check.** The 26 practice texts are still `reviewed: false`.
 
 ## Phase 3 — Built-in Avro Phonetic mode
 
-- [x] Rule table and engine — 2026-09-28 · `PENDING` (own grammar, long-match
-      scan, context rule, automatic hasanta; 39 rows + 10 digits)
-- [x] Backspace handling — 2026-09-28 · `PENDING` (removes one Roman keystroke
+- [x] Rule table and engine — 2026-09-28 · `f6c272e` (own grammar, long-match
+      scan, context rule, automatic hasanta; 60 rows: 9 vowels, 36 consonants,
+      4 marks, 1 explicit conjunct, 10 digits)
+- [x] Backspace handling — 2026-09-28 · `f6c272e` (removes one Roman keystroke
       and re-renders, then hands back to the session)
-- [x] Composing display — 2026-09-28 · `PENDING` (the `x → য` line under the text)
-- [x] "OS keyboard is on" warning — 2026-09-28 · `PENDING` (a Bangla character
+- [x] Composing display — 2026-09-28 · `f6c272e` (the `x → য` line under the text)
+- [x] "OS keyboard is on" warning — 2026-09-28 · `f6c272e` (a Bangla character
       arriving while built-in mode is on, or an input-method composition event)
 - [ ] Cheat-sheet data
 
