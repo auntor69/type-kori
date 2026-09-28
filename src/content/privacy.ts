@@ -25,7 +25,7 @@ export const privacyCopy: Record<Lang, PrivacyCopy> = {
       },
       {
         title: "আপনার ডেটা আপনার ডিভাইসে",
-        body: "সেটিংস, রান-হিস্ট্রি ও ফলাফল ব্রাউজারের localStorage-এ জমা থাকে। ভবিষ্যতে এক্সপোর্ট/ইমপোর্ট যোগ হলে সেটিও সম্পূর্ণ আপনার নিজের নিয়ন্ত্রণে থাকবে।",
+        body: "সেটিংস, রান-হিস্ট্রি ও ফলাফল ব্রাউজারের localStorage-এ জমা থাকে। এক্সপোর্ট ও ইমপোর্টের মাধ্যমে সেটিও সম্পূর্ণ আপনার নিজের নিয়ন্ত্রণে থাকে, আর রিসেট করলে সব মুছে যায়।",
       },
       {
         title: "কাস্টম লেখা কোথাও যায় না",
@@ -55,7 +55,7 @@ export const privacyCopy: Record<Lang, PrivacyCopy> = {
       },
       {
         title: "Your data stays on your device",
-        body: "Settings, run history and results are stored in your browser's localStorage. When export and import arrive they stay entirely under your control too.",
+        body: "Settings, run history and results are stored in your browser's localStorage. Export and import keep them entirely under your control, and reset deletes the lot.",
       },
       {
         title: "Custom text never leaves the page",

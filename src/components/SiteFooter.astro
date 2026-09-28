@@ -10,6 +10,7 @@ const { lang } = Astro.props;
 const t = useTranslations(lang);
 
 const home = localizePath("/", lang);
+const progress = localizePath("/progress", lang);
 const privacy = localizePath("/privacy", lang);
 const year = new Date().getFullYear();
 ---
@@ -29,6 +30,12 @@ const year = new Date().getFullYear();
         class="text-muted transition-colors duration-150 ease-out hover:text-text"
       >
         {t("nav.practice")}
+      </a>
+      <a
+        href={progress}
+        class="text-muted transition-colors duration-150 ease-out hover:text-text"
+      >
+        {t("nav.progress")}
       </a>
       <a
         href={`${home}#how`}

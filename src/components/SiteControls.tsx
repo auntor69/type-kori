@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 
-import { useTranslations, type Lang } from "../i18n";
+import { localizePath, useTranslations, type Lang } from "../i18n";
 import {
   loadAndApplySettings,
   setDrawerOpen,
@@ -301,6 +301,12 @@ export default function SiteControls({ lang }: Props) {
                 {t("settings.data")}
               </h3>
               <p class="mt-2 text-xs leading-relaxed text-muted">{t("settings.dataNote")}</p>
+              <a
+                href={localizePath("/progress", lang)}
+                class="mt-3 inline-block text-xs font-medium text-accent hover:underline"
+              >
+                {t("settings.openProgress")}
+              </a>
             </section>
           </div>
         </div>

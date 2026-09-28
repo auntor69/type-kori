@@ -121,3 +121,64 @@ with the reason. Newest last.
   the file's own `meta.sources`, and every row must still be `nativeReviewed: false`
   until a human signs it off. The test fails the moment someone quietly marks rows
   as reviewed.
+
+## Phase 5 — progress and persistence
+
+- 2026-09-28 — **The system keyboard stays the default input mode, and built-in
+  phonetic mode stays an opt-in preview.** Phase 3 left this open, because
+  Section 3.1 names built-in mode as the default while Phase 3's acceptance test
+  needs a native speaker. The owner reviewed the licence analysis and the
+  dictionary divergence above and confirmed the system keyboard is the right
+  default: it needs nothing installed, it works with whichever layout the user
+  already has, and it makes no correctness claim the app cannot keep. Nothing in
+  `src/lib/settings.ts` had to change; this line records the owner's decision so
+  the deviation from Section 3.1 is not mistaken for an oversight.
+- 2026-09-28 — **The v1.1 fixed-layout and on-screen-keyboard workstream is
+  dropped.** Sections 3.2, 4 (v1.1), 5.3 and 7.8 plan the national layout
+  (BDS 1738) and Probhat with an on-screen keyboard, finger colours and key hints.
+  The owner's call is that a rendered keyboard is unnecessary: the user already
+  has their own system keyboard, and System mode deliberately supports every
+  layout for zero engine work. Nothing had been built for it, so this is a scope
+  change only — which also means the `layout` and `sound` fields in the Section 9
+  settings schema are not implemented. If the feature is ever revived, the
+  interface already carries `KeyboardEvent.code` through to the engine, which is
+  the first half of Section 7.8.
+- 2026-09-28 — **Phase 5 was built before Phase 4.** The plan works phase by
+  phase. Phase 3's outstanding criterion is a native speaker signing off the first
+  100 rules, and Phase 4's is 12 lessons plus ~150 native-reviewed texts; both are
+  the owner's to give, and neither should be faked. Phase 5 is the one remaining
+  MVP phase whose *Done when* is entirely in reach without inventing Bangla, so it
+  was taken next. Nothing here blocks Phase 4, and Phase 3's sign-off can happen in
+  parallel.
+- 2026-09-28 — **Storage primitives moved to `src/lib/storage.ts`.** Settings,
+  runs and the error map all need the same versioned-key, memory-fallback,
+  defensive-JSON behaviour, so it was extracted and `settings.ts` now re-exports
+  it unchanged. One behaviour was fixed on the way: the in-memory fallback now
+  enumerates its own keys, so "reset all data" also works in a browser that
+  refuses `localStorage` — which is exactly what Phase 5's storage-unavailable
+  criterion tests.
+- 2026-09-28 — **A stored run's `durationMs` is the time actually spent typing**,
+  not the timer the test was started with. Section 9 lists `durationMs` without
+  saying which; the results screen shows elapsed time, a total on the progress
+  page only means something as real time typed, and the timer setting is a
+  per-session choice rather than a property of the record.
+- 2026-09-28 — **The error map is keyed by target cluster.** `missed` and `seen`
+  are counted per target cluster, so "most missed" can name the letters and vowel
+  signs a learner actually struggles with. A typed cluster past the end of the
+  target word is already scored as a wrong word and is not attributed to a cluster
+  it does not correspond to; only committed words are counted, like every other
+  number.
+- 2026-09-28 — **The backup file carries the settings too.** Section 9 says
+  "export/import progress", but Section 3.5's promise is that a user can move
+  devices. One file that restored the history and the error map while silently
+  dropping the theme, text size and input mode would not do that, so the file is
+  `{ app, version, exportedAt, settings, runs, errorMap }`. Import checks the app
+  marker and the schema version and refuses anything else, so an unrelated JSON
+  file cannot half-overwrite the user's data.
+- 2026-09-28 — **Reset is a two-step button, not a browser `confirm()`.** Section 9
+  asks for a confirmation; an in-page second step keeps the keyboard flow intact,
+  is announced through `role="status"`, and needs no DOM stubbing in tests.
+- 2026-09-28 — **The speed chart is a hand-rolled SVG polyline.** Section 10 allows
+  hand-rolled SVG or one tiny library; a polyline plus circles is a few hundred
+  bytes and keeps the progress page inside the Section 12 budget. The same numbers
+  are also in the run table, so the chart is never the only way to read the data.

@@ -1,14 +1,24 @@
 /**
- * Settings persistence. Everything stays in the browser: there is no account, no
- * backend and no cookie. Keys are versioned (`tk:v1:…`) so a future schema can
- * migrate instead of guessing.
+ * Settings persistence. The storage primitives live in `./storage`; this module
+ * knows the settings schema and how to repair a stored value that does not match
+ * it.
  */
 
 import type { InputEngineId } from "../engine/input/types";
 import type { Difficulty } from "../engine/text/provider";
 import { languages, type Lang } from "../i18n";
+import {
+  STORAGE_PREFIX,
+  availableStorage,
+  readJson,
+  writeJson,
+  type StorageAdapter,
+} from "./storage";
 
-export const STORAGE_PREFIX = "tk:v1:";
+export { STORAGE_PREFIX };
+export { availableStorage, clearAppStorage, createMemoryStorage } from "./storage";
+export type { StorageAdapter } from "./storage";
+
 export const SETTINGS_KEY = `${STORAGE_PREFIX}settings`;
 
 export type ThemeChoice = "light" | "dark" | "system";
@@ -28,7 +38,9 @@ export const defaultSettings: Settings = {
   lang: "bn",
   theme: "system",
   fontSize: 28,
-  // Built-in phonetic mode becomes the default in Phase 3, once it exists.
+  // The system keyboard stays the default: it needs nothing installed, it works
+  // with every layout the user already has, and it makes no claim the app cannot
+  // keep. Built-in phonetic mode is an opt-in preview (see docs/DECISIONS.md).
   inputMode: "system",
   difficulty: "all",
 };
@@ -64,76 +76,13 @@ export function parseSettings(raw: unknown): Settings {
   };
 }
 
-export interface StorageAdapter {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
-
-/** Used when the browser refuses storage (private mode, quota, disabled). */
-export function createMemoryStorage(): StorageAdapter {
-  const map = new Map<string, string>();
-  return {
-    getItem: (key) => map.get(key) ?? null,
-    setItem: (key, value) => void map.set(key, value),
-    removeItem: (key) => void map.delete(key),
-  };
-}
-
-const memoryFallback = createMemoryStorage();
-
-/**
- * `localStorage` when it actually works, an in-memory store otherwise. Writing is
- * probed because some browsers expose the object and then throw on `setItem`.
- */
-export function availableStorage(): StorageAdapter {
-  try {
-    const probe = `${STORAGE_PREFIX}probe`;
-    globalThis.localStorage.setItem(probe, "1");
-    globalThis.localStorage.removeItem(probe);
-    return globalThis.localStorage;
-  } catch {
-    return memoryFallback;
-  }
-}
-
 export function loadSettings(storage: StorageAdapter = availableStorage()): Settings {
-  try {
-    const raw = storage.getItem(SETTINGS_KEY);
-    return raw === null ? { ...defaultSettings } : parseSettings(JSON.parse(raw) as unknown);
-  } catch {
-    return { ...defaultSettings };
-  }
+  return readJson(SETTINGS_KEY, parseSettings, storage) ?? { ...defaultSettings };
 }
 
 export function saveSettings(
   settings: Settings,
   storage: StorageAdapter = availableStorage(),
 ): boolean {
-  try {
-    storage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Remove every key this app owns. */
-export function clearAppStorage(storage: StorageAdapter = availableStorage()): void {
-  const keys: string[] = [];
-  for (let index = 0; index < storageLength(storage); index += 1) {
-    const key = storageKey(storage, index);
-    if (key !== null && key.startsWith(STORAGE_PREFIX)) keys.push(key);
-  }
-  keys.forEach((key) => storage.removeItem(key));
-}
-
-function storageLength(storage: StorageAdapter): number {
-  const candidate = storage as StorageAdapter & { length?: number };
-  return typeof candidate.length === "number" ? candidate.length : 0;
-}
-
-function storageKey(storage: StorageAdapter, index: number): string | null {
-  const candidate = storage as StorageAdapter & { key?: (index: number) => string | null };
-  return typeof candidate.key === "function" ? candidate.key(index) : null;
+  return writeJson(SETTINGS_KEY, settings, storage);
 }

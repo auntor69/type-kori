@@ -22,6 +22,7 @@ import {
 } from "../engine/text/provider";
 import { useTranslations, type Lang } from "../i18n";
 import { loadAndApplySettings, onSettingsChange } from "../lib/applySettings";
+import { newRunId, recordRun } from "../lib/progress";
 import { defaultSettings } from "../lib/settings";
 
 interface Props {
@@ -239,6 +240,36 @@ export default function Practice({ lang, seed = 1 }: Props) {
   const mistakes = finished ? collectMistakes(session.committed, session.target) : [];
   const timed = model.durationMs !== null;
   const countdown = timed ? Math.max(0, (model.durationMs ?? 0) - stats.elapsedMs) : 0;
+
+  // A finished run is recorded exactly once: the key is the run's own identity, so
+  // later re-renders (a resize, a settings broadcast) cannot double-count it.
+  const recordedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (session.state !== "finished") return;
+
+    const key = `${session.startedAt ?? 0}:${session.finishedAt ?? 0}:${model.text.id}`;
+    if (recordedRef.current === key) return;
+    recordedRef.current = key;
+
+    recordRun(
+      {
+        id: newRunId(),
+        ts: session.finishedAt ?? Date.now(),
+        mode,
+        textId: model.text.id,
+        wpm: stats.wpm,
+        kpm: stats.kpm,
+        accuracy: stats.accuracy,
+        // Time actually spent typing, which is what the results screen shows.
+        durationMs: Math.round(stats.elapsedMs),
+        errors: collectMistakes(session.committed, session.target).map((mistake) => ({
+          expected: mistake.expected ?? "",
+          typed: mistake.actual ?? "",
+        })),
+      },
+      session.committed,
+    );
+  }, [session.state, session.startedAt, session.finishedAt, model.text.id, mode]);
 
   const focusInput = () => inputRef.current?.focus();
 

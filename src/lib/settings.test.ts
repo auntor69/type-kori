@@ -1,13 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
   SETTINGS_KEY,
-  STORAGE_PREFIX,
   clampFontSize,
-  clearAppStorage,
-  createMemoryStorage,
   defaultSettings,
   loadSettings,
   parseSettings,
@@ -15,18 +12,12 @@ import {
   type Settings,
   type StorageAdapter,
 } from "./settings";
+import { createMemoryStorage } from "./storage";
 
-/** A localStorage-shaped store: length and key() included for clearAppStorage. */
-function createFakeStorage(seed: Record<string, string> = {}): StorageAdapter & {
-  length: number;
-  key: (index: number) => string | null;
-} {
+/** A store that can be seeded with a raw string, for the corrupt-value cases. */
+function createFakeStorage(seed: Record<string, string> = {}): StorageAdapter {
   const map = new Map(Object.entries(seed));
   return {
-    get length() {
-      return map.size;
-    },
-    key: (index: number) => [...map.keys()][index] ?? null,
     getItem: (key) => map.get(key) ?? null,
     setItem: (key, value) => void map.set(key, value),
     removeItem: (key) => void map.delete(key),
@@ -85,6 +76,11 @@ describe("parseSettings", () => {
   it("clamps a stored font size", () => {
     expect(parseSettings({ fontSize: 400 }).fontSize).toBe(FONT_SIZE_MAX);
   });
+
+  it("keeps the system keyboard as the default input mode", () => {
+    expect(defaultSettings.inputMode).toBe("system");
+    expect(parseSettings({}).inputMode).toBe("system");
+  });
 });
 
 describe("loadSettings and saveSettings", () => {
@@ -113,64 +109,5 @@ describe("loadSettings and saveSettings", () => {
     };
 
     expect(saveSettings(defaultSettings, failing)).toBe(false);
-  });
-});
-
-describe("createMemoryStorage", () => {
-  it("keeps values in memory", () => {
-    const storage = createMemoryStorage();
-    storage.setItem("a", "1");
-    expect(storage.getItem("a")).toBe("1");
-    storage.removeItem("a");
-    expect(storage.getItem("a")).toBeNull();
-  });
-});
-
-describe("clearAppStorage", () => {
-  it("removes only keys this app owns", () => {
-    const storage = createFakeStorage({
-      [`${STORAGE_PREFIX}settings`]: "{}",
-      [`${STORAGE_PREFIX}runs`]: "[]",
-      "someone-elses-key": "keep me",
-    });
-
-    clearAppStorage(storage);
-
-    expect(storage.getItem("someone-elses-key")).toBe("keep me");
-    expect(storage.getItem(`${STORAGE_PREFIX}settings`)).toBeNull();
-    expect(storage.getItem(`${STORAGE_PREFIX}runs`)).toBeNull();
-  });
-
-  it("does nothing for a store that cannot enumerate its keys", () => {
-    const storage = createMemoryStorage();
-    storage.setItem(`${STORAGE_PREFIX}settings`, "{}");
-
-    expect(() => clearAppStorage(storage)).not.toThrow();
-  });
-});
-
-describe("the global storage probe", () => {
-  it("falls back to memory when localStorage throws", async () => {
-    const original = globalThis.localStorage;
-    const throwing = {
-      getItem: vi.fn(),
-      setItem: vi.fn(() => {
-        throw new Error("SecurityError");
-      }),
-      removeItem: vi.fn(),
-    };
-
-    Object.defineProperty(globalThis, "localStorage", { value: throwing, configurable: true });
-    vi.resetModules();
-
-    try {
-      const module = await import("./settings");
-      const storage = module.availableStorage();
-      expect(storage).not.toBe(throwing);
-      expect(() => storage.setItem("k", "v")).not.toThrow();
-    } finally {
-      Object.defineProperty(globalThis, "localStorage", { value: original, configurable: true });
-      vi.resetModules();
-    }
   });
 });

@@ -19,11 +19,17 @@ Two input modes:
 - **System keyboard mode** — you already have a Bangla keyboard (Avro Keyboard,
   an OS layout, …). The app compares the Unicode your keyboard produces against
   the target text. Any layout works, and the app scores what you actually typed.
-- **Built-in mode** — the app converts Roman keystrokes into Bangla itself, so
-  nothing needs to be installed. (Phase 3 of the roadmap.)
+- **Built-in mode (preview)** — the app converts Roman keystrokes into Bangla
+  itself, so nothing needs to be installed. Native speakers have not signed off the
+  rules yet, so it stays an opt-in preview and the system keyboard remains the
+  default.
 
 A word counts as correct when its final Unicode text matches the target after
 normalization, no matter which keystrokes produced it.
+
+Finished runs, the error map and the settings all live in `localStorage`. The
+progress page summarises them and can export, import or reset them as one JSON
+file.
 
 ## Requirements
 
@@ -64,6 +70,9 @@ Other scripts:
 | `bun run test:scripts` | Unit tests for the `scripts/` helpers |
 | `bun run check:attribution` | Authorship guard: tracked files + commit messages |
 | `bun run validate:text` | Content validator: characters, encodings, review flags |
+
+Pages: `/` (practice), `/progress` (history and data), `/privacy`. Every page has
+an English mirror under `/en/`.
 
 ## Test
 

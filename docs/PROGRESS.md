@@ -80,18 +80,35 @@ and the phase is **not** complete. See items 11-16 in `docs/VERIFY.md`.
 - [ ] Build-time content validator
 - [ ] Custom text mode
 
-*Done when:* 12 lessons and ~150 reviewed texts are in.
+*Done when:* 12 lessons and ~150 reviewed texts are in. **Not started:** every
+text needs a native-speaker review before it ships (Section 8), so the content half
+of this phase is the owner's work. Phase 5 was taken first for that reason; see the
+note on phase order at the end of this file.
 
 ## Phase 5 — Progress and persistence
 
-- [ ] Storage module with versioning
-- [ ] Run history
-- [ ] Error map
-- [ ] Progress page
-- [ ] Export / import / reset
+- [x] Storage module with versioning — 2026-09-28 · working tree (primitives now
+      shared by settings, runs and the error map; the memory fallback enumerates
+      its keys, so reset works without `localStorage`)
+- [x] Run history — 2026-09-28 · working tree (one record per finished run, newest
+      first, capped at the Section 9 limit of 500)
+- [x] Error map — 2026-09-28 · working tree (seen/missed per target cluster,
+      merged into `tk:v1:errorMap` after every run; the most-missed bars read it)
+- [x] Progress page — 2026-09-28 · working tree (`/progress` and `/en/progress`:
+      best speed, average accuracy, total typing time, a hand-rolled SVG speed
+      chart, the most-missed clusters, and a table of the last 20 runs)
+- [x] Export / import / reset — 2026-09-28 · working tree (one JSON file with the
+      settings, the runs and the error map; import validates the app marker and the
+      schema version; reset is a two-step button)
 
 *Done when:* data survives reloads, import/export round-trips, and the
-storage-unavailable path works.
+storage-unavailable path works. **Met by unit tests** — 28 tests for the run
+history, error map, aggregates and backup, plus 14 for the storage primitives:
+the round-trip, the 500-run cap, every corrupt-value path, the failed-write path
+and the memory fallback are covered. The suite is now 260 tests across 11 files,
+and `bun tsc -b --noEmit` is clean. Confirming the file download and upload in a
+real browser is the owner's check. The 26 practice texts are still
+`reviewed: false`; nothing here depends on them.
 
 ## Phase 6 — SEO, PWA, performance
 
@@ -121,4 +138,8 @@ storage-unavailable path works.
 
 Phases 0–2 were delivered in one pass (see `DECISIONS.md`), because the build
 environment shows the running project after every turn and Phase 0 alone would
-have presented an empty page. Phase 3 and later wait for the owner's go-ahead.
+have presented an empty page. Phase 3's code is complete but its acceptance needs
+a native speaker, and Phase 4 needs native-reviewed content, so those two are
+gated on the owner rather than on engineering. Phase 5 was therefore taken next:
+it is the one remaining MVP phase whose acceptance criteria need no Bangla
+judgement. Phase 4 follows, and Phase 3's sign-off can happen in parallel.
