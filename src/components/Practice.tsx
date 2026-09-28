@@ -88,11 +88,13 @@ function createRun(options: {
 }
 
 function clusterClass(state: ClusterState, isNext: boolean): string {
-  const caret = isNext ? " border-b-2 border-accent" : "";
+  const caret = isNext ? " border-s-2 border-s-accent ps-0.5" : "";
 
   switch (state) {
     case "correct":
-      return `text-correct${caret}`;
+      // Typed text is the page's foreground colour: nothing glows, it simply
+      // steps out of the dim untyped field — the monkeytype convention.
+      return `text-text${caret}`;
     case "wrong":
       return `text-wrong underline decoration-wrong decoration-2 underline-offset-4${caret}`;
     case "extra":
@@ -406,8 +408,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   return (
     <div>
-      {/* Toolbar */}
-      <div class="flex flex-wrap items-center gap-2">
+      {/* Toolbar: quiet, centred, one row. */}
+      <div class="flex flex-wrap items-center justify-center gap-2">
         <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
           <span class="size-1.5 rounded-full bg-accent" aria-hidden="true" />
           {mode === "avro-phonetic" ? t("practice.mode.builtin") : t("practice.mode.system")}
@@ -522,16 +524,16 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         />
       )}
 
-      {/* Typing area */}
+      {/* Typing area: borderless, monkeytype-style — the words are the UI. */}
       <div
-        class="relative mt-4 rounded-card border border-border bg-surface transition-colors duration-150 ease-out focus-within:border-accent/60"
+        class="relative mt-6 rounded-card transition-colors duration-150 ease-out focus-within:outline-none"
         onClick={focusInput}
       >
         <div
           lang="bn"
           role="group"
           aria-label={t("practice.typingArea")}
-          class="typing-text flex select-none flex-wrap content-start gap-x-[0.55em] gap-y-2 px-5 py-6 sm:px-7 sm:py-7"
+          class="typing-text flex select-none flex-wrap content-start gap-x-[0.55em] gap-y-2 px-5 py-6 sm:px-7 sm:py-8"
         >
           {view.words.map((word, wordIndex) => {
             const nextCluster = word.status === "active"

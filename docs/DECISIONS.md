@@ -254,3 +254,16 @@ with the reason. Newest last.
   works" link became a "FAQ" link (`nav.faq` added to both locales). Drop
   shadows were removed from the practice results and custom-text panels for a
   flat look; `--shadow-soft` stays defined for the settings drawer.
+- 2026-09-28 — **Dark palette re-tuned toward monkeytype's "serika dark".** The
+  owner asked for monkeytype-inspired styling. The dark values in
+  `src/styles/tokens.css` changed (light mode is untouched): background and
+  surfaces became warm charcoal (`#2c2e31` / `#323437`), foreground text warm
+  off-white (`#d1d0c9`), the accent warm amber (`#e2b714`), and the dark
+  `--correct` value became the foreground colour itself so typed text simply
+  steps out of the dim untyped field instead of glowing green. Error red moved to
+  monkeytype's `#ca4754`. The typing area lost its card border — the words are
+  the UI — the caret became a vertical bar on the next cluster, the practice
+  toolbar is centred, and untyped text uses the same `--pending` value as
+  `--muted` for the dim "to do" state. This is a deliberate deviation from the
+  literal Section 6 dark hex values; the token names, `light-dark()` structure
+  and light palette are unchanged.
