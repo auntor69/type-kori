@@ -16,6 +16,7 @@ export interface HomeCopy {
   lead: string;
   primaryCta: string;
   secondaryCta: string;
+  lessonsCta: string;
   keyboardNote: string;
   toolsTitle: string;
   toolsLead: string;
@@ -40,6 +41,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     lead: "কম্পিউটারের কীবোর্ডে বাংলা টাইপ করা শিখুন ও অনুশীলন করুন। যুক্তাক্ষর আর কার-চিহ্ন ঠিকভাবে মিলিয়ে দেখে, আর ফলাফল হিসাব করা হয় সৎ সূত্রে। আপনার প্রগ্রেস শুধু আপনার ব্রাউজারেই থাকে।",
     primaryCta: "টাইপ করা শুরু করুন",
     secondaryCta: "কীভাবে কাজ করে",
+    lessonsCta: "বারোটি পাঠ দেখুন",
     keyboardNote:
       "বাংলা টাইপিং অনুশীলনের জন্য ফিজিক্যাল কীবোর্ডসহ কম্পিউটার সবচেয়ে ভালো। মোবাইলেও সব লেখা পড়া যাবে।",
     toolsTitle: "প্র্যাকটিস",
@@ -125,6 +127,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     lead: "Learn and practise typing Bangla on a computer keyboard. Conjuncts and vowel signs are compared properly, the numbers come from honest formulas, and your progress stays in your own browser.",
     primaryCta: "Start typing",
     secondaryCta: "How it works",
+    lessonsCta: "See the twelve lessons",
     keyboardNote:
       "Bangla typing practice works best on a computer with a physical keyboard. Everything still reads well on a phone.",
     toolsTitle: "Practice",

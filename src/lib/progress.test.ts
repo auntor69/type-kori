@@ -5,6 +5,7 @@ import {
   BACKUP_APP,
   BACKUP_VERSION,
   ERROR_MAP_KEY,
+  LESSONS_KEY,
   RUNS_KEY,
   RUN_LIMIT,
   appendRun,
@@ -15,6 +16,7 @@ import {
   createBackup,
   errorMapForRun,
   loadErrorMap,
+  loadLessonProgress,
   loadRuns,
   mergeErrorMap,
   mostMissed,
@@ -22,11 +24,14 @@ import {
   parseBackup,
   parseBackupText,
   parseErrorMap,
+  parseLessonProgress,
   parseRun,
   parseRuns,
+  recordLessonResult,
   recordRun,
   resetAll,
   saveErrorMap,
+  saveLessonProgress,
   saveRuns,
   totalTypingMs,
   wpmSeries,
@@ -218,6 +223,54 @@ describe("the error map", () => {
   });
 });
 
+describe("lesson progress", () => {
+  it("drops junk and keeps well-formed records", () => {
+    expect(parseLessonProgress(null)).toEqual({});
+    expect(parseLessonProgress({ "": { bestAccuracy: 90, bestWpm: 10 } })).toEqual({});
+    expect(parseLessonProgress({ "lesson-01": "nope" })).toEqual({});
+    expect(parseLessonProgress({ "lesson-01": { bestAccuracy: "high", bestWpm: 10 } })).toEqual({});
+
+    expect(parseLessonProgress({ "lesson-01": { bestAccuracy: 90, bestWpm: 12 } })).toEqual({
+      "lesson-01": { bestAccuracy: 90, bestWpm: 12, completedAt: null },
+    });
+  });
+
+  it("round-trips through storage", () => {
+    const storage = createMemoryStorage();
+    const record = { "lesson-01": { bestAccuracy: 94, bestWpm: 18, completedAt: 42 } };
+
+    expect(saveLessonProgress(record, storage)).toBe(true);
+    expect(loadLessonProgress(storage)).toEqual(record);
+    expect(loadLessonProgress(createMemoryStorage())).toEqual({});
+  });
+
+  it("keeps the best numbers and stamps completion only once", () => {
+    const storage = createMemoryStorage();
+
+    recordLessonResult(
+      "lesson-01",
+      { accuracy: 70, wpm: 9, passed: false, at: 100 },
+      storage,
+    );
+    expect(loadLessonProgress(storage)["lesson-01"]).toEqual({
+      bestAccuracy: 70,
+      bestWpm: 9,
+      completedAt: null,
+    });
+
+    recordLessonResult("lesson-01", { accuracy: 95, wpm: 14, passed: true, at: 200 }, storage);
+    recordLessonResult("lesson-01", { accuracy: 88, wpm: 21, passed: false, at: 300 }, storage);
+
+    // Accuracy keeps the best, speed keeps the best, and the completion stamp from
+    // the first pass survives a slower run afterwards.
+    expect(loadLessonProgress(storage)["lesson-01"]).toEqual({
+      bestAccuracy: 95,
+      bestWpm: 21,
+      completedAt: 200,
+    });
+  });
+});
+
 describe("aggregates", () => {
   const runs = [
     makeRun({ wpm: 20, accuracy: 90, durationMs: 1_000 }),
@@ -287,7 +340,26 @@ describe("the backup file", () => {
     expect(backup?.settings).toEqual(defaultSettings);
     expect(backup?.runs).toEqual([]);
     expect(backup?.errorMap).toEqual({});
+    expect(backup?.lessons).toEqual({});
     expect(backup?.exportedAt).toBe(0);
+  });
+
+  it("carries lesson progress, and restores it", () => {
+    const source = seededStorage();
+    saveLessonProgress({ "lesson-01": { bestAccuracy: 96, bestWpm: 20, completedAt: 7 } }, source);
+
+    expect(createBackup(source).lessons).toEqual({
+      "lesson-01": { bestAccuracy: 96, bestWpm: 20, completedAt: 7 },
+    });
+
+    const target = createMemoryStorage();
+    const backup = parseBackup(JSON.parse(JSON.stringify(createBackup(source))) as unknown);
+    expect(backup).not.toBeNull();
+    applyBackup(backup as NonNullable<typeof backup>, target);
+
+    expect(loadLessonProgress(target)).toEqual({
+      "lesson-01": { bestAccuracy: 96, bestWpm: 20, completedAt: 7 },
+    });
   });
 
   it("writes a backup over the current state", () => {
@@ -320,7 +392,9 @@ describe("the backup file", () => {
     expect(loadSettings(storage)).toEqual(defaultSettings);
     expect(loadRuns(storage)).toEqual([]);
     expect(loadErrorMap(storage)).toEqual({});
+    expect(loadLessonProgress(storage)).toEqual({});
     expect(storage.getItem(RUNS_KEY)).toBeNull();
     expect(storage.getItem(ERROR_MAP_KEY)).toBeNull();
+    expect(storage.getItem(LESSONS_KEY)).toBeNull();
   });
 });

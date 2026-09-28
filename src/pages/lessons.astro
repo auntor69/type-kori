@@ -1,0 +1,57 @@
+---
+import { lessons, lessonHref, lessonsCopy, localizedDigits } from "../content/lessons";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const lang = "bn" as const;
+const copy = lessonsCopy[lang];
+
+const listSchema = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: copy.h1,
+  numberOfItems: lessons.length,
+  itemListElement: lessons.map((lesson, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    name: lesson.title[lang],
+    url: new URL(lessonHref(lesson, lang), Astro.site).href,
+  })),
+};
+---
+
+<BaseLayout lang={lang} title={copy.title} description={copy.description} path="/lessons">
+  <div class="mx-auto w-full max-w-[960px] px-4 py-14 sm:px-6">
+    <h1 class="font-bangla text-3xl font-semibold text-text">{copy.h1}</h1>
+    <p class="font-bangla mt-4 max-w-2xl text-base leading-relaxed text-muted">{copy.lead}</p>
+
+    <p class="mt-4 text-sm text-muted">{copy.criterion}</p>
+
+    <ol class="mt-10 grid gap-4 sm:grid-cols-2">
+      {
+        lessons.map((lesson) => (
+          <li>
+            <a
+              href={lessonHref(lesson, lang)}
+              class="flex h-full flex-col rounded-card border border-border bg-surface p-5 transition-colors duration-150 ease-out hover:border-border-strong"
+            >
+              <span class="text-xs font-semibold uppercase tracking-wide text-accent">
+                {localizedDigits(lesson.order, lang)}
+              </span>
+              <span class="font-bangla mt-2 text-base font-semibold text-text">
+                {lesson.title[lang]}
+              </span>
+              <span class="font-bangla mt-2 flex-1 text-sm leading-relaxed text-muted">
+                {lesson.summary[lang]}
+              </span>
+              <span class="font-bangla mt-3 text-xs text-muted">
+                {copy.keysLabel}: <span lang="bn">{lesson.keys[lang]}</span>
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify(listSchema)} />
+</BaseLayout>

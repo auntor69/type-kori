@@ -10,8 +10,8 @@ Status: `open` (needs a native speaker), `resolved` (checked, note who and when)
 
 | # | Item | Where | Question |
 |---|---|---|---|
-| 1 | Bangla UI microcopy | `src/i18n/bn.json`, `src/content/progress.ts` | Every Bangla string is a first draft written for this project. Read them all and fix wording, tone and spelling. |
-| 2 | Practice text review | `content/texts/*.json` | All 26 texts are original and carry `"reviewed": false` until checked. Nothing unreviewed ships once `validate:text --strict` is switched on. |
+| 1 | Bangla UI microcopy | `src/i18n/bn.json`, `src/content/progress.ts`, `src/content/lessons.ts` | Every Bangla string is a first draft written for this project. Read them all and fix wording, tone and spelling. |
+| 2 | Practice text review | `content/texts/*.json`, `content/lessons/drills.json` | All 55 items (26 texts, 29 drills) are original and carry `"reviewed": false` until checked. Nothing unreviewed ships once `validate:text --strict` is switched on. |
 | 3 | Landing page copy | `src/content/home.ts`, `src/content/privacy.ts` | Same review, for the longer prose. |
 | 4 | Sample sentence quality | `content/texts/*.json` | Are the texts natural everyday Bangla, or do they read like translations? The `medium` and `hard` sets especially. |
 | 5 | Zero-width joiner strictness | `src/engine/compare.ts`, Section 7.3.3 | Text that uses U+200C/U+200D must be typed exactly. Is that too strict for real users, or is it the right call? |
@@ -29,6 +29,9 @@ Status: `open` (needs a native speaker), `resolved` (checked, note who and when)
 | 17 | Most-missed cluster labels | `src/components/Progress.tsx` | The bars are labelled with the target cluster itself, so a vowel sign can appear on its own (for example `ি`). Is that readable, or should the consonant it attaches to be shown with it? |
 | 18 | Run date and time | `src/components/Progress.tsx` | Bangla pages format run times with `Intl.DateTimeFormat("bn-BD")`, which renders Bangla digits. Confirm the date order and digits read the way a Bangladeshi user expects. |
 | 19 | Reset wording | `src/components/Progress.tsx` | "Reset all data" then "Yes, delete everything". Confirm it is clear enough that nobody deletes by accident, and not so alarming that nobody dares. |
+| 20 | Lesson drill content | `content/lessons/drills.json` | 29 drills were written for this project. Check each one is natural, that the alphabet drills use the letters they claim to, and that every word is spelled correctly. |
+| 21 | Lesson sequencing | `src/content/lessons.ts` | Does each lesson's word choice match what has been taught by that point? Section 8 mixes short words into the vowel lesson, so this is not strictly progressive — confirm that is what a learner should meet. |
+| 22 | Lesson copy and titles | `src/content/lessons.ts` | The twelve lesson titles, summaries, intros and "today's keys" lines are a first draft. Confirm the grammar terms used (বর্গ, অন্তঃস্থ, ঊষ্ম, রেফ, য-ফলা) are the ones a Bangladeshi learner would recognise. |
 
 ## Resolved
 

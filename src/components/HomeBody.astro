@@ -1,7 +1,7 @@
 ---
 import Practice from "./Practice.tsx";
 import { homeCopy } from "../content/home";
-import { useTranslations, type Lang } from "../i18n";
+import { localizePath, useTranslations, type Lang } from "../i18n";
 
 interface Props {
   lang: Lang;
@@ -173,11 +173,19 @@ const sampleKeys = ["ক", "খ", "গ", "ঘ", "ঙ"];
     <p class="font-bangla mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
       {copy.closingBody}
     </p>
-    <a
-      href="#practice"
-      class="mt-6 inline-block rounded-control bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent transition-opacity duration-150 ease-out hover:opacity-90"
-    >
-      {copy.primaryCta}
-    </a>
+    <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+      <a
+        href="#practice"
+        class="inline-block rounded-control bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent transition-opacity duration-150 ease-out hover:opacity-90"
+      >
+        {copy.primaryCta}
+      </a>
+      <a
+        href={localizePath("/lessons", lang)}
+        class="inline-block rounded-control border border-border bg-bg px-5 py-2.5 text-sm font-medium text-text transition-colors duration-150 ease-out hover:bg-surface-2"
+      >
+        {copy.lessonsCta}
+      </a>
+    </div>
   </div>
 </section>

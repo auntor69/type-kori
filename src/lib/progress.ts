@@ -245,6 +245,72 @@ export function wpmSeries(runs: readonly RunRecord[], limit = 30): number[] {
     .reverse();
 }
 
+export const LESSONS_KEY = `${STORAGE_PREFIX}lessons`;
+
+/** One lesson's best result, as Section 9 sketches it. */
+export interface LessonProgress {
+  bestAccuracy: number;
+  bestWpm: number;
+  /** When the pass criterion was first met, or null while it has not been. */
+  completedAt: number | null;
+}
+
+export type LessonProgressMap = Record<string, LessonProgress>;
+
+export function parseLessonProgress(raw: unknown): LessonProgressMap {
+  if (typeof raw !== "object" || raw === null) return {};
+
+  const map: LessonProgressMap = {};
+  for (const [lessonId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (lessonId.length === 0) continue;
+    if (typeof value !== "object" || value === null) continue;
+
+    const entry = value as Partial<LessonProgress>;
+    if (!isCount(entry.bestAccuracy) || !isCount(entry.bestWpm)) continue;
+    map[lessonId] = {
+      bestAccuracy: Math.max(0, entry.bestAccuracy),
+      bestWpm: Math.max(0, entry.bestWpm),
+      completedAt: isCount(entry.completedAt) ? entry.completedAt : null,
+    };
+  }
+  return map;
+}
+
+export function loadLessonProgress(
+  storage: StorageAdapter = availableStorage(),
+): LessonProgressMap {
+  return readJson(LESSONS_KEY, parseLessonProgress, storage) ?? {};
+}
+
+export function saveLessonProgress(
+  map: LessonProgressMap,
+  storage: StorageAdapter = availableStorage(),
+): boolean {
+  return writeJson(LESSONS_KEY, map, storage);
+}
+
+/**
+ * Fold one finished lesson run into the record: keep the better numbers, and stamp
+ * `completedAt` the first time the pass criterion is met.
+ */
+export function recordLessonResult(
+  lessonId: string,
+  result: { accuracy: number; wpm: number; passed: boolean; at: number },
+  storage: StorageAdapter = availableStorage(),
+): LessonProgressMap {
+  const map = loadLessonProgress(storage);
+  const current = map[lessonId];
+
+  map[lessonId] = {
+    bestAccuracy: Math.max(current?.bestAccuracy ?? 0, result.accuracy),
+    bestWpm: Math.max(current?.bestWpm ?? 0, result.wpm),
+    completedAt: current?.completedAt ?? (result.passed ? result.at : null),
+  };
+
+  saveLessonProgress(map, storage);
+  return map;
+}
+
 export const BACKUP_APP = "type-kori";
 export const BACKUP_VERSION = 1;
 
@@ -256,6 +322,7 @@ export interface Backup {
   settings: Settings;
   runs: RunRecord[];
   errorMap: ErrorMap;
+  lessons: LessonProgressMap;
 }
 
 export function createBackup(storage: StorageAdapter = availableStorage()): Backup {
@@ -266,6 +333,7 @@ export function createBackup(storage: StorageAdapter = availableStorage()): Back
     settings: loadSettings(storage),
     runs: loadRuns(storage),
     errorMap: loadErrorMap(storage),
+    lessons: loadLessonProgress(storage),
   };
 }
 
@@ -288,6 +356,8 @@ export function parseBackup(raw: unknown): Backup | null {
     settings: parseSettings(value.settings),
     runs: parseRuns(value.runs),
     errorMap: parseErrorMap(value.errorMap),
+    // A file exported before lessons existed simply has none, which reads as empty.
+    lessons: parseLessonProgress(value.lessons),
   };
 }
 
@@ -311,7 +381,8 @@ export function applyBackup(
   const settingsStored = saveSettings(backup.settings, storage);
   const runsStored = saveRuns(backup.runs, storage);
   const mapStored = saveErrorMap(backup.errorMap, storage);
-  return settingsStored && runsStored && mapStored;
+  const lessonsStored = saveLessonProgress(backup.lessons, storage);
+  return settingsStored && runsStored && mapStored && lessonsStored;
 }
 
 /** Forget everything the app owns, settings included. */

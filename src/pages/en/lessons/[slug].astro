@@ -1,0 +1,118 @@
+---
+import Practice from "../../../components/Practice.tsx";
+import { textsByIds } from "../../../content/drills";
+import {
+  PASS_ACCURACY,
+  lessons,
+  lessonsCopy,
+  localizedDigits,
+  type Lesson,
+} from "../../../content/lessons";
+import { localizePath, useTranslations } from "../../../i18n";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+export function getStaticPaths() {
+  return lessons.map((lesson) => ({ params: { slug: lesson.slug }, props: { lesson } }));
+}
+
+interface Props {
+  lesson: Lesson;
+}
+
+const { lesson } = Astro.props;
+const lang = "en" as const;
+const t = useTranslations(lang);
+const copy = lessonsCopy[lang];
+const texts = textsByIds(lesson.drillIds);
+
+const absolute = (path: string) => new URL(localizePath(path, lang), Astro.site).href;
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: t("nav.home"), item: absolute("/") },
+    { "@type": "ListItem", position: 2, name: copy.h1, item: absolute("/lessons") },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: lesson.title[lang],
+      item: absolute(`/lessons/${lesson.slug}`),
+    },
+  ],
+};
+---
+
+<BaseLayout
+  lang={lang}
+  title={`${lesson.title[lang]} | Type Kori`}
+  description={lesson.summary[lang]}
+  path={`/lessons/${lesson.slug}`}
+>
+  <article class="mx-auto w-full max-w-[960px] px-4 py-12 sm:px-6">
+    <nav aria-label="Breadcrumb" class="text-xs text-muted">
+      <ol class="flex flex-wrap items-center gap-2">
+        <li>
+          <a href={absolute("/")} class="transition-colors duration-150 ease-out hover:text-text">
+            {t("nav.home")}
+          </a>
+        </li>
+        <li aria-hidden="true">/</li>
+        <li>
+          <a
+            href={absolute("/lessons")}
+            class="transition-colors duration-150 ease-out hover:text-text"
+          >
+            {copy.h1}
+          </a>
+        </li>
+      </ol>
+    </nav>
+
+    <p class="mt-6 text-xs font-semibold uppercase tracking-wide text-accent">
+      {t("nav.lessons")} {localizedDigits(lesson.order, lang)} / {localizedDigits(lessons.length, lang)}
+    </p>
+
+    <h1 class="mt-2 text-3xl font-semibold text-text">{lesson.title[lang]}</h1>
+
+    <p class="mt-4 max-w-2xl text-base leading-relaxed text-muted">{lesson.intro[lang]}</p>
+
+    <dl class="mt-6 grid gap-3 sm:grid-cols-2">
+      <div class="rounded-card border border-border bg-surface p-4">
+        <dt class="text-xs font-medium uppercase tracking-wide text-muted">{copy.keysLabel}</dt>
+        <dd lang="bn" class="font-bangla mt-1 text-lg text-text">{lesson.keys[lang]}</dd>
+      </div>
+      <div class="rounded-card border border-border bg-surface p-4">
+        <dt class="text-xs font-medium uppercase tracking-wide text-muted">
+          {t("lesson.criterion")}
+        </dt>
+        <dd class="mt-1 text-lg tabular-nums text-text">{PASS_ACCURACY}%</dd>
+      </div>
+    </dl>
+
+    <section class="mt-8" aria-label={copy.startLabel}>
+      <Practice
+        client:load
+        lang={lang}
+        seed={lesson.order}
+        lesson={{
+          id: lesson.id,
+          title: lesson.title[lang],
+          passAccuracy: PASS_ACCURACY,
+          texts,
+        }}
+      />
+    </section>
+
+    <p class="mt-6 text-sm">
+      <a
+        href={absolute("/lessons")}
+        class="font-medium text-accent transition-opacity duration-150 ease-out hover:opacity-80"
+      >
+        {t("lesson.allLessons")}
+      </a>
+    </p>
+  </article>
+
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+</BaseLayout>
