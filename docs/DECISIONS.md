@@ -254,6 +254,15 @@ with the reason. Newest last.
   works" link became a "FAQ" link (`nav.faq` added to both locales). Drop
   shadows were removed from the practice results and custom-text panels for a
   flat look; `--shadow-soft` stays defined for the settings drawer.
+- 2026-09-28 — **The home page is only the test.** After seeing the first
+  minimal pass the owner asked why any explanatory sections existed at all —
+  monkeytype ships nothing like them. The features, how-it-works and FAQ
+  sections were deleted outright, along with the closing CTA block, the FAQ
+  JSON-LD schema, the `nav.how`/`nav.faq` links and keys, and every `homeCopy`
+  field except `tagline`, `h1`, `lead` and `footnote`. Lessons, progress and
+  privacy remain reachable from the header and footer, so nothing user-facing
+  was lost — only prose that repeated the toolbar. The formula definitions that
+  used to live in the FAQ are already printed on the results screen.
 - 2026-09-28 — **Dark palette re-tuned toward monkeytype's "serika dark".** The
   owner asked for monkeytype-inspired styling. The dark values in
   `src/styles/tokens.css` changed (light mode is untouched): background and

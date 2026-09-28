@@ -1,12 +1,10 @@
 ---
 import HomeBody from "../components/HomeBody.astro";
-import { homeCopy } from "../content/home";
 import { useTranslations } from "../i18n";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 const lang = "bn" as const;
 const t = useTranslations(lang);
-const copy = homeCopy[lang];
 
 const appSchema = {
   "@context": "https://schema.org",
@@ -21,21 +19,10 @@ const appSchema = {
   description: t("meta.description"),
   offers: { "@type": "Offer", price: "0", priceCurrency: "BDT" },
 };
-
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: copy.faq.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: { "@type": "Answer", text: item.answer },
-  })),
-};
 ---
 
 <BaseLayout lang={lang} title={t("meta.title")} description={t("meta.description")} path="/">
   <HomeBody lang={lang} />
 
   <script type="application/ld+json" set:html={JSON.stringify(appSchema)} />
-  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
 </BaseLayout>
