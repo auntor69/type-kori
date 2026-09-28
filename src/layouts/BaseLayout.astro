@@ -1,7 +1,6 @@
 ---
 import "../styles/global.css";
 
-import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import { STORAGE_PREFIX } from "../lib/settings";
 import { localizePath, useTranslations, type Lang } from "../i18n";
@@ -101,7 +100,5 @@ const themeBootstrap = `(function(){
     <main id="main">
       <slot />
     </main>
-
-    <SiteFooter lang={lang} />
   </body>
 </html>

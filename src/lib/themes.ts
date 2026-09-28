@@ -49,6 +49,33 @@ export const themes: readonly ThemeDef[] = [
   { id: "amber", dark: true, bg: "#100c02", surface: "#1a1405", text: "#ffb000", muted: "#8a6a10", accent: "#ffb000", accentSoft: "#33230a", wrong: "#ff5533" },
   { id: "ink", dark: false, bg: "#f4f4f5", surface: "#ffffff", text: "#09090b", muted: "#71717a", accent: "#09090b", accentSoft: "#e4e4e7", wrong: "#dc2626" },
   { id: "matcha", dark: false, bg: "#eef0e5", surface: "#fbfcf6", text: "#2c3325", muted: "#77806a", accent: "#6b8f3e", accentSoft: "#dfe8cd", wrong: "#b5503c" },
+
+  // ——— Community classics ———
+  { id: "dracula", dark: true, bg: "#282a36", surface: "#343746", text: "#f8f8f2", muted: "#6272a4", accent: "#bd93f9", accentSoft: "#3a3d4f", wrong: "#ff5555" },
+  { id: "tokyonight", dark: true, bg: "#1a1b26", surface: "#24283b", text: "#c0caf5", muted: "#565f89", accent: "#7aa2f7", accentSoft: "#2c3252", wrong: "#f7768e" },
+  { id: "catppuccin", dark: true, bg: "#1e1e2e", surface: "#282839", text: "#cdd6f4", muted: "#6c7086", accent: "#f5c2e7", accentSoft: "#33334a", wrong: "#f38ba8" },
+  { id: "rosepine", dark: true, bg: "#191724", surface: "#1f1d2e", text: "#e0def4", muted: "#6e6a86", accent: "#c4a7e7", accentSoft: "#2a283f", wrong: "#eb6f92" },
+  { id: "everforest", dark: true, bg: "#2b3339", surface: "#343f44", text: "#d3c6aa", muted: "#7a8478", accent: "#a7c080", accentSoft: "#3d4a43", wrong: "#e67e80" },
+  { id: "onedark", dark: true, bg: "#282c34", surface: "#333842", text: "#abb2bf", muted: "#5c6370", accent: "#61afef", accentSoft: "#323844", wrong: "#e06c75" },
+  { id: "solarizeddark", dark: true, bg: "#002b36", surface: "#073642", text: "#eee8d5", muted: "#586e75", accent: "#b58900", accentSoft: "#0a4652", wrong: "#dc322f" },
+  { id: "solarizedlight", dark: false, bg: "#fdf6e3", surface: "#eee8d5", text: "#073642", muted: "#93a1a1", accent: "#b58900", accentSoft: "#e8e1cb", wrong: "#dc322f" },
+  { id: "githubdark", dark: true, bg: "#0d1117", surface: "#161b22", text: "#e6edf3", muted: "#7d8590", accent: "#2f81f7", accentSoft: "#1c2739", wrong: "#f85149" },
+  { id: "monokai", dark: true, bg: "#272822", surface: "#32332c", text: "#f8f8f2", muted: "#75715e", accent: "#a6e22e", accentSoft: "#35372f", wrong: "#f92672" },
+  { id: "synthwave", dark: true, bg: "#241b2f", surface: "#2f2438", text: "#f7f7fb", muted: "#7b6f8e", accent: "#ff7edb", accentSoft: "#3b2d49", wrong: "#fe4450" },
+  { id: "cyberpunk", dark: true, bg: "#0a0a14", surface: "#12121f", text: "#e9e9f0", muted: "#5b5b76", accent: "#00f0ff", accentSoft: "#0f2a33", wrong: "#ff2a6d" },
+  { id: "radical", dark: true, bg: "#141321", surface: "#1c1b2e", text: "#e5e0f0", muted: "#5d5778", accent: "#fe4450", accentSoft: "#2b2036", wrong: "#ffb454" },
+
+  // ——— Special for this project ———
+  { id: "bd", dark: true, bg: "#00423a", surface: "#005449", text: "#f4f0e6", muted: "#6d9c92", accent: "#f42a41", accentSoft: "#0b5850", wrong: "#ff7b6b" },
+  { id: "shapla", dark: false, bg: "#f7f4ee", surface: "#ffffff", text: "#2f3136", muted: "#8b8fa3", accent: "#006a4e", accentSoft: "#dcefe8", wrong: "#c0392b" },
+  { id: "duel", dark: true, bg: "#1a1a2e", surface: "#232341", text: "#eaeaf2", muted: "#6f6f8f", accent: "#e94560", accentSoft: "#32264a", wrong: "#f7b32b" },
+  { id: "fractal", dark: true, bg: "#0c0c14", surface: "#15151f", text: "#c9c9e8", muted: "#55557a", accent: "#8a5cff", accentSoft: "#211a3d", wrong: "#ff5c8a" },
+  { id: "mentalist", dark: true, bg: "#1f1c1b", surface: "#2a2524", text: "#eee6e2", muted: "#80746f", accent: "#f2b035", accentSoft: "#3d332a", wrong: "#e25d5d" },
+  { id: "alduin", dark: true, bg: "#181818", surface: "#242424", text: "#e8d3a5", muted: "#7f7464", accent: "#e6c545", accentSoft: "#332f22", wrong: "#d9736f" },
+  { id: "flexoki", dark: true, bg: "#100f0c", surface: "#1c1b18", text: "#cecdc3", muted: "#78766a", accent: "#da702c", accentSoft: "#30281f", wrong: "#d14d41" },
+  { id: "metropolis", dark: true, bg: "#1d1d26", surface: "#272733", text: "#e6e6ef", muted: "#70708a", accent: "#8be9fd", accentSoft: "#2b3843", wrong: "#ff6188" },
+  { id: "dorsom", dark: true, bg: "#17181f", surface: "#212230", text: "#d8dee9", muted: "#5f6b7f", accent: "#88c0d0", accentSoft: "#263340", wrong: "#bf616a" },
+  { id: "nightfoil", dark: true, bg: "#101418", surface: "#181d23", text: "#dde4ea", muted: "#5c6a76", accent: "#66d9c2", accentSoft: "#1e3230", wrong: "#f0687a" },
 ];
 
 export type ThemeId = (typeof themes)[number]["id"];

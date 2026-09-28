@@ -307,6 +307,15 @@ export default function SiteControls({ lang }: Props) {
                   />
                 </Row>
 
+                <Row label={t("settings.sound")} hint={t("settings.soundHint")}>
+                  <Segmented
+                    value={settings.sound}
+                    options={["off", "click", "error", "both"] as const}
+                    labels={(option) => t(`settings.sound.${option}`)}
+                    onChange={(sound) => commit({ sound })}
+                  />
+                </Row>
+
                 <Row label={t("settings.inputMode")} hint={t("settings.inputModeHint")}>
                   <Segmented
                     value={settings.inputMode}
@@ -364,6 +373,15 @@ export default function SiteControls({ lang }: Props) {
                     value={settings.showAllLines}
                     label={t("settings.showAllLines")}
                     onChange={(showAllLines) => commit({ showAllLines })}
+                  />
+                </Row>
+
+                <Row label={t("settings.numerals")} hint={t("settings.numeralsHint")}>
+                  <Segmented
+                    value={settings.numerals}
+                    options={["latin", "bengali"] as const}
+                    labels={(option) => t(`settings.numerals.${option}`)}
+                    onChange={(numerals) => commit({ numerals })}
                   />
                 </Row>
               </div>

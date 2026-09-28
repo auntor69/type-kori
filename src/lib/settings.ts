@@ -29,6 +29,9 @@ export type CaretStyle = "bar" | "underline" | "off";
 
 export type StopOnError = "off" | "letter" | "word";
 
+/** How numbers in stats and results are rendered. */
+export type NumeralStyle = "latin" | "bengali";
+
 export interface Settings {
   lang: Lang;
   /** `system` follows the OS; otherwise a concrete theme id from themes.ts. */
@@ -46,6 +49,10 @@ export interface Settings {
   caretStyle: CaretStyle;
   /** Keep the previous line of words visible above the current one. */
   showAllLines: boolean;
+  /** Render stats and results with Bengali numerals (০১২…). */
+  numerals: NumeralStyle;
+  /** Keystroke feedback sound. */
+  sound: "off" | "click" | "error" | "both";
 }
 
 export const FONT_SIZE_MIN = 20;
@@ -65,6 +72,8 @@ export const defaultSettings: Settings = {
   liveWpm: true,
   caretStyle: "bar",
   showAllLines: true,
+  numerals: "latin",
+  sound: "off",
 };
 
 export function clampFontSize(value: number): number {
@@ -92,6 +101,14 @@ function isCaretStyle(value: unknown): value is CaretStyle {
   return value === "bar" || value === "underline" || value === "off";
 }
 
+function isNumeralStyle(value: unknown): value is NumeralStyle {
+  return value === "latin" || value === "bengali";
+}
+
+function isSound(value: unknown): value is Settings["sound"] {
+  return value === "off" || value === "click" || value === "error" || value === "both";
+}
+
 /** Merge a stored value with the defaults, ignoring anything malformed. */
 export function parseSettings(raw: unknown): Settings {
   if (typeof raw !== "object" || raw === null) return { ...defaultSettings };
@@ -108,6 +125,8 @@ export function parseSettings(raw: unknown): Settings {
     liveWpm: typeof value.liveWpm === "boolean" ? value.liveWpm : defaultSettings.liveWpm,
     caretStyle: isCaretStyle(value.caretStyle) ? value.caretStyle : defaultSettings.caretStyle,
     showAllLines: typeof value.showAllLines === "boolean" ? value.showAllLines : defaultSettings.showAllLines,
+    numerals: isNumeralStyle(value.numerals) ? value.numerals : defaultSettings.numerals,
+    sound: isSound(value.sound) ? value.sound : defaultSettings.sound,
   };
 }
 

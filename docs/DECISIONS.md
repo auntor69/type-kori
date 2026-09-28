@@ -279,6 +279,21 @@ with the reason. Newest last.
   Difficulty filtering, stop-on-error, blind mode, the caret styles, live-WPM
   hiding and single-line mode are wired into the practice island; the current
   run is never rebuilt mid-run by a settings change, only the next text is.
+- 2026-09-28 — **Footer removed; header reduced to icons; words mode, weak-key
+  drills, sound and Bengali numerals added.** The owner asked for a total
+  monkeytype-style chrome: `SiteFooter.astro` was deleted outright and the
+  header became a logo plus icon-only buttons (lessons, progress, language,
+  settings) with no border. The theme registry grew to 39 concrete palettes
+  (dracula, tokyonight, catppuccin, rosepine, everforest, onedark, solarized
+  pair, githubdark, monokai, synthwave, cyberpunk, radical, and Bangla-specific
+  ones: `bd` and `shapla`). Settings gained a numerals choice (latin/Bengali
+  digits via `src/lib/numerals.ts`, applied to every stat and result) and a
+  sound choice (off/click/error/both, synthesised with WebAudio in
+  `src/lib/sound.ts`, no audio assets). The toolbar gained a words-mode group
+  (10/25/50/100 committed words, untimed, target truncated to the goal) and a
+  weak-key drill button that builds one practice text from the stored error
+  map via `src/lib/weakKeys.ts` — disabled until at least one mistake is on
+  record. A drill run is exited by the same controls as a custom run.
 - 2026-09-28 — **Dark palette re-tuned toward monkeytype's "serika dark".** The
   owner asked for monkeytype-inspired styling. The dark values in
   `src/styles/tokens.css` changed (light mode is untouched): background and
