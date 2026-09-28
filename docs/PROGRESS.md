@@ -6,6 +6,7 @@ finished, with the date and the commit hash.
 ## Phase 0 — Foundation
 
 - [x] Save masterplan to `docs/MASTERPLAN.md` — 2026-09-28 · `cf0738d`
+      (merged in `74cc14b`)
 - [x] Create `docs/PROGRESS.md`, `docs/DECISIONS.md`, `docs/VERIFY.md` —
       2026-09-28 · `cf0738d`
 - [x] README and license — 2026-09-28 · `cf0738d`
@@ -52,14 +53,22 @@ check.** The 26 practice texts are still `reviewed: false`.
 
 ## Phase 3 — Built-in Avro Phonetic mode
 
-- [ ] Rule table and engine
-- [ ] Backspace handling
-- [ ] Composing display
-- [ ] "OS keyboard is on" warning
+- [x] Rule table and engine — 2026-09-28 · `PENDING` (own grammar, long-match
+      scan, context rule, automatic hasanta; 39 rows + 10 digits)
+- [x] Backspace handling — 2026-09-28 · `PENDING` (removes one Roman keystroke
+      and re-renders, then hands back to the session)
+- [x] Composing display — 2026-09-28 · `PENDING` (the `x → য` line under the text)
+- [x] "OS keyboard is on" warning — 2026-09-28 · `PENDING` (a Bangla character
+      arriving while built-in mode is on, or an input-method composition event)
 - [ ] Cheat-sheet data
 
 *Done when:* 200+ test cases pass and a native speaker signs off the first 100 in
-`docs/VERIFY.md`.
+`docs/VERIFY.md`. **Partly met:** 214 tests pass and 93 of them cover the phonetic
+engine, but only a handful assert the reference behaviour (the six starter cases
+in Section 7.6 plus three documented examples). The rest pin down our own grammar
+and the engine's structure, which is regression protection, not proof of
+correctness. The sign-off has not happened, so the mode stays an opt-in preview
+and the phase is **not** complete. See items 11-16 in `docs/VERIFY.md`.
 
 ## Phase 4 — Content and lessons
 

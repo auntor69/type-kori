@@ -216,17 +216,35 @@ export default function SiteControls({ lang }: Props) {
                   </span>
                 </button>
 
-                <div class="rounded-card border border-dashed border-border p-3 opacity-70">
-                  <span class="flex items-center gap-2 text-sm font-medium text-muted">
+                {/*
+                  Built-in mode is a preview, not a default: its grammar is ours
+                  and no native speaker has signed off the rules yet, so the
+                  warning is part of the option rather than a footnote.
+                */}
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={settings.inputMode === "avro-phonetic"}
+                  onClick={() => commit({ inputMode: "avro-phonetic" })}
+                  class={`rounded-card border p-3 text-left transition-colors duration-150 ease-out ${
+                    settings.inputMode === "avro-phonetic"
+                      ? "border-accent bg-accent-soft"
+                      : "border-border hover:bg-surface-2"
+                  }`}
+                >
+                  <span class="flex items-center gap-2 text-sm font-medium text-text">
                     {t("practice.mode.builtin")}
-                    <span class="rounded-pill bg-surface-2 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide">
-                      {t("practice.mode.soon")}
+                    <span class="rounded-pill bg-surface-2 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-muted">
+                      {t("practice.mode.preview")}
                     </span>
                   </span>
                   <span class="mt-1 block text-xs text-muted">
                     {t("practice.mode.builtinHint")}
                   </span>
-                </div>
+                  <span class="mt-2 block text-xs text-accent-2">
+                    {t("practice.mode.builtinWarning")}
+                  </span>
+                </button>
               </div>
             </section>
 

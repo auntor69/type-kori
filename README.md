@@ -103,8 +103,20 @@ typing engine are welcome. Every text needs a native-speaker review before it
 ships, and every rule of pure logic needs a test. See `docs/MASTERPLAN.md`
 Sections 8, 13 and 15.
 
+## The phonetic grammar
+
+`src/engine/input/phonetic-rules.json` is this project's own grammar for the
+well-known Avro phonetic conventions. It is **not** copied from an existing
+implementation: the reference implementations are GPL-3.0, MPL, or state no
+licence at all, so none of them can be relicensed under MIT. Every row records
+where it came from in the file's own `meta.sources`, and a row is only marked
+`nativeReviewed: true` once a human has checked it against a real keyboard.
+Built-in mode therefore ships as an opt-in preview, not the default. The full
+licence analysis is in `docs/DECISIONS.md`.
+
 ## License
 
 - Code: MIT — see `LICENSE`.
 - Lesson and practice text: original content of this project, released under CC0
   (`content/`), unless a file states otherwise.
+- The phonetic grammar: original to this project, MIT, like the rest of the code.

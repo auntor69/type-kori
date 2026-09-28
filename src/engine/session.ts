@@ -26,6 +26,8 @@ export interface SessionState {
   readonly committed: readonly WordResult[];
   /** The word currently being typed, as Bangla text. */
   readonly active: string;
+  /** Roman keystrokes buffered for that word in built-in mode, for the hint. */
+  readonly composing: string;
   readonly keystrokes: number;
   readonly correctedMistakes: number;
   readonly startedAt: number | null;
@@ -40,6 +42,8 @@ export interface SessionState {
 
 export type SessionEvent =
   | { type: "input"; text: string; at: number }
+  /** Built-in mode: the engine reports the whole word, not a delta. */
+  | { type: "compose"; text: string; composing: string; at: number }
   | { type: "backspace"; at: number }
   | { type: "commit"; at: number }
   | { type: "tick"; at: number }
@@ -51,6 +55,7 @@ export function createSession(options: SessionOptions): SessionState {
     target: options.targetWords,
     committed: [],
     active: "",
+    composing: "",
     keystrokes: 0,
     correctedMistakes: 0,
     startedAt: null,
@@ -116,6 +121,7 @@ function commitActive(state: SessionState): SessionState {
     ...state,
     committed: [...state.committed, result],
     active: "",
+    composing: "",
     errorMap: withErrorMap(state.errorMap, target, typed),
   };
 }
@@ -136,32 +142,55 @@ function startClock(state: SessionState, at: number): SessionState {
   return { ...state, startedAt: at, state: "running" };
 }
 
+/** Shared tail of every event that changes the word being typed. */
+function afterWordChange(state: SessionState, at: number): SessionState {
+  const index = targetIndex(state);
+  const isLastWord = index === state.target.length - 1;
+
+  if (isLastWord && sameWord(state.target[index], state.active)) {
+    const completed = commitActive(state);
+    return { ...completed, state: "finished", finishedAt: at };
+  }
+
+  if (state.durationMs !== null && elapsedMs(state, at) >= state.durationMs) {
+    return finish(state, at);
+  }
+
+  return state;
+}
+
 function handleInput(state: SessionState, text: string, at: number): SessionState {
   const normalized = normalizeText(text);
   if (normalized.length === 0) return state;
 
-  let next = startClock(state, at);
-  next = {
-    ...next,
-    active: next.active + normalized,
+  const started = startClock(state, at);
+  const next: SessionState = {
+    ...started,
+    active: started.active + normalized,
     // One input event is one keystroke, whatever it produces: in system mode a
     // single key press can deliver a whole conjunct.
-    keystrokes: next.keystrokes + 1,
-    warning: hasLatinLetters(normalized) ? "latin" : next.warning,
+    keystrokes: started.keystrokes + 1,
+    warning: hasLatinLetters(normalized) ? "latin" : started.warning,
   };
 
-  const index = targetIndex(next);
-  const isLastWord = index === next.target.length - 1;
-  if (isLastWord && sameWord(next.target[index], next.active)) {
-    next = commitActive(next);
-    return { ...next, state: "finished", finishedAt: at };
-  }
+  return afterWordChange(next, at);
+}
 
-  if (next.durationMs !== null && elapsedMs(next, at) >= next.durationMs) {
-    return finish(next, at);
-  }
+function handleCompose(
+  state: SessionState,
+  text: string,
+  composing: string,
+  at: number,
+): SessionState {
+  const started = startClock(state, at);
+  const next: SessionState = {
+    ...started,
+    active: normalizeText(text),
+    composing,
+    keystrokes: started.keystrokes + 1,
+  };
 
-  return next;
+  return afterWordChange(next, at);
 }
 
 function handleBackspace(state: SessionState, at: number): SessionState {
@@ -176,6 +205,7 @@ function handleBackspace(state: SessionState, at: number): SessionState {
     return {
       ...state,
       active: clusters.slice(0, -1).join(""),
+      composing: "",
       keystrokes: state.keystrokes + 1,
       correctedMistakes: state.correctedMistakes + (wasWrong ? 1 : 0),
     };
@@ -191,6 +221,7 @@ function handleBackspace(state: SessionState, at: number): SessionState {
       ...state,
       committed: state.committed.slice(0, -1),
       active: clusters.slice(0, -1).join(""),
+      composing: "",
       keystrokes: state.keystrokes + 1,
       correctedMistakes: state.correctedMistakes + (previous.correct ? 0 : 1),
     };
@@ -225,6 +256,9 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "input":
       if (state.state === "finished") return state;
       return handleInput(state, event.text, event.at);
+    case "compose":
+      if (state.state === "finished") return state;
+      return handleCompose(state, event.text, event.composing, event.at);
     case "backspace":
       return handleBackspace(state, event.at);
     case "commit":

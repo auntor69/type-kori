@@ -78,8 +78,46 @@ with the reason. Newest last.
   still gets the theme their operating system asks for; a forced choice only sets
   `color-scheme` on the root.
 - 2026-09-28 — **`InputEngine` is a pure translator** that turns one key event
-  into one action (`append` / `backspace` / `commit` / `ignore`) for the session
-  reducer, instead of the stateful `EngineState` sketch in Section 7.1. The
-  session owns all state, so the engine stays trivial to test. The phonetic
-  engine will report its Roman buffer through the optional `composing` field on an
-  `append` action.
+  into one action (`append` / `compose` / `backspace` / `commit` / `ignore`) for
+  the session reducer, instead of the stateful `EngineState` sketch in Section 7.1.
+  The session owns all state, so the engine stays trivial to test. The phonetic
+  engine reports the whole current word through a `compose` action rather than a
+  delta, because its output changes as more keys arrive.
+
+## Phase 3 — built-in phonetic mode
+
+- 2026-09-28 — **The phonetic grammar is written for this project; nothing was
+  copied.** Section 7.6 makes a licence check a precondition, and the check comes
+  out badly: `imerfanahmed/avro-php` (the reference implementation other ports
+  derive from) is **GPL-3.0**, `sarim/ibus-avro` is **MPL** (1.1 on OmicronLab's
+  own page, 2.0 in the repository), and the official jQuery port `jsAvroPhonetic`
+  states no licence at all. None of those can be relicensed under this project's
+  MIT licence, and keeping an MPL or GPL file beside MIT code would make the
+  repository mixed-licence, which contradicts Section 15. Section 0 also forbids
+  acknowledging any author but the owner, and MIT requires keeping a copied work's
+  copyright notice — the two rules cannot both be satisfied by vendoring a table.
+  So the grammar was written from documented behaviour, every row records where it
+  came from, and the sources are listed in the data file itself.
+- 2026-09-28 — **The reference behaviour is dictionary-driven, so a rule engine
+  cannot match it exactly.** OmicronLab's own documentation advertises a ~150,000
+  word dictionary with auto-correct, and the divergence is easy to demonstrate:
+  the reference spells `kemon` as কেমন (inherent vowel unwritten) but `bhalo` as
+  ভালো (explicit ো). Identical Roman endings, different Bangla. No rule table can
+  decide that, and shipping a dictionary is out of scope (Section 20 rejects
+  runtime data of that kind, and there is no backend). Known divergences are
+  recorded as failing-our-expectation tests in `src/engine/input/phonetic.test.ts`
+  so they cannot be mistaken for working behaviour.
+- 2026-09-28 — **Built-in mode is an opt-in preview, not the default.** Section 3.1
+  says built-in mode is the default, and Phase 3's acceptance test is 200+ cases
+  plus a native speaker signing off the first 100. The second half is not done, and
+  the divergence above is a real defect for a learning tool: a learner who cannot
+  produce the target word from the engine gets no useful practice. So `system`
+  stays the default, the drawer labels built-in mode as a preview with the warning
+  in plain sight, and the option exists mostly so the owner and their testers can
+  exercise it to produce the sign-off data. Flip the default in
+  `src/lib/settings.ts` once `docs/VERIFY.md` is clear.
+- 2026-09-28 — **Every grammar row carries a `source` and a `nativeReviewed` flag,
+  and a test enforces both.** A row cannot cite a source that is not declared in
+  the file's own `meta.sources`, and every row must still be `nativeReviewed: false`
+  until a human signs it off. The test fails the moment someone quietly marks rows
+  as reviewed.
