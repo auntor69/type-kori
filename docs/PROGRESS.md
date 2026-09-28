@@ -64,8 +64,9 @@ check.** The 26 practice texts are still `reviewed: false`.
 - [ ] Cheat-sheet data
 
 *Done when:* 200+ test cases pass and a native speaker signs off the first 100 in
-`docs/VERIFY.md`. **Partly met:** 214 tests pass and 93 of them cover the phonetic
-engine, but only a handful assert the reference behaviour (the six starter cases
+`docs/VERIFY.md`. **Partly met:** 221 tests pass and 100 of them cover the phonetic
+engine (including an end-to-end run wired the way the typing area wires it), but
+only a handful assert the reference behaviour (the six starter cases
 in Section 7.6 plus three documented examples). The rest pin down our own grammar
 and the engine's structure, which is regression protection, not proof of
 correctness. The sign-off has not happened, so the mode stays an opt-in preview
