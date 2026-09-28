@@ -1,0 +1,14 @@
+[
+  { "id": "easy-01", "text": "আমি বাংলা লিখি", "difficulty": "easy", "topic": "everyday", "source": "original", "reviewed": false },
+  { "id": "easy-02", "text": "আজ আকাশ পরিষ্কার", "difficulty": "easy", "topic": "weather", "source": "original", "reviewed": false },
+  { "id": "easy-03", "text": "তুমি ভালো আছো", "difficulty": "easy", "topic": "everyday", "source": "original", "reviewed": false },
+  { "id": "easy-04", "text": "আমরা স্কুলে যাই", "difficulty": "easy", "topic": "school", "source": "original", "reviewed": false },
+  { "id": "easy-05", "text": "বই পড়া ভালো অভ্যাস", "difficulty": "easy", "topic": "school", "source": "original", "reviewed": false },
+  { "id": "easy-06", "text": "পানি খেতে ভুলবেন না", "difficulty": "easy", "topic": "health", "source": "original", "reviewed": false },
+  { "id": "easy-07", "text": "মা রান্না করছেন", "difficulty": "easy", "topic": "home", "source": "original", "reviewed": false },
+  { "id": "easy-08", "text": "ছোট ছোট বাক্য লিখুন", "difficulty": "easy", "topic": "practice", "source": "original", "reviewed": false },
+  { "id": "easy-09", "text": "সকালে হাঁটতে যাই", "difficulty": "easy", "topic": "health", "source": "original", "reviewed": false },
+  { "id": "easy-10", "text": "আজ বৃষ্টি হচ্ছে", "difficulty": "easy", "topic": "weather", "source": "original", "reviewed": false },
+  { "id": "easy-11", "text": "আমার নাম লিখুন", "difficulty": "easy", "topic": "practice", "source": "original", "reviewed": false },
+  { "id": "easy-12", "text": "বাগানে অনেক ফুল", "difficulty": "easy", "topic": "nature", "source": "original", "reviewed": false }
+]

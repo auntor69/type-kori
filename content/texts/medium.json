@@ -1,0 +1,10 @@
+[
+  { "id": "medium-01", "text": "বাংলা ভাষা আমাদের মাতৃভাষা।", "difficulty": "medium", "topic": "language", "source": "original", "reviewed": false },
+  { "id": "medium-02", "text": "প্রতিদিন অনুশীলন করলে গতি বাড়ে।", "difficulty": "medium", "topic": "practice", "source": "original", "reviewed": false },
+  { "id": "medium-03", "text": "সঠিক বানানে লিখলে পড়তে সহজ হয়।", "difficulty": "medium", "topic": "language", "source": "original", "reviewed": false },
+  { "id": "medium-04", "text": "কম্পিউটারে বাংলা লেখার সময় ধৈর্য দরকার।", "difficulty": "medium", "topic": "practice", "source": "original", "reviewed": false },
+  { "id": "medium-05", "text": "প্রতিটি অক্ষর ঠিকভাবে লেখার চেষ্টা করুন।", "difficulty": "medium", "topic": "practice", "source": "original", "reviewed": false },
+  { "id": "medium-06", "text": "শব্দ সাজিয়ে বাক্য তৈরি হয়।", "difficulty": "medium", "topic": "language", "source": "original", "reviewed": false },
+  { "id": "medium-07", "text": "আজ সকালে হালকা বাতাস বইছে।", "difficulty": "medium", "topic": "weather", "source": "original", "reviewed": false },
+  { "id": "medium-08", "text": "শিক্ষক ছাত্রদের প্রশ্নের উত্তর দিলেন।", "difficulty": "medium", "topic": "school", "source": "original", "reviewed": false }
+]

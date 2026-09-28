@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* Self-hosted, subset fonts. Nothing is requested from a font CDN. */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/noto-sans-bengali/wght.css";
+
+@import "./tokens.css";
+
+/* The theme is a resolved attribute on <html>, not a media query, so the
+   in-page control and "system" both end up as the same switchable state. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-2: var(--accent-2);
+  --color-correct: var(--correct);
+  --color-wrong: var(--wrong);
+  --color-pending: var(--pending);
+  --color-on-accent: var(--on-accent);
+
+  --font-sans: var(--stack-latin);
+  --font-bangla: var(--stack-bangla);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+
+  --ease-out: var(--ease-out);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--stack-latin);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Bengali needs room above and below for the matra and for conjuncts. */
+  :lang(bn),
+  .font-bangla {
+    font-family: var(--stack-bangla);
+    line-height: 1.75;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: var(--accent-soft);
+    color: var(--text);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* The Bengali headstroke, the script's strongest visual signature, used as
+     the marker above section headings. */
+  .matra-rule::before {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 3px;
+    border-radius: var(--radius-pill);
+    background-color: var(--accent);
+    margin-bottom: 0.875rem;
+  }
+
+  .keycap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding-inline: 0.4rem;
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: var(--radius-control);
+    background-color: var(--surface);
+    font-family: var(--stack-bangla);
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+}
+
+@utility typing-text {
+  font-family: var(--stack-bangla);
+  font-size: var(--typing-size);
+  line-height: var(--typing-leading);
+}

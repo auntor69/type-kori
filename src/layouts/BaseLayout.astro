@@ -1,0 +1,81 @@
+---
+import "../styles/global.css";
+
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import { STORAGE_PREFIX } from "../lib/settings";
+import { localizePath, useTranslations, type Lang } from "../i18n";
+
+import bengaliFont from "@fontsource-variable/noto-sans-bengali/files/noto-sans-bengali-bengali-wght-normal.woff2?url";
+
+interface Props {
+  lang: Lang;
+  title: string;
+  description: string;
+  /** Site-root-relative path of this page, used for the canonical URL. */
+  path: string;
+}
+
+const { lang, title, description, path } = Astro.props;
+const t = useTranslations(lang);
+
+const absolute = (sitePath: string) => new URL(sitePath, Astro.site).href;
+const canonical = absolute(localizePath(path, lang));
+const banglaUrl = absolute(localizePath(path, "bn"));
+const englishUrl = absolute(localizePath(path, "en"));
+
+// Resolves the stored theme and text size before the first paint, so there is no
+// flash of the wrong theme. Kept inline and dependency-free on purpose.
+const themeBootstrap = `(function(){try{var s=JSON.parse(localStorage.getItem("${STORAGE_PREFIX}settings")||"{}");var c=s.theme;var d=c==="dark"||(c!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");var f=Number(s.fontSize);if(isFinite(f)&&f>0){var z=Math.min(48,Math.max(20,Math.round(f)));document.documentElement.style.setProperty("--typing-size",z+"px");}}catch(e){}})();`;
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <link rel="alternate" hreflang="bn" href={banglaUrl} />
+    <link rel="alternate" hreflang="en" href={englishUrl} />
+    <link rel="alternate" hreflang="x-default" href={banglaUrl} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Type Kori" />
+    <meta property="og:locale" content={lang === "bn" ? "bn_BD" : "en_US"} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1113" media="(prefers-color-scheme: dark)" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href={bengaliFont} />
+
+    <script is:inline set:html={themeBootstrap} />
+  </head>
+
+  <body class="min-h-dvh antialiased">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-accent"
+    >
+      {t("nav.skipToContent")}
+    </a>
+
+    <SiteHeader lang={lang} />
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <SiteFooter lang={lang} />
+  </body>
+</html>

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Rejects a commit message that credits anyone but the repository owner.
+# Enable once per clone:  git config core.hooksPath .githooks
+set -e
+node "$(git rev-parse --show-toplevel)/scripts/check-attribution.mjs" --message-file "$1"

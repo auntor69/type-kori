@@ -1,0 +1,25 @@
+---
+import { privacyCopy } from "../content/privacy";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const lang = "bn" as const;
+const copy = privacyCopy[lang];
+---
+
+<BaseLayout lang={lang} title={copy.title} description={copy.description} path="/privacy">
+  <article class="mx-auto w-full max-w-[720px] px-4 py-14 sm:px-6">
+    <h1 class="font-bangla text-3xl font-semibold text-text">{copy.title.split("|")[0]}</h1>
+    <p class="font-bangla mt-4 text-base leading-relaxed text-muted">{copy.intro}</p>
+
+    <div class="mt-10 grid gap-4">
+      {
+        copy.sections.map((section) => (
+          <section class="rounded-card border border-border bg-surface p-5">
+            <h2 class="font-bangla text-base font-semibold text-text">{section.title}</h2>
+            <p class="font-bangla mt-2 text-sm leading-relaxed text-muted">{section.body}</p>
+          </section>
+        ))
+      }
+    </div>
+  </article>
+</BaseLayout>

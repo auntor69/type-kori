@@ -1,0 +1,53 @@
+---
+interface Props {
+  size?: number;
+  wordmark?: boolean;
+  class?: string;
+}
+
+const { size = 34, wordmark = true, class: className = "" } = Astro.props;
+---
+
+<span class={`inline-flex items-center gap-2.5 ${className}`}>
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 32 32"
+    role="img"
+    aria-label="Type Kori"
+    class="shrink-0"
+  >
+    <rect
+      x="1.25"
+      y="1.25"
+      width="29.5"
+      height="29.5"
+      rx="9"
+      fill="var(--accent-soft)"
+      stroke="var(--border-strong)"
+      stroke-width="1.5"></rect>
+    <!-- The matra, drawn heavier, in the accent colour. -->
+    <rect x="9" y="12.4" width="14" height="2.3" rx="1.15" fill="var(--accent)"></rect>
+    <text
+      x="16"
+      y="24.2"
+      text-anchor="middle"
+      font-size="15"
+      font-weight="600"
+      fill="var(--text)"
+      style="font-family: var(--stack-bangla);"
+      >ট</text
+    >
+  </svg>
+
+  {
+    wordmark && (
+      <span class="flex flex-col leading-none">
+        <span class="text-[1.02rem] font-semibold tracking-tight text-text">Type Kori</span>
+        <span lang="bn" class="mt-[3px] text-[0.7rem] leading-none text-muted">
+          টাইপ করি
+        </span>
+      </span>
+    )
+  }
+</span>

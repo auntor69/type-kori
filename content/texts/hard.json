@@ -1,0 +1,8 @@
+[
+  { "id": "hard-01", "text": "পরীক্ষার প্রশ্নপত্র পড়ে উত্তর লিখুন।", "difficulty": "hard", "topic": "school", "source": "original", "reviewed": false },
+  { "id": "hard-02", "text": "স্বাস্থ্য ভালো রাখতে প্রতিদিন ব্যায়াম করুন।", "difficulty": "hard", "topic": "health", "source": "original", "reviewed": false },
+  { "id": "hard-03", "text": "বিজ্ঞানের ক্লাসে অঙ্কের সংখ্যা লিখতে হয়।", "difficulty": "hard", "topic": "school", "source": "original", "reviewed": false },
+  { "id": "hard-04", "text": "বিদ্যালয়ের বার্ষিক উৎসবে সবাই অংশ নেয়।", "difficulty": "hard", "topic": "school", "source": "original", "reviewed": false },
+  { "id": "hard-05", "text": "বিশ্ববিদ্যালয়ের ছাত্রছাত্রীরা সন্ধ্যায় পড়াশোনা করে।", "difficulty": "hard", "topic": "school", "source": "original", "reviewed": false },
+  { "id": "hard-06", "text": "রাষ্ট্রীয় অনুষ্ঠানে জাতীয় সংগীত গাওয়া হয়।", "difficulty": "hard", "topic": "culture", "source": "original", "reviewed": false }
+]

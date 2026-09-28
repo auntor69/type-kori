@@ -1,0 +1,64 @@
+/*
+ * Design tokens. Source of truth for colour, type and motion.
+ * Light values follow Section 6 of docs/MASTERPLAN.md; the dark values and the
+ * supporting tokens are derived from the same palette.
+ *
+ * Every colour uses light-dark(), so the OS preference applies on its own and a
+ * forced choice only has to set `color-scheme` on the root.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Section 6 colour tokens */
+  --bg: light-dark(#fafaf9, #0f1113);
+  --surface: light-dark(#ffffff, #171a1d);
+  --text: light-dark(#1a1d20, #e8eaed);
+  --muted: light-dark(#6b7280, #8b93a0);
+  --accent: light-dark(#0e7c5a, #34c38f);
+  --accent-2: light-dark(#e0364b, #f0687a);
+  --correct: light-dark(#0e7c5a, #34c38f);
+  --wrong: light-dark(#d92d3f, #f0687a);
+  --focus-ring: light-dark(#0e7c5a, #34c38f);
+
+  /* Supporting surfaces and lines */
+  --surface-2: light-dark(#f2f2ef, #1e2226);
+  --border: light-dark(#e5e4e0, #272c31);
+  --border-strong: light-dark(#d3d2cc, #363c42);
+  --on-accent: light-dark(#ffffff, #0f1113);
+  --pending: light-dark(#a4abb3, #5d656e);
+  --accent-soft: light-dark(#e7f2ed, #12251f);
+  --overlay: light-dark(rgb(26 29 32 / 0.45), rgb(0 0 0 / 0.6));
+  --shadow-soft: 0 1px 2px light-dark(rgb(16 24 32 / 0.05), rgb(0 0 0 / 0.4)),
+    0 12px 32px -20px light-dark(rgb(16 24 32 / 0.25), rgb(0 0 0 / 0.8));
+
+  /* Type stacks. Latin first everywhere: the browser falls back to the
+     Bengali face for Bengali code points, so mixed text needs no wrapper. */
+  --stack-latin: "Inter Variable", "Noto Sans Bengali Variable", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  --stack-bangla: "Noto Sans Bengali Variable", "Inter Variable", ui-sans-serif, system-ui,
+    sans-serif;
+
+  /* The typing area size is driven by the font-size setting (20–48px). */
+  --typing-size: 28px;
+  --typing-leading: 1.9;
+
+  /* Shape scale */
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-pill: 999px;
+
+  /* Motion: subtle only, 150–200ms ease-out */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+}
+
+/* An explicit choice wins over the OS preference. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}

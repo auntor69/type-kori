@@ -1,0 +1,56 @@
+---
+import { localizePath, useTranslations, type Lang } from "../i18n";
+import Logo from "./Logo.astro";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+
+const home = localizePath("/", lang);
+const privacy = localizePath("/privacy", lang);
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-20 border-t border-border bg-surface">
+  <div
+    class="mx-auto flex w-full max-w-[960px] flex-col gap-6 px-4 py-10 sm:flex-row sm:items-start sm:justify-between sm:px-6"
+  >
+    <div class="max-w-sm">
+      <Logo />
+      <p class="mt-3 text-sm leading-relaxed text-muted">{t("brand.tagline")}</p>
+    </div>
+
+    <div class="flex flex-col gap-2 text-sm">
+      <a
+        href={`${home}#practice`}
+        class="text-muted transition-colors duration-150 ease-out hover:text-text"
+      >
+        {t("nav.practice")}
+      </a>
+      <a
+        href={`${home}#how`}
+        class="text-muted transition-colors duration-150 ease-out hover:text-text"
+      >
+        {t("nav.how")}
+      </a>
+      <a
+        href={privacy}
+        class="text-muted transition-colors duration-150 ease-out hover:text-text"
+      >
+        {t("nav.privacy")}
+      </a>
+    </div>
+  </div>
+
+  <div class="border-t border-border">
+    <div
+      class="mx-auto flex w-full max-w-[960px] flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-muted sm:px-6"
+    >
+      <p>© {year} Type Kori · MIT</p>
+      <p>{t("practice.offlineNote")}</p>
+    </div>
+  </div>
+</footer>
