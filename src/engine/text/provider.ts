@@ -16,7 +16,12 @@ export interface PracticeText {
   text: string;
   difficulty: Difficulty;
   topic: string;
-  source: "original";
+  /**
+   * `original` for the curated library in `content/`, `custom` for text the user
+   * pasted. The build-time validator only ever accepts `original`, so a custom
+   * text can never be mistaken for reviewed library content.
+   */
+  source: "original" | "custom";
   reviewed: boolean;
 }
 

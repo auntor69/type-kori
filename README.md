@@ -39,6 +39,14 @@ accuracy. The curriculum and its copy are in `src/content/lessons.ts`, the drill
 texts in `content/lessons/drills.json`, and every drill carries the same
 `reviewed` flag as a practice text.
 
+## Your own text
+
+On the practice page, **Your own text** opens a paste box: paste an exam question
+or a paragraph from a book and, once it passes the checks (Bangla only, 12–1200
+characters in 3–200 words), it becomes the target of one untimed run. The text is
+kept in `localStorage` (never uploaded), it travels with the export/import file,
+and "reset all data" on the progress page removes it too.
+
 ## Requirements
 
 - [Bun](https://bun.sh) ≥ 1.4 for development and scripts.

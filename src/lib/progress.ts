@@ -8,6 +8,13 @@
 
 import { clustersOf, type WordResult } from "../engine/compare";
 import type { InputEngineId } from "../engine/input/types";
+import {
+  clearCustomText,
+  loadCustomText,
+  parseStoredCustomText,
+  saveCustomText,
+  type StoredCustomText,
+} from "./customText";
 import { loadSettings, parseSettings, saveSettings, type Settings } from "./settings";
 import {
   STORAGE_PREFIX,
@@ -323,6 +330,8 @@ export interface Backup {
   runs: RunRecord[];
   errorMap: ErrorMap;
   lessons: LessonProgressMap;
+  /** Text the user pasted for custom practice, if there is one. */
+  customText: StoredCustomText | null;
 }
 
 export function createBackup(storage: StorageAdapter = availableStorage()): Backup {
@@ -334,6 +343,7 @@ export function createBackup(storage: StorageAdapter = availableStorage()): Back
     runs: loadRuns(storage),
     errorMap: loadErrorMap(storage),
     lessons: loadLessonProgress(storage),
+    customText: loadCustomText(storage),
   };
 }
 
@@ -358,6 +368,8 @@ export function parseBackup(raw: unknown): Backup | null {
     errorMap: parseErrorMap(value.errorMap),
     // A file exported before lessons existed simply has none, which reads as empty.
     lessons: parseLessonProgress(value.lessons),
+    // Same for a file exported before custom text existed: absent reads as none.
+    customText: parseStoredCustomText(value.customText),
   };
 }
 
@@ -373,7 +385,10 @@ export function parseBackupText(text: string): Backup | null {
   }
 }
 
-/** Replace the current state with a validated backup. */
+/**
+ * Replace the current state with a validated backup. A backup with no custom
+ * text clears the stored one: this function replaces, it does not merge.
+ */
 export function applyBackup(
   backup: Backup,
   storage: StorageAdapter = availableStorage(),
@@ -382,7 +397,14 @@ export function applyBackup(
   const runsStored = saveRuns(backup.runs, storage);
   const mapStored = saveErrorMap(backup.errorMap, storage);
   const lessonsStored = saveLessonProgress(backup.lessons, storage);
-  return settingsStored && runsStored && mapStored && lessonsStored;
+
+  let customStored = true;
+  if (backup.customText === null) clearCustomText(storage);
+  else if (saveCustomText(backup.customText.text, backup.customText.savedAt, storage) === null) {
+    customStored = false;
+  }
+
+  return settingsStored && runsStored && mapStored && lessonsStored && customStored;
 }
 
 /** Forget everything the app owns, settings included. */

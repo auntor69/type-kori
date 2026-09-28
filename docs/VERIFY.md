@@ -33,6 +33,10 @@ Status: `open` (needs a native speaker), `resolved` (checked, note who and when)
 | 21 | Lesson sequencing | `src/content/lessons.ts` | Does each lesson's word choice match what has been taught by that point? Section 8 mixes short words into the vowel lesson, so this is not strictly progressive — confirm that is what a learner should meet. |
 | 22 | Lesson copy and titles | `src/content/lessons.ts` | The twelve lesson titles, summaries, intros and "today's keys" lines are a first draft. Confirm the grammar terms used (বর্গ, অন্তঃস্থ, ঊষ্ম, রেফ, য-ফলা) are the ones a Bangladeshi learner would recognise. |
 
+| 23 | Custom text rules | `src/lib/customText.ts`, `src/components/CustomText.tsx` | A paste is accepted only if it is Bangla: ASCII digits, emoji and punctuation outside the Bengali block are rejected rather than converted to Bengali digits, and the limits are 12–1200 characters in 3–200 words. Confirm those numbers and that rejecting (instead of repairing) is the friendlier behaviour for someone pasting an exam passage. |
+| 24 | Custom text wording | `src/i18n/bn.json` (`custom.*`) | Nine new Bangla strings for the paste box and its errors, first draft like everything else. Read them and fix the tone. |
+| 25 | Custom text in the backup | `src/lib/progress.ts` | The backup carries the pasted text. A file exported before the field existed has no `customText` key, and importing it clears the stored text because import replaces state rather than merging. Confirm that is expected, rather than something to merge. |
+
 ## Resolved
 
 | # | Item | Resolution |

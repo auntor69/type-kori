@@ -209,9 +209,33 @@ with the reason. Newest last.
   finished lesson run, and it is part of the backup file. The backup schema version
   stays at **1**: a file exported before lessons existed simply has no `lessons` key,
   which reads as empty, and bumping the version would have invalidated an export the
-  user made minutes earlier for no benefit.
-- 2026-09-28 — **The lessons index is prerendered HTML with no completion ticks
-  yet.** The list has to be crawlable (Section 11), so the links and the lesson copy
-  are static. Marking a passed lesson on that list needs a client island, which is
-  deferred rather than shipping a list that is empty without JavaScript; the best
-  result for a lesson is already shown on the lesson page itself.
+  user made minutes earlier for no benefit.- 2026-09-28 — **A pasted custom text is validated strictly, never repaired.**
+  Section 5.2.5 asks for "Bangla text only, length limits". The checks are NFC
+  normalization, whitespace collapsed to single spaces (newlines flattened, since
+  the typing area does its own layout), a Bengali-block-only rule, and the limits
+  12-1200 characters in 3-200 words. Anything else is reported and the run cannot
+  start. The alternative - quietly converting ASCII digits to Bengali ones, or
+  stripping emoji - would score a run against text the user never pasted, and the
+  numbers on the results screen would be measuring something else. Latin letters
+  get their own message because pasting English by mistake is the common case.
+- 2026-09-28 — **Custom text lives in `tk:v1:custom` and rides in the backup file,
+  without a version bump.** It is user data, not a setting: it never leaves the
+  device, but losing it on an export/import round trip would be a surprise, so
+  `createBackup` carries it and `applyBackup` writes it. The backup version stays
+  **1** for the same reason lessons did: a file exported before the field existed
+  simply has none, which reads as no custom text. Import replaces rather than
+  merges, so such a file clears any stored custom text - the progress page says
+  import replaces the data in this browser. `docs/VERIFY.md` item 25 asks the owner
+  to confirm that is what they want.
+- 2026-09-28 — **A custom run is untimed and takes over the pool.** A pasted
+  passage is a fixed target, so the duration buttons are hidden and the run ends
+  with the last word; a timer would only cut the user off mid-passage. While such a
+  run is on screen the toolbar shows a "practising your own text" chip and a way
+  back to the built-in library, and the progress page records the run with the text
+  id `custom`.
+- 2026-09-28 — **`PracticeText.source` gained a `"custom"` value.** The alternative
+  was to call a paste "original", which is a claim about provenance the app cannot
+  make. The build-time content validator still accepts only `"original"`, so no
+  custom text can ever be counted as reviewed library content, and the review flag
+  on a custom text is set because the flag asks whether a native speaker checked
+  text *this project* wrote, which is not a question about the user's paste.
