@@ -23,6 +23,13 @@ import {
 import { useTranslations, type Lang } from "../i18n";
 import { loadAndApplySettings, onSettingsChange } from "../lib/applySettings";
 import {
+  clearCustomText,
+  customPracticeText,
+  loadCustomText,
+  saveCustomText,
+  type StoredCustomText,
+} from "../lib/customText";
+import {
   loadLessonProgress,
   newRunId,
   recordLessonResult,
@@ -30,6 +37,7 @@ import {
   type LessonProgress,
 } from "../lib/progress";
 import { defaultSettings } from "../lib/settings";
+import CustomText from "./CustomText";
 
 /** Everything the runner needs for one lesson, resolved at build time. */
 export interface LessonRun {
@@ -117,10 +125,16 @@ function Stat({ label, value }: { label: string; value: string }) {
 export default function Practice({ lang, seed = 1, lesson }: Props) {
   const t = useTranslations(lang);
 
-  // A lesson drills a fixed set, untimed. On the practice page the first text is
-  // deliberately an easy one: a beginner should not meet a conjunct-heavy
-  // sentence in the first five seconds.
-  const pool = lesson?.texts ?? practiceTexts;
+  const [customSaved, setCustomSaved] = useState<StoredCustomText | null>(null);
+  const [customRun, setCustomRun] = useState<PracticeText | null>(null);
+  const [customPanelOpen, setCustomPanelOpen] = useState(false);
+  const [customStorageOk, setCustomStorageOk] = useState(true);
+
+  // A lesson drills a fixed set, untimed, and a custom run drills exactly the
+  // text the user pasted. On the practice page the first text is deliberately an
+  // easy one: a beginner should not meet a conjunct-heavy sentence in the first
+  // five seconds.
+  const pool = lesson?.texts ?? (customRun !== null ? [customRun] : practiceTexts);
 
   const [model, setModel] = useState<RunModel>(() =>
     createRun({ pool, durationMs: null, seed, difficulty: lesson === undefined ? "easy" : "all" }),
@@ -198,11 +212,62 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     );
   };
 
+  //
+  // Custom text (Section 4.8). Starting one stores the paste, switches the pool
+  // to it and starts a fresh untimed run - a pasted passage is a fixed target,
+  // and a timer on it would only cut the user off before the end.
+  const startCustomRun = (text: string) => {
+    const item = customPracticeText(text);
+
+    setCustomRun(item);
+    setCustomSaved({ text: item.text, savedAt: Date.now() });
+    setCustomStorageOk(saveCustomText(text) !== null);
+    setCustomPanelOpen(false);
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setModel(
+      createRun({
+        pool: [item],
+        durationMs: null,
+        seed: Date.now() % 0x7fff_ffff,
+        difficulty: "all",
+      }),
+    );
+  };
+
+  const useBuiltinTexts = () => {
+    setCustomRun(null);
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setModel(
+      createRun({
+        pool: practiceTexts,
+        durationMs: null,
+        seed: Date.now() % 0x7fff_ffff,
+        history: [],
+      }),
+    );
+  };
+
+  /** Forget the stored paste, and stop practising it if it was on screen. */
+  const dropCustomText = () => {
+    clearCustomText();
+    setCustomSaved(null);
+    setCustomStorageOk(true);
+    if (customRun !== null) useBuiltinTexts();
+  };
+
   // The best result for this lesson so far, read once on mount.
   useEffect(() => {
     if (lesson === undefined) return;
     setLessonRecord(loadLessonProgress()[lesson.id] ?? null);
   }, [lesson]);
+
+  // The text this browser kept from an earlier paste, if any. Read after mount,
+  // never during it, so the first paint matches what the server rendered.
+  useEffect(() => {
+    setCustomSaved(loadCustomText());
+  }, []);
 
   // One listener for the whole document: the first keystroke anywhere starts the
   // run, so there is nothing to click before the first word.
@@ -369,7 +434,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           </>
         )}
 
-        {lesson === undefined && (
+        {lesson === undefined && customRun === null && (
           <div
             role="group"
             aria-label={t("practice.time")}
@@ -401,14 +466,61 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           {t("practice.restart")}
         </button>
 
-        <button
-          type="button"
-          onClick={nextText}
-          class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
-        >
-          {lesson === undefined ? t("practice.nextText") : t("lesson.nextDrill")}
-        </button>
+        {customRun === null && (
+          <button
+            type="button"
+            onClick={nextText}
+            class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
+          >
+            {lesson === undefined ? t("practice.nextText") : t("lesson.nextDrill")}
+          </button>
+        )}
+
+        {lesson === undefined && (
+          <>
+            {customRun !== null && (
+              <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
+                <span class="size-1.5 rounded-full bg-accent" aria-hidden="true" />
+                {t("custom.active")}
+              </span>
+            )}
+
+            {customRun !== null && (
+              <button
+                type="button"
+                onClick={useBuiltinTexts}
+                class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
+              >
+                {t("custom.useBuiltin")}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setCustomPanelOpen((open) => !open)}
+              aria-expanded={customPanelOpen}
+              aria-controls="custom-text-panel"
+              class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
+            >
+              {t("custom.open")}
+            </button>
+          </>
+        )}
       </div>
+
+      {/* Custom text setup (Section 5.2.5): paste, validate, practise. */}
+      {lesson === undefined && customPanelOpen && (
+        <CustomText
+          lang={lang}
+          saved={customSaved}
+          active={customRun !== null}
+          storageOk={customStorageOk}
+          onStart={startCustomRun}
+          onUseBuiltin={useBuiltinTexts}
+          onClear={dropCustomText}
+          onClose={() => setCustomPanelOpen(false)}
+        />
+      )}
 
       {/* Typing area */}
       <div
@@ -605,13 +717,23 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
             >
               {t("results.retry")}
             </button>
-            <button
-              type="button"
-              onClick={nextText}
-              class="rounded-control border border-border bg-surface px-4 py-2 text-sm font-medium text-text transition-colors duration-150 ease-out hover:bg-surface-2"
-            >
-              {lesson === undefined ? t("results.newText") : t("lesson.nextDrill")}
-            </button>
+            {customRun === null ? (
+              <button
+                type="button"
+                onClick={nextText}
+                class="rounded-control border border-border bg-surface px-4 py-2 text-sm font-medium text-text transition-colors duration-150 ease-out hover:bg-surface-2"
+              >
+                {lesson === undefined ? t("results.newText") : t("lesson.nextDrill")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={useBuiltinTexts}
+                class="rounded-control border border-border bg-surface px-4 py-2 text-sm font-medium text-text transition-colors duration-150 ease-out hover:bg-surface-2"
+              >
+                {t("custom.useBuiltin")}
+              </button>
+            )}
           </div>
         </section>
       )}

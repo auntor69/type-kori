@@ -65,6 +65,10 @@ export const homeCopy: Record<Lang, HomeCopy> = {
         title: "সৎ হিসাব",
         body: "WPM, নির্ভুলতা ও সময় — সবই স্পষ্ট সূত্রে হিসাব করা এবং ফলাফলের পাতায় লেখা থাকে। বানানো প্রশংসা নেই।",
       },
+      {
+        title: "নিজের লেখা দিয়ে প্র্যাকটিস",
+        body: "পরীক্ষার প্রশ্ন বা বইয়ের অনুচ্ছেদ পেস্ট করে সেই লেখাটি দিয়েই টাইপ করা যায়। লেখাটি কোথাও আপলোড হয় না, শুধু আপনার ব্রাউজারে জমা থাকে।",
+      },
     ],
     howTitle: "কীভাবে কাজ করে",
     how: [
@@ -150,6 +154,10 @@ export const homeCopy: Record<Lang, HomeCopy> = {
       {
         title: "Honest numbers",
         body: "WPM, accuracy and time all come from formulas printed on the results screen. No invented encouragement.",
+      },
+      {
+        title: "Practise your own text",
+        body: "Paste an exam question or a paragraph from a book and drill exactly that passage. It is never uploaded, only kept in your browser.",
       },
     ],
     howTitle: "How it works",

@@ -86,15 +86,18 @@ and the phase is **not** complete. See items 11-16 in `docs/VERIFY.md`.
 - [x] Build-time content validator — 2026-09-28 · working tree (now also validates
       `content/lessons/drills.json`, rejects a drill that shadows a practice text
       id, and fails on a lesson pointing at a drill id that does not exist)
-- [ ] Custom text mode
+- [x] Custom text mode — 2026-09-28 · working tree (**Your own text** on the
+      practice page opens a paste box; the text is cleaned, checked against the
+      Bangla-only and length rules, stored under `tk:v1:custom`, carried in the
+      backup file, and drilled as one untimed run)
 
 *Done when:* 12 lessons and ~150 reviewed texts are in. **Partly met:** the twelve
 lessons exist and every link, drill id and copy field is checked by a test, so the
-mechanics of the phase are in place. What is missing is volume and review: 55
-authored items (26 practice texts, 29 drills) are still `reviewed: false`, against a
-target of ~150 reviewed texts, so `validate:text --strict` still fails. Custom text
-mode is next. The Bangla in the lesson copy and drills is a first draft and is
-listed in `docs/VERIFY.md`.
+mechanics of the phase are in place. Every item on the checklist is now built. What
+is missing is volume and review: 55 authored items (26 practice texts, 29 drills)
+are still `reviewed: false`, against a target of ~150 reviewed texts, so
+`validate:text --strict` still fails. The Bangla in the lesson copy, the drills and
+the custom-text panel is a first draft and is listed in `docs/VERIFY.md`.
 
 ## Phase 5 — Progress and persistence
 
