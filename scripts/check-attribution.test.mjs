@@ -38,7 +38,7 @@ const VENDOR_SAMPLES = [
   ["Ant", "hropic"],
   ["Cla", "ude"],
   ["Open", "AI"],
-  ["Chat", "GPT"],
+  ["Cha", "tG", "PT"],
   ["Gem", "ini"],
   ["Copi", "lot"],
   ["Deep", "Seek"],

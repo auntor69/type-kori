@@ -26,9 +26,10 @@ with the reason. Newest last.
 - 2026-09-28 — The attribution guard's blocklist omits the bare word `cursor`.
   This project talks about the text cursor constantly (and CSS uses
   `cursor: pointer`), so a bare match produced false positives. Instead `cursor`
-  only matches in an attribution-like context (e.g. `Cursor AI`, `cursor.ai`,
-  `Cursor IDE`). Everything else from the Section 0 list is matched on word
-  boundaries. See `scripts/check-attribution.mjs` and `docs/VERIFY.md`.
+  only matches when the next word is an assistant- or editor-style suffix, so the
+  word on its own, a `cursor: pointer` declaration and "move the cursor" all stay
+  legal. Everything else from the Section 0 list is matched on word boundaries.
+  See `scripts/check-attribution.mjs` and `docs/VERIFY.md`.
 - 2026-09-28 — WPM and accuracy formulas are frozen exactly as written in
   Section 7.5: WPM = correct words ÷ elapsed minutes, KPM = keystrokes ÷ elapsed
   minutes, accuracy = correct clusters ÷ target clusters in committed words.
