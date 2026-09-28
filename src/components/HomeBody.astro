@@ -1,191 +1,21 @@
 ---
 import Practice from "./Practice.tsx";
 import { homeCopy } from "../content/home";
-import { localizePath, useTranslations, type Lang } from "../i18n";
+import type { Lang } from "../i18n";
 
 interface Props {
   lang: Lang;
 }
 
 const { lang } = Astro.props;
-const t = useTranslations(lang);
 const copy = homeCopy[lang];
-
-const sampleKeys = ["ক", "খ", "গ", "ঘ", "ঙ"];
 ---
 
-<!-- Hero -->
-<div class="relative overflow-hidden">
-  <div
-    class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[460px]"
-    style="background: radial-gradient(60% 62% at 50% -10%, var(--accent-soft), transparent 70%)"
-    aria-hidden="true"
-  >
-  </div>
+<!-- The page is the test. One quiet line of identity, then the words. -->
+<section class="mx-auto w-full max-w-[960px] px-4 pt-10 pb-24 sm:px-6 sm:pt-16">
+  <h1 class="font-bangla text-center text-lg font-medium text-muted">{copy.h1}</h1>
 
-  <section class="mx-auto w-full max-w-[960px] px-4 pt-14 pb-10 sm:px-6 sm:pt-20">
-    <p
-      class="inline-flex items-center gap-2 rounded-pill border border-border bg-surface px-3 py-1 text-xs font-medium text-muted"
-    >
-      <span class="size-1.5 rounded-full bg-accent" aria-hidden="true"></span>
-      {copy.eyebrow}
-    </p>
-
-    <div class="mt-6 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-      <div class="max-w-2xl">
-        <h1 class="font-bangla text-4xl leading-[1.35] font-semibold text-text sm:text-5xl">
-          <span class="block text-muted" style="font-family: var(--stack-latin)">
-            Type Kori
-          </span>
-          <span class="mt-1 block">{copy.h1}</span>
-        </h1>
-
-        <p class="font-bangla mt-5 text-base leading-relaxed text-muted sm:text-lg">
-          {copy.lead}
-        </p>
-
-        <div class="mt-7 flex flex-wrap items-center gap-3">
-          <a
-            href="#practice"
-            class="rounded-control bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent transition-opacity duration-150 ease-out hover:opacity-90"
-          >
-            {copy.primaryCta}
-          </a>
-          <a
-            href="#how"
-            class="rounded-control border border-border bg-surface px-5 py-2.5 text-sm font-medium text-text transition-colors duration-150 ease-out hover:bg-surface-2"
-          >
-            {copy.secondaryCta}
-          </a>
-        </div>
-      </div>
-
-      <div class="hidden shrink-0 lg:block" aria-hidden="true">
-        <div class="flex flex-col items-end gap-2">
-          <div class="flex gap-2">
-            {
-              sampleKeys.map((key, index) => (
-                <span class={`keycap ${index === 3 ? "text-accent" : "text-muted"}`}>{key}</span>
-              ))
-            }
-          </div>
-          <div class="h-[3px] w-40 rounded-pill bg-accent/25"></div>
-          <p lang="bn" class="font-bangla text-xs text-muted">বাংলা কীবোর্ড</p>
-        </div>
-      </div>
-    </div>
-
-    <p class="mt-6 rounded-card border border-border bg-surface/70 px-4 py-3 text-sm text-muted lg:hidden">
-      {copy.keyboardNote}
-    </p>
-  </section>
-</div>
-
-<!-- Practice -->
-<section id="practice" class="mx-auto w-full max-w-[960px] scroll-mt-20 px-4 py-6 sm:px-6">
-  <h2 class="matra-rule font-bangla text-xl font-semibold text-text">{copy.toolsTitle}</h2>
-  <p class="font-bangla mt-1 mb-5 text-sm text-muted">{copy.toolsLead}</p>
-
-  <Practice client:load lang={lang} seed={1} />
-</section>
-
-<!-- Features -->
-<section
-  id="features"
-  class="mx-auto w-full max-w-[960px] scroll-mt-20 px-4 py-14 sm:px-6"
->
-  <h2 class="matra-rule font-bangla text-2xl font-semibold text-text">{copy.featuresTitle}</h2>
-  <p class="font-bangla mt-1 mb-8 text-sm text-muted">{copy.featuresLead}</p>
-
-  <div class="grid gap-4 sm:grid-cols-2">
-    {
-      copy.features.map((card) => (
-        <article class="rounded-card border border-border bg-surface p-5 transition-colors duration-150 ease-out hover:border-border-strong">
-          <h3 class="font-bangla text-base font-semibold text-text">{card.title}</h3>
-          <p class="font-bangla mt-2 text-sm leading-relaxed text-muted">{card.body}</p>
-        </article>
-      ))
-    }
-  </div>
-</section>
-
-<!-- How it works -->
-<section id="how" class="border-y border-border bg-surface">
-  <div class="mx-auto w-full max-w-[960px] scroll-mt-20 px-4 py-14 sm:px-6">
-    <h2 class="matra-rule font-bangla text-2xl font-semibold text-text">{copy.howTitle}</h2>
-
-    <ol class="mt-8 grid gap-6 sm:grid-cols-3">
-      {
-        copy.how.map((step, index) => (
-          <li>
-            <span
-              class="inline-flex size-8 items-center justify-center rounded-control border border-border bg-bg text-sm font-semibold tabular-nums text-accent"
-              aria-hidden="true"
-            >
-              {index + 1}
-            </span>
-            <h3 class="font-bangla mt-3 text-base font-semibold text-text">{step.title}</h3>
-            <p class="font-bangla mt-2 text-sm leading-relaxed text-muted">{step.body}</p>
-          </li>
-        ))
-      }
-    </ol>
-  </div>
-</section>
-
-<!-- Input modes -->
-<section class="mx-auto w-full max-w-[960px] px-4 py-14 sm:px-6">
-  <h2 class="matra-rule font-bangla text-2xl font-semibold text-text">{copy.modesTitle}</h2>
-  <p class="font-bangla mt-1 mb-8 text-sm text-muted">{copy.modesLead}</p>
-
-  <div class="grid gap-4 sm:grid-cols-2">
-    {
-      copy.modes.map((card) => (
-        <article class="rounded-card border border-border bg-surface p-5">
-          <h3 class="font-bangla text-base font-semibold text-text">{card.title}</h3>
-          <p class="font-bangla mt-2 text-sm leading-relaxed text-muted">{card.body}</p>
-        </article>
-      ))
-    }
-  </div>
-</section>
-
-<!-- FAQ -->
-<section id="faq" class="mx-auto w-full max-w-[960px] scroll-mt-20 px-4 pb-14 sm:px-6">
-  <h2 class="matra-rule font-bangla text-2xl font-semibold text-text">{copy.faqTitle}</h2>
-
-  <dl class="mt-8 grid gap-6 sm:grid-cols-2">
-    {
-      copy.faq.map((item) => (
-        <div class="rounded-card border border-border bg-surface p-5">
-          <dt class="font-bangla text-base font-semibold text-text">{item.question}</dt>
-          <dd class="font-bangla mt-2 text-sm leading-relaxed text-muted">{item.answer}</dd>
-        </div>
-      ))
-    }
-  </dl>
-</section>
-
-<!-- Closing -->
-<section class="mx-auto w-full max-w-[960px] px-4 pb-16 sm:px-6">
-  <div class="rounded-card border border-border bg-surface p-8 text-center">
-    <h2 class="font-bangla text-2xl font-semibold text-text">{copy.closingTitle}</h2>
-    <p class="font-bangla mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
-      {copy.closingBody}
-    </p>
-    <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
-      <a
-        href="#practice"
-        class="inline-block rounded-control bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent transition-opacity duration-150 ease-out hover:opacity-90"
-      >
-        {copy.primaryCta}
-      </a>
-      <a
-        href={localizePath("/lessons", lang)}
-        class="inline-block rounded-control border border-border bg-bg px-5 py-2.5 text-sm font-medium text-text transition-colors duration-150 ease-out hover:bg-surface-2"
-      >
-        {copy.lessonsCta}
-      </a>
-    </div>
+  <div class="mt-8">
+    <Practice client:load lang={lang} seed={1} />
   </div>
 </section>

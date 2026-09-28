@@ -236,6 +236,74 @@ with the reason. Newest last.
 - 2026-09-28 — **`PracticeText.source` gained a `"custom"` value.** The alternative
   was to call a paste "original", which is a claim about provenance the app cannot
   make. The build-time content validator still accepts only `"original"`, so no
-  custom text can ever be counted as reviewed library content, and the review flag
-  on a custom text is set because the flag asks whether a native speaker checked
+  custom text can ever be counted as reviewed library content, and the review  flag on a custom text is set because the flag asks whether a native speaker checked
   text *this project* wrote, which is not a question about the user's paste.
+- 2026-09-28 — **Minimal, typography-first home page.** The owner asked for a
+  better UI with less text and approved a minimalist direction. The home page was
+  rebuilt around the practice island: a centred hero (wordmark, three-word h1,
+  one-sentence lead), the typing test immediately below it, and the old feature
+  grid, how-it-works cards, input-mode cards and closing card replaced by
+  borderless text sections — five feature one-liners, three numbered steps, four
+  short FAQ rows, one CTA block. The `homeCopy` interface lost `eyebrow`,
+  `secondaryCta`, `keyboardNote`, `toolsTitle`, `toolsLead`, `modesTitle`,
+  `modesLead`, `modes`, `featuresLead` and `closingBody`, and gained `tagline`,
+  `footnote` and `closingCta`. The input-mode distinction lives in the practice
+  toolbar's mode chip, so a dedicated home section was redundant. Colours, radii
+  and motion still come from the Section 6 tokens in `src/styles/tokens.css`; the
+  redesign changed layout and copy, not the palette. The header nav's "how it
+  works" link became a "FAQ" link (`nav.faq` added to both locales). Drop
+  shadows were removed from the practice results and custom-text panels for a
+  flat look; `--shadow-soft` stays defined for the settings drawer.
+- 2026-09-28 — **The home page is only the test.** After seeing the first
+  minimal pass the owner asked why any explanatory sections existed at all —
+  monkeytype ships nothing like them. The features, how-it-works and FAQ
+  sections were deleted outright, along with the closing CTA block, the FAQ
+  JSON-LD schema, the `nav.how`/`nav.faq` links and keys, and every `homeCopy`
+  field except `tagline`, `h1`, `lead` and `footnote`. Lessons, progress and
+  privacy remain reachable from the header and footer, so nothing user-facing
+  was lost — only prose that repeated the toolbar. The formula definitions that
+  used to live in the FAQ are already printed on the results screen.
+- 2026-09-28 — **The home page is only the test, and settings gained real
+  depth.** The owner pushed further: no tagline, no lead, no footnote — the page
+  is one muted title line plus the practice island (`homeCopy` is now only
+  `h1`). In the same pass the settings drawer became a tabbed dialog in the
+  monkeytype mould: behavior (difficulty, stop-on-error letter/word, blind mode,
+  live WPM, input mode), appearance (text size, caret style bar/underline/off,
+  show-all-lines), theme, and data. `src/lib/themes.ts` adds a registry of 18
+  concrete palettes (serika, paper, nord, gruvbox, terminal, …) applied by
+  overriding the Section 6 CSS custom properties at runtime; a serialized
+  snapshot of the chosen palette is cached under `tk:v1:theme:<id>` so the
+  no-flash inline bootstrap can apply it before any module loads. `theme: "dark"
+  /"light"` legacy values are no longer valid in stored settings — `parseSettings`
+  repairs them to `system` — and backups carrying them re-resolve the same way.
+  Difficulty filtering, stop-on-error, blind mode, the caret styles, live-WPM
+  hiding and single-line mode are wired into the practice island; the current
+  run is never rebuilt mid-run by a settings change, only the next text is.
+- 2026-09-28 — **Footer removed; header reduced to icons; words mode, weak-key
+  drills, sound and Bengali numerals added.** The owner asked for a total
+  monkeytype-style chrome: `SiteFooter.astro` was deleted outright and the
+  header became a logo plus icon-only buttons (lessons, progress, language,
+  settings) with no border. The theme registry grew to 39 concrete palettes
+  (dracula, tokyonight, catppuccin, rosepine, everforest, onedark, solarized
+  pair, githubdark, monokai, synthwave, cyberpunk, radical, and Bangla-specific
+  ones: `bd` and `shapla`). Settings gained a numerals choice (latin/Bengali
+  digits via `src/lib/numerals.ts`, applied to every stat and result) and a
+  sound choice (off/click/error/both, synthesised with WebAudio in
+  `src/lib/sound.ts`, no audio assets). The toolbar gained a words-mode group
+  (10/25/50/100 committed words, untimed, target truncated to the goal) and a
+  weak-key drill button that builds one practice text from the stored error
+  map via `src/lib/weakKeys.ts` — disabled until at least one mistake is on
+  record. A drill run is exited by the same controls as a custom run.
+- 2026-09-28 — **Dark palette re-tuned toward monkeytype's "serika dark".** The
+  owner asked for monkeytype-inspired styling. The dark values in
+  `src/styles/tokens.css` changed (light mode is untouched): background and
+  surfaces became warm charcoal (`#2c2e31` / `#323437`), foreground text warm
+  off-white (`#d1d0c9`), the accent warm amber (`#e2b714`), and the dark
+  `--correct` value became the foreground colour itself so typed text simply
+  steps out of the dim untyped field instead of glowing green. Error red moved to
+  monkeytype's `#ca4754`. The typing area lost its card border — the words are
+  the UI — the caret became a vertical bar on the next cluster, the practice
+  toolbar is centred, and untyped text uses the same `--pending` value as
+  `--muted` for the dim "to do" state. This is a deliberate deviation from the
+  literal Section 6 dark hex values; the token names, `light-dark()` structure
+  and light palette are unchanged.

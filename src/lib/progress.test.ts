@@ -305,7 +305,7 @@ describe("aggregates", () => {
 describe("the backup file", () => {
   function seededStorage() {
     const storage = createMemoryStorage();
-    saveSettings({ ...defaultSettings, theme: "dark", fontSize: 34 }, storage);
+    saveSettings({ ...defaultSettings, theme: "serika", fontSize: 34 }, storage);
     saveRuns([makeRun({ id: "kept" })], storage);
     saveErrorMap({ "কা": { missed: 1, seen: 2 } }, storage);
     return storage;
@@ -316,7 +316,7 @@ describe("the backup file", () => {
 
     expect(backup.app).toBe(BACKUP_APP);
     expect(backup.version).toBe(BACKUP_VERSION);
-    expect(backup.settings.theme).toBe("dark");
+    expect(backup.settings.theme).toBe("serika");
     expect(backup.runs.map((run) => run.id)).toEqual(["kept"]);
     expect(backup.errorMap).toEqual({ "কা": { missed: 1, seen: 2 } });
   });
@@ -368,14 +368,14 @@ describe("the backup file", () => {
       app: BACKUP_APP,
       version: BACKUP_VERSION,
       exportedAt: 42,
-      settings: { theme: "light" },
+      settings: { theme: "paper" },
       runs: [makeRun({ id: "imported" })],
       errorMap: { "খ": { missed: 1, seen: 1 } },
     });
 
     expect(backup).not.toBeNull();
     expect(applyBackup(backup as NonNullable<typeof backup>, target)).toBe(true);
-    expect(loadSettings(target).theme).toBe("light");
+    expect(loadSettings(target).theme).toBe("paper");
     expect(loadRuns(target).map((run) => run.id)).toEqual(["imported"]);
     expect(loadErrorMap(target)).toEqual({ "খ": { missed: 1, seen: 1 } });
   });

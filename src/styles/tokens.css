@@ -1,7 +1,9 @@
 /*
  * Design tokens. Source of truth for colour, type and motion.
- * Light values follow Section 6 of docs/MASTERPLAN.md; the dark values and the
- * supporting tokens are derived from the same palette.
+ *
+ * Colours are inspired by monkeytype's "serika dark": a warm charcoal canvas,
+ * one warm accent, and untyped text kept visibly dimmer than typed text so the
+ * eye is always pulled forward. Light mode keeps the original quiet neutrals.
  *
  * Every colour uses light-dark(), so the OS preference applies on its own and a
  * forced choice only has to set `color-scheme` on the root.
@@ -10,24 +12,25 @@
 :root {
   color-scheme: light dark;
 
-  /* Section 6 colour tokens */
-  --bg: light-dark(#fafaf9, #0f1113);
-  --surface: light-dark(#ffffff, #171a1d);
-  --text: light-dark(#1a1d20, #e8eaed);
-  --muted: light-dark(#6b7280, #8b93a0);
-  --accent: light-dark(#0e7c5a, #34c38f);
-  --accent-2: light-dark(#e0364b, #f0687a);
-  --correct: light-dark(#0e7c5a, #34c38f);
-  --wrong: light-dark(#d92d3f, #f0687a);
-  --focus-ring: light-dark(#0e7c5a, #34c38f);
+  /* Section 6 colour tokens (dark values monkeytype-inspired). */
+  --bg: light-dark(#fafaf9, #2c2e31);
+  --surface: light-dark(#ffffff, #323437);
+  --text: light-dark(#1a1d20, #d1d0c9);
+  --muted: light-dark(#6b7280, #646669);
+  --accent: light-dark(#0e7c5a, #e2b714);
+  --accent-2: light-dark(#e0364b, #ca4754);
+  --correct: light-dark(#0e7c5a, #d1d0c9);
+  --wrong: light-dark(#d92d3f, #ca4754);
+  --focus-ring: light-dark(#0e7c5a, #e2b714);
 
-  /* Supporting surfaces and lines */
-  --surface-2: light-dark(#f2f2ef, #1e2226);
-  --border: light-dark(#e5e4e0, #272c31);
-  --border-strong: light-dark(#d3d2cc, #363c42);
-  --on-accent: light-dark(#ffffff, #0f1113);
-  --pending: light-dark(#a4abb3, #5d656e);
-  --accent-soft: light-dark(#e7f2ed, #12251f);
+  /* Supporting surfaces and lines. */
+  --surface-2: light-dark(#f2f2ef, #2c2e31);
+  --border: light-dark(#e5e4e0, #3a3c40);
+  --border-strong: light-dark(#d3d2cc, #4a4c50);
+  --on-accent: light-dark(#ffffff, #2c2e31);
+  /* Untyped text sits well below muted: the target text's "to do" state. */
+  --pending: light-dark(#a4abb3, #646669);
+  --accent-soft: light-dark(#e7f2ed, #3a3c40);
   --overlay: light-dark(rgb(26 29 32 / 0.45), rgb(0 0 0 / 0.6));
   --shadow-soft: 0 1px 2px light-dark(rgb(16 24 32 / 0.05), rgb(0 0 0 / 0.4)),
     0 12px 32px -20px light-dark(rgb(16 24 32 / 0.25), rgb(0 0 0 / 0.8));

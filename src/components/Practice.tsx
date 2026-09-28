@@ -36,7 +36,11 @@ import {
   recordRun,
   type LessonProgress,
 } from "../lib/progress";
-import { defaultSettings } from "../lib/settings";
+import { defaultSettings, type CaretStyle } from "../lib/settings";
+import { formatNumeral } from "../lib/numerals";
+import { loadErrorMap } from "../lib/progress";
+import { playSound } from "../lib/sound";
+import { buildWeakKeyText, topWeakKeys } from "../lib/weakKeys";
 import CustomText from "./CustomText";
 
 /** Everything the runner needs for one lesson, resolved at build time. */
@@ -60,9 +64,12 @@ interface RunModel {
   durationMs: number | null;
   session: SessionState;
   history: readonly string[];
+  /** Words mode: end after this many committed words; null = text/timed mode. */
+  wordGoal: number | null;
 }
 
 const DURATIONS: readonly (number | null)[] = [null, 60_000, 180_000, 300_000];
+const WORD_GOALS: readonly number[] = [10, 25, 50, 100];
 const HISTORY_LIMIT = 6;
 
 function createEngine(mode: InputEngineId): InputEngine {
@@ -75,24 +82,56 @@ function createRun(options: {
   seed: number;
   history?: readonly string[];
   difficulty?: Difficulty | "all";
+  /** Letter/word strictness, applied for the whole run. */
+  stopOnError?: boolean;
+  /** Words mode target; null keeps the whole text. */
+  wordGoal?: number | null;
 }): RunModel {
-  const { pool, durationMs, seed, history = [], difficulty = "all" } = options;
+  const {
+    pool,
+    durationMs,
+    seed,
+    history = [],
+    difficulty = "all",
+    stopOnError = false,
+    wordGoal = null,
+  } = options;
   const text = pickText(pool, { difficulty, exclude: [...history], rng: createRng(seed) }) ?? pool[0];
+  // Words mode: exactly goal words. A longer text is truncated; a shorter pool
+  // text is used whole (a custom paste is never truncated).
+  const allWords = wordsOf(text);
+  const targetWords = wordGoal !== null ? allWords.slice(0, wordGoal) : allWords;
 
   return {
     text,
     durationMs,
-    session: createSession({ targetWords: wordsOf(text), durationMs }),
+    session: createSession({ targetWords, durationMs, stopOnError }),
     history: [...history, text.id].slice(-HISTORY_LIMIT),
+    wordGoal,
   };
 }
 
-function clusterClass(state: ClusterState, isNext: boolean): string {
-  const caret = isNext ? " border-b-2 border-accent" : "";
+function clusterClass(
+  state: ClusterState,
+  isNext: boolean,
+  blindMode: boolean,
+  caretStyle: CaretStyle,
+): string {
+  const caret =
+    isNext && caretStyle === "bar"
+      ? " border-s-2 border-s-accent ps-0.5"
+      : isNext && caretStyle === "underline"
+        ? " border-b-2 border-accent"
+        : "";
+
+  // Blind mode: correctness is never coloured — raw speed only.
+  if (blindMode) return `text-text${caret}`;
 
   switch (state) {
     case "correct":
-      return `text-correct${caret}`;
+      // Typed text is the page's foreground colour: nothing glows, it simply
+      // steps out of the dim untyped field — the monkeytype convention.
+      return `text-text${caret}`;
     case "wrong":
       return `text-wrong underline decoration-wrong decoration-2 underline-offset-4${caret}`;
     case "extra":
@@ -122,6 +161,11 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Count of usable weak keys, computed without allocating the ranked list twice. */
+function topWeakKeyCount(errorMap: Readonly<Record<string, { missed: number; seen: number }>>): number {
+  return topWeakKeys(errorMap).length;
+}
+
 export default function Practice({ lang, seed = 1, lesson }: Props) {
   const t = useTranslations(lang);
 
@@ -129,12 +173,24 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const [customRun, setCustomRun] = useState<PracticeText | null>(null);
   const [customPanelOpen, setCustomPanelOpen] = useState(false);
   const [customStorageOk, setCustomStorageOk] = useState(true);
+  const [blindMode, setBlindMode] = useState(false);
+  const [liveWpm, setLiveWpm] = useState(true);
+  const [caretStyle, setCaretStyle] = useState<CaretStyle>("bar");
+  const [stopOnError, setStopOnError] = useState(false);
+  const [stopOnErrorWord, setStopOnErrorWord] = useState(false);
+  const [storedDifficulty, setStoredDifficulty] = useState<Difficulty | "all">("all");
+  const [showAllLines, setShowAllLines] = useState(true);
+  const [numerals, setNumerals] = useState<"latin" | "bengali">("latin");
+  const [sound, setSound] = useState<"off" | "click" | "error" | "both">("off");
+  const [wordGoal, setWordGoal] = useState<number | null>(null);
+  const [weakDrill, setWeakDrill] = useState<PracticeText | null>(null);
 
   // A lesson drills a fixed set, untimed, and a custom run drills exactly the
   // text the user pasted. On the practice page the first text is deliberately an
   // easy one: a beginner should not meet a conjunct-heavy sentence in the first
   // five seconds.
   const pool = lesson?.texts ?? (customRun !== null ? [customRun] : practiceTexts);
+  const difficulty = lesson === undefined ? storedDifficulty : "all";
 
   const [model, setModel] = useState<RunModel>(() =>
     createRun({ pool, durationMs: null, seed, difficulty: lesson === undefined ? "easy" : "all" }),
@@ -152,6 +208,15 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     const stored = loadAndApplySettings();
     setMode(stored.inputMode);
     engineRef.current = createEngine(stored.inputMode);
+    setBlindMode(stored.blindMode);
+    setLiveWpm(stored.liveWpm);
+    setCaretStyle(stored.caretStyle);
+    setStopOnError(stored.stopOnError !== "off");
+    setStopOnErrorWord(stored.stopOnError === "word");
+    setStoredDifficulty(stored.difficulty);
+    setShowAllLines(stored.showAllLines);
+    setNumerals(stored.numerals);
+    setSound(stored.sound);
   }, []);
 
   // The settings drawer can change the input mode while a run is on screen.
@@ -168,6 +233,15 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           }));
           return settings.inputMode;
         });
+        setBlindMode(settings.blindMode);
+        setLiveWpm(settings.liveWpm);
+        setCaretStyle(settings.caretStyle);
+        setStopOnError(settings.stopOnError !== "off");
+        setStopOnErrorWord(settings.stopOnError === "word");
+        setStoredDifficulty(settings.difficulty);
+        setShowAllLines(settings.showAllLines);
+        setNumerals(settings.numerals);
+        setSound(settings.sound);
       }),
     [],
   );
@@ -175,6 +249,18 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const apply = (event: SessionEvent) => {
     setModel((current) => ({ ...current, session: reduce(current.session, event) }));
     if ("at" in event) setNow(event.at);
+  };
+
+  /** Feedback blips; computed from the event before the state lands. */
+  const applyWithSound = (event: SessionEvent) => {
+    if (sound === "click" || sound === "both") playSound("click");
+
+    if ((sound === "error" || sound === "both") && event.type === "commit") {
+      const upcoming = reduce(model.session, event).committed.at(-1);
+      if (upcoming !== undefined && upcoming.correct === false) playSound("error");
+    }
+
+    apply(event);
   };
 
   const restart = () => {
@@ -189,12 +275,16 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const nextText = () => {
     engineRef.current.reset();
     setOsKeyboard(false);
+    setWeakDrill(null);
     setModel((current) =>
       createRun({
         pool,
         durationMs: current.durationMs,
         seed: Date.now() % 0x7fff_ffff,
         history: current.history,
+        difficulty,
+        stopOnError: stopOnErrorWord || stopOnError,
+        wordGoal,
       }),
     );
   };
@@ -202,12 +292,57 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const chooseDuration = (durationMs: number | null) => {
     engineRef.current.reset();
     setOsKeyboard(false);
+    setWordGoal(null);
+    setWeakDrill(null);
     setModel((current) =>
       createRun({
         pool,
         durationMs,
         seed: Date.now() % 0x7fff_ffff,
         history: current.history,
+        difficulty,
+        stopOnError: stopOnErrorWord || stopOnError,
+        wordGoal: null,
+      }),
+    );
+  };
+
+  /** Words mode: commit a fixed number of words, untimed. */
+  const chooseWordGoal = (goal: number | null) => {
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setWeakDrill(null);
+    setWordGoal(goal);
+    setModel((current) =>
+      createRun({
+        pool,
+        durationMs: null,
+        seed: Date.now() % 0x7fff_ffff,
+        history: current.history,
+        difficulty,
+        stopOnError: stopOnErrorWord || stopOnError,
+        wordGoal: goal,
+      }),
+    );
+  };
+
+  /** One focused drill over the clusters this browser mistypes most. */
+  const startWeakDrill = () => {
+    const drill = buildWeakKeyText(loadErrorMap(), [
+      "কষ্ট", "জ্ঞান", "স্কুল", "ক্ষমা", "দ্বার", "নিশ্চয়", "উৎসব", "স্বর", "ঋণ", "যত্ন",
+    ]);
+    if (drill === null) return;
+
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setWordGoal(null);
+    setWeakDrill(drill);
+    setModel(
+      createRun({
+        pool: [drill],
+        durationMs: null,
+        seed: Date.now() % 0x7fff_ffff,
+        stopOnError: stopOnErrorWord || stopOnError,
       }),
     );
   };
@@ -245,6 +380,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         durationMs: null,
         seed: Date.now() % 0x7fff_ffff,
         history: [],
+        difficulty,
       }),
     );
   };
@@ -301,24 +437,27 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       switch (action.type) {
         case "append":
           event.preventDefault();
-          apply({ type: "input", text: action.text, at });
+          applyWithSound({ type: "input", text: action.text, at });
           break;
         case "compose":
           event.preventDefault();
-          apply({ type: "compose", text: action.text, composing: action.composing, at });
+          applyWithSound({ type: "compose", text: action.text, composing: action.composing, at });
           break;
         case "backspace":
           event.preventDefault();
-          apply({ type: "backspace", at });
+          applyWithSound({ type: "backspace", at });
           break;
         case "commit":
           event.preventDefault();
-          apply({ type: "commit", at });
+          applyWithSound({ type: "commit", at });
           break;
         case "ignore":
           // A Bangla character arrived from an installed keyboard while the
           // built-in engine was on: say so instead of dropping it silently.
-          if (action.reason === "wrong-script") setOsKeyboard(true);
+          if (action.reason === "wrong-script") {
+            setOsKeyboard(true);
+            if (sound === "error" || sound === "both") playSound("error");
+          }
           break;
       }
     };
@@ -342,6 +481,10 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   const { session } = model;
   const finished = session.state === "finished";
+  const activeIndex = session.committed.length;
+  // The weak drill is only meaningful once at least one mistake was recorded.
+  const weakAvailable =
+    lesson === undefined && customRun === null && topWeakKeyCount(loadErrorMap()) > 0;
   const stats = sessionStats(session, now);
   const view = renderProgress(session.target, session.committed, session.active);
   const mistakes = finished ? collectMistakes(session.committed, session.target) : [];
@@ -406,8 +549,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   return (
     <div>
-      {/* Toolbar */}
-      <div class="flex flex-wrap items-center gap-2">
+      {/* Toolbar: quiet, centred, one row. */}
+      <div class="flex flex-wrap items-center justify-center gap-2">
         <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
           <span class="size-1.5 rounded-full bg-accent" aria-hidden="true" />
           {mode === "avro-phonetic" ? t("practice.mode.builtin") : t("practice.mode.system")}
@@ -434,28 +577,65 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           </>
         )}
 
+        {lesson === undefined && customRun === null && weakDrill === null && (
+          <>
+            <div
+              role="group"
+              aria-label={t("practice.time")}
+              class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
+            >
+              {DURATIONS.map((duration) => (
+                <button
+                  key={String(duration)}
+                  type="button"
+                  aria-pressed={model.durationMs === duration && wordGoal === null}
+                  onClick={() => chooseDuration(duration)}
+                  class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
+                    model.durationMs === duration && wordGoal === null
+                      ? "bg-accent text-on-accent"
+                      : "text-muted hover:text-text"
+                  }`}
+                >
+                  {duration === null ? "∞" : formatNumeral(duration / 60_000, numerals) + "m"}
+                </button>
+              ))}
+            </div>
+
+            <div
+              role="group"
+              aria-label={t("practice.words")}
+              class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
+            >
+              {WORD_GOALS.map((goal) => (
+                <button
+                  key={goal}
+                  type="button"
+                  aria-pressed={wordGoal === goal}
+                  onClick={() => chooseWordGoal(goal)}
+                  class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
+                    wordGoal === goal
+                      ? "bg-accent text-on-accent"
+                      : "text-muted hover:text-text"
+                  }`}
+                >
+                  {formatNumeral(goal, numerals)}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
         {lesson === undefined && customRun === null && (
-          <div
-            role="group"
-            aria-label={t("practice.time")}
-            class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
+          <button
+            type="button"
+            onClick={startWeakDrill}
+            disabled={weakAvailable === false}
+            title={t("practice.weakDrill")}
+            aria-label={t("practice.weakDrill")}
+            class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {DURATIONS.map((duration) => (
-              <button
-                key={String(duration)}
-                type="button"
-                aria-pressed={model.durationMs === duration}
-                onClick={() => chooseDuration(duration)}
-                class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
-                  model.durationMs === duration
-                    ? "bg-accent text-on-accent"
-                    : "text-muted hover:text-text"
-                }`}
-              >
-                {duration === null ? "∞" : `${duration / 60_000}m`}
-              </button>
-            ))}
-          </div>
+            {t("practice.weakDrill")}
+          </button>
         )}
 
         <button
@@ -522,18 +702,27 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         />
       )}
 
-      {/* Typing area */}
+      {/* Typing area: borderless, monkeytype-style — the words are the UI. */}
       <div
-        class="relative mt-4 rounded-card border border-border bg-surface transition-colors duration-150 ease-out focus-within:border-accent/60"
+        class="relative mt-6 rounded-card transition-colors duration-150 ease-out focus-within:outline-none"
         onClick={focusInput}
       >
         <div
           lang="bn"
           role="group"
           aria-label={t("practice.typingArea")}
-          class="typing-text flex select-none flex-wrap content-start gap-x-[0.55em] gap-y-2 px-5 py-6 sm:px-7 sm:py-7"
+          class="typing-text flex select-none flex-wrap content-start gap-x-[0.55em] gap-y-2 px-5 py-6 sm:px-7 sm:py-8"
         >
           {view.words.map((word, wordIndex) => {
+            // Single-line mode: only a window around the active word is shown,
+            // monkeytype-style. The words still exist — they are just not drawn.
+            if (
+              !showAllLines &&
+              (wordIndex < activeIndex - 1 || wordIndex > activeIndex + 11)
+            ) {
+              return null;
+            }
+
             const nextCluster = word.status === "active"
               ? word.clusters.findIndex((cluster) => cluster.state !== "correct")
               : -1;
@@ -543,13 +732,18 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
                 {word.clusters.map((cluster, clusterIndex) => (
                   <span
                     key={clusterIndex}
-                    class={clusterClass(cluster.state, clusterIndex === nextCluster)}
+                    class={clusterClass(
+                      cluster.state,
+                      clusterIndex === nextCluster,
+                      blindMode,
+                      caretStyle,
+                    )}
                   >
                     {cluster.target}
                   </span>
                 ))}
                 {word.extra.map((cluster, extraIndex) => (
-                  <span key={`extra-${extraIndex}`} class={clusterClass("extra", false)}>
+                  <span key={`extra-${extraIndex}`} class={clusterClass("extra", false, blindMode, caretStyle)}>
                     {cluster}
                   </span>
                 ))}
@@ -605,21 +799,32 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         </p>
       )}
 
-      {/* Live stats */}
-      <div class="mt-5 flex flex-wrap items-end gap-x-6 gap-y-3 border-t border-border pt-5">
-        <Stat label={t("practice.wpm")} value={String(stats.wpm)} />
+      {/* Live stats: only while the user wants them (monkeytype hides these by default). */}
+      <div
+        class={`mt-5 flex flex-wrap items-end gap-x-6 gap-y-3 border-t border-border pt-5 ${
+          liveWpm ? "" : "hidden"
+        }`}
+      >
+        <Stat label={t("practice.wpm")} value={formatNumeral(stats.wpm, numerals)} />
         <Stat
           label={t("practice.accuracy")}
-          value={stats.targetClusters > 0 ? `${stats.accuracy}%` : "—"}
+          value={
+            stats.targetClusters > 0
+              ? `${formatNumeral(stats.accuracy, numerals)}%`
+              : "—"
+          }
         />
         <Stat
           label={t("practice.time")}
-          value={formatDuration(timed ? countdown : stats.elapsedMs)}
+          value={formatNumeral(formatDuration(timed ? countdown : stats.elapsedMs), numerals)}
         />
-        <Stat label={t("practice.kpm")} value={String(stats.kpm)} />
+        <Stat label={t("practice.kpm")} value={formatNumeral(stats.kpm, numerals)} />
         <Stat
           label={t("results.correct")}
-          value={`${stats.correctWords}/${session.target.length}`}
+          value={formatNumeral(
+            `${stats.correctWords}/${session.target.length}`,
+            numerals,
+          )}
         />
       </div>
 
@@ -631,7 +836,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       {finished && (
         <section
           aria-labelledby="results-heading"
-          class="mt-6 rounded-card border border-border bg-surface p-6 shadow-[var(--shadow-soft)]"
+          class="mt-6 rounded-card border border-border bg-surface p-6"
         >
           <h3 id="results-heading" class="text-sm font-semibold uppercase tracking-wide text-muted">
             {t("results.heading")}
@@ -653,15 +858,18 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           <div class="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
             <div>
               <div class="text-5xl font-semibold tabular-nums leading-none text-accent">
-                {stats.wpm}
+                {formatNumeral(stats.wpm, numerals)}
               </div>
               <div class="mt-1 text-xs font-medium uppercase tracking-wide text-muted">
                 {t("results.wpm")}
               </div>
             </div>
-            <Stat label={t("results.accuracy")} value={`${stats.accuracy}%`} />
-            <Stat label={t("results.time")} value={formatDuration(stats.elapsedMs)} />
-            <Stat label={t("results.kpm")} value={String(stats.kpm)} />
+            <Stat label={t("results.accuracy")} value={`${formatNumeral(stats.accuracy, numerals)}%`} />
+            <Stat
+              label={t("results.time")}
+              value={formatNumeral(formatDuration(stats.elapsedMs), numerals)}
+            />
+            <Stat label={t("results.kpm")} value={formatNumeral(stats.kpm, numerals)} />
             <Stat
               label={t("results.words")}
               value={`${stats.correctWords} ${t("results.correct").toLowerCase()} · ${stats.incorrectWords} ${t(

@@ -54,7 +54,7 @@ export default function CustomText({
     <section
       id="custom-text-panel"
       aria-labelledby="custom-text-heading"
-      class="mt-4 rounded-card border border-border bg-surface p-5 shadow-[var(--shadow-soft)]"
+      class="mt-4 rounded-card border border-border bg-surface p-5"
     >
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="max-w-2xl">
