@@ -22,13 +22,29 @@ import {
 } from "../engine/text/provider";
 import { useTranslations, type Lang } from "../i18n";
 import { loadAndApplySettings, onSettingsChange } from "../lib/applySettings";
-import { newRunId, recordRun } from "../lib/progress";
+import {
+  loadLessonProgress,
+  newRunId,
+  recordLessonResult,
+  recordRun,
+  type LessonProgress,
+} from "../lib/progress";
 import { defaultSettings } from "../lib/settings";
+
+/** Everything the runner needs for one lesson, resolved at build time. */
+export interface LessonRun {
+  id: string;
+  title: string;
+  passAccuracy: number;
+  texts: PracticeText[];
+}
 
 interface Props {
   lang: Lang;
   /** Fixed seed keeps the first text identical on the server and after hydration. */
   seed?: number;
+  /** Lesson mode: a fixed drill set with a pass criterion instead of a timed test. */
+  lesson?: LessonRun;
 }
 
 interface RunModel {
@@ -45,15 +61,15 @@ function createEngine(mode: InputEngineId): InputEngine {
   return mode === "avro-phonetic" ? createPhoneticEngine() : createSystemEngine();
 }
 
-function createRun(
-  durationMs: number | null,
-  seed: number,
-  history: readonly string[] = [],
-  difficulty: Difficulty | "all" = "all",
-): RunModel {
-  const text =
-    pickText(practiceTexts, { difficulty, exclude: [...history], rng: createRng(seed) }) ??
-    practiceTexts[0];
+function createRun(options: {
+  pool: readonly PracticeText[];
+  durationMs: number | null;
+  seed: number;
+  history?: readonly string[];
+  difficulty?: Difficulty | "all";
+}): RunModel {
+  const { pool, durationMs, seed, history = [], difficulty = "all" } = options;
+  const text = pickText(pool, { difficulty, exclude: [...history], rng: createRng(seed) }) ?? pool[0];
 
   return {
     text,
@@ -98,15 +114,21 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function Practice({ lang, seed = 1 }: Props) {
+export default function Practice({ lang, seed = 1, lesson }: Props) {
   const t = useTranslations(lang);
 
-  // The first text is deliberately an easy one: a beginner should not meet a
-  // conjunct-heavy sentence in the first five seconds.
-  const [model, setModel] = useState<RunModel>(() => createRun(null, seed, [], "easy"));
+  // A lesson drills a fixed set, untimed. On the practice page the first text is
+  // deliberately an easy one: a beginner should not meet a conjunct-heavy
+  // sentence in the first five seconds.
+  const pool = lesson?.texts ?? practiceTexts;
+
+  const [model, setModel] = useState<RunModel>(() =>
+    createRun({ pool, durationMs: null, seed, difficulty: lesson === undefined ? "easy" : "all" }),
+  );
   const [now, setNow] = useState(0);
   const [mode, setMode] = useState<InputEngineId>(defaultSettings.inputMode);
   const [osKeyboard, setOsKeyboard] = useState(false);
+  const [lessonRecord, setLessonRecord] = useState<LessonProgress | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const engineRef = useRef<InputEngine>(createEngine(defaultSettings.inputMode));
@@ -153,14 +175,34 @@ export default function Practice({ lang, seed = 1 }: Props) {
   const nextText = () => {
     engineRef.current.reset();
     setOsKeyboard(false);
-    setModel((current) => createRun(current.durationMs, Date.now() % 0x7fff_ffff, current.history));
+    setModel((current) =>
+      createRun({
+        pool,
+        durationMs: current.durationMs,
+        seed: Date.now() % 0x7fff_ffff,
+        history: current.history,
+      }),
+    );
   };
 
   const chooseDuration = (durationMs: number | null) => {
     engineRef.current.reset();
     setOsKeyboard(false);
-    setModel((current) => createRun(durationMs, Date.now() % 0x7fff_ffff, current.history));
+    setModel((current) =>
+      createRun({
+        pool,
+        durationMs,
+        seed: Date.now() % 0x7fff_ffff,
+        history: current.history,
+      }),
+    );
   };
+
+  // The best result for this lesson so far, read once on mount.
+  useEffect(() => {
+    if (lesson === undefined) return;
+    setLessonRecord(loadLessonProgress()[lesson.id] ?? null);
+  }, [lesson]);
 
   // One listener for the whole document: the first keystroke anywhere starts the
   // run, so there is nothing to click before the first word.
@@ -269,7 +311,25 @@ export default function Practice({ lang, seed = 1 }: Props) {
       },
       session.committed,
     );
-  }, [session.state, session.startedAt, session.finishedAt, model.text.id, mode]);
+
+    if (lesson !== undefined) {
+      const passed = stats.accuracy >= lesson.passAccuracy;
+      recordLessonResult(lesson.id, {
+        accuracy: stats.accuracy,
+        wpm: stats.wpm,
+        passed,
+        at: session.finishedAt ?? Date.now(),
+      });
+      setLessonRecord(loadLessonProgress()[lesson.id] ?? null);
+    }
+  }, [
+    session.state,
+    session.startedAt,
+    session.finishedAt,
+    model.text.id,
+    mode,
+    lesson,
+  ]);
 
   const focusInput = () => inputRef.current?.focus();
 
@@ -293,27 +353,45 @@ export default function Practice({ lang, seed = 1 }: Props) {
           )}
         </span>
 
-        <div
-          role="group"
-          aria-label={t("practice.time")}
-          class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
-        >
-          {DURATIONS.map((duration) => (
-            <button
-              key={String(duration)}
-              type="button"
-              aria-pressed={model.durationMs === duration}
-              onClick={() => chooseDuration(duration)}
-              class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
-                model.durationMs === duration
-                  ? "bg-accent text-on-accent"
-                  : "text-muted hover:text-text"
-              }`}
-            >
-              {duration === null ? "∞" : `${duration / 60_000}m`}
-            </button>
-          ))}
-        </div>
+        {lesson !== undefined && (
+          <>
+            <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
+              {t("lesson.criterion")}
+              <span class="tabular-nums text-text">{lesson.passAccuracy}%</span>
+            </span>
+
+            {lessonRecord !== null && (
+              <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
+                {t("lesson.bestAccuracy")}
+                <span class="tabular-nums text-text">{lessonRecord.bestAccuracy}%</span>
+              </span>
+            )}
+          </>
+        )}
+
+        {lesson === undefined && (
+          <div
+            role="group"
+            aria-label={t("practice.time")}
+            class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
+          >
+            {DURATIONS.map((duration) => (
+              <button
+                key={String(duration)}
+                type="button"
+                aria-pressed={model.durationMs === duration}
+                onClick={() => chooseDuration(duration)}
+                class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
+                  model.durationMs === duration
+                    ? "bg-accent text-on-accent"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                {duration === null ? "∞" : `${duration / 60_000}m`}
+              </button>
+            ))}
+          </div>
+        )}
 
         <button
           type="button"
@@ -328,7 +406,7 @@ export default function Practice({ lang, seed = 1 }: Props) {
           onClick={nextText}
           class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
         >
-          {t("practice.nextText")}
+          {lesson === undefined ? t("practice.nextText") : t("lesson.nextDrill")}
         </button>
       </div>
 
@@ -447,6 +525,19 @@ export default function Practice({ lang, seed = 1 }: Props) {
             {t("results.heading")}
           </h3>
 
+          {lesson !== undefined && (
+            <p
+              role="status"
+              class={`mt-3 rounded-card border px-4 py-2.5 text-sm font-medium text-text ${
+                stats.accuracy >= lesson.passAccuracy
+                  ? "border-accent/40 bg-accent-soft"
+                  : "border-accent-2/40 bg-surface-2"
+              }`}
+            >
+              {stats.accuracy >= lesson.passAccuracy ? t("lesson.passed") : t("lesson.failed")}
+            </p>
+          )}
+
           <div class="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
             <div>
               <div class="text-5xl font-semibold tabular-nums leading-none text-accent">
@@ -519,7 +610,7 @@ export default function Practice({ lang, seed = 1 }: Props) {
               onClick={nextText}
               class="rounded-control border border-border bg-surface px-4 py-2 text-sm font-medium text-text transition-colors duration-150 ease-out hover:bg-surface-2"
             >
-              {t("results.newText")}
+              {lesson === undefined ? t("results.newText") : t("lesson.nextDrill")}
             </button>
           </div>
         </section>

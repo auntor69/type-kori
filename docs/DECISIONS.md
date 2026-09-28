@@ -182,3 +182,36 @@ with the reason. Newest last.
   hand-rolled SVG or one tiny library; a polyline plus circles is a few hundred
   bytes and keeps the progress page inside the Section 12 budget. The same numbers
   are also in the run table, so the chart is never the only way to read the data.
+
+## Phase 4 — content and lessons
+
+- 2026-09-28 — **A lesson drill is a content item shaped exactly like a practice
+  text.** Section 8 fixes the shape of a text (`id`, `text`, `difficulty`, `topic`,
+  `source`, `reviewed`) and Section 10 wants unreviewed content to fail the build.
+  Giving the drills the same shape means one validator and one review flag cover
+  both kinds of content, and a drill gets the same comparison rules as a practice
+  text. The drills live in `content/lessons/drills.json`, and `src/content/drills.ts`
+  resolves an id across both sets so a lesson can use a drill or a practice text.
+- 2026-09-28 — **The drills are letter and sign drills first, words second, and the
+  last two lessons reuse the existing library.** Section 8's early lessons are about
+  the letters themselves, so those drills are alphabet drills (ক খ গ ঘ ঙ, কা কি কু)
+  rather than invented vocabulary. Lessons 11 and 12 point at the practice texts
+  that already exist instead of duplicating sentences into a second file. Every
+  drill is `reviewed: false` and listed in `docs/VERIFY.md`; nothing here is
+  silently guessed.
+- 2026-09-28 — **A lesson is untimed and does not use `stopOnError`.** Section 7.4.5
+  offers "stop on error" for beginner lessons, but that option refuses to commit a
+  wrong word, which would make every committed word correct and the Section 8 pass
+  criterion (90% accuracy) meaningless. Lessons therefore run the normal scoring path
+  with no timer: the drill ends when the text is finished.
+- 2026-09-28 — **Lesson progress is stored under `tk:v1:lessons` as Section 9
+  describes it** (`bestAccuracy`, `bestWpm`, `completedAt`), written after every
+  finished lesson run, and it is part of the backup file. The backup schema version
+  stays at **1**: a file exported before lessons existed simply has no `lessons` key,
+  which reads as empty, and bumping the version would have invalidated an export the
+  user made minutes earlier for no benefit.
+- 2026-09-28 — **The lessons index is prerendered HTML with no completion ticks
+  yet.** The list has to be crawlable (Section 11), so the links and the lesson copy
+  are static. Marking a passed lesson on that list needs a client island, which is
+  deferred rather than shipping a list that is empty without JavaScript; the best
+  result for a lesson is already shown on the lesson page itself.

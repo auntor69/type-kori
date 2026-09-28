@@ -10,6 +10,7 @@
   "nav.skipToContent": "Skip to content",
   "nav.primary": "Main",
   "nav.practice": "Practice",
+  "nav.lessons": "Lessons",
   "nav.progress": "Progress",
   "nav.how": "How it works",
   "nav.privacy": "Privacy",
@@ -102,6 +103,13 @@
   "progress.importFailed": "That file is not a Type Kori backup.",
   "progress.resetDone": "All data deleted from this browser.",
   "progress.storageUnavailable": "This browser is not storing anything, so history only lasts for this session.",
+
+  "lesson.criterion": "Pass at",
+  "lesson.passed": "Lesson passed.",
+  "lesson.failed": "Not passed yet — 90% accuracy is the bar.",
+  "lesson.bestAccuracy": "Best",
+  "lesson.nextDrill": "Another drill",
+  "lesson.allLessons": "All lessons",
 
   "a11y.themeToggle": "Change theme",
   "a11y.languageSwitch": "Switch language",

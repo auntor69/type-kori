@@ -27,9 +27,17 @@ Two input modes:
 A word counts as correct when its final Unicode text matches the target after
 normalization, no matter which keystrokes produced it.
 
-Finished runs, the error map and the settings all live in `localStorage`. The
-progress page summarises them and can export, import or reset them as one JSON
-file.
+Finished runs, the error map, lesson results and the settings all live in
+`localStorage`. The progress page summarises them and can export, import or reset
+them as one JSON file.
+
+## Lessons
+
+`/lessons` is a path of twelve short lessons, from the vowels to conjuncts, numbers
+and real-world text. Each lesson is a fixed drill set with no timer, passed at 90%
+accuracy. The curriculum and its copy are in `src/content/lessons.ts`, the drill
+texts in `content/lessons/drills.json`, and every drill carries the same
+`reviewed` flag as a practice text.
 
 ## Requirements
 
@@ -71,8 +79,9 @@ Other scripts:
 | `bun run check:attribution` | Authorship guard: tracked files + commit messages |
 | `bun run validate:text` | Content validator: characters, encodings, review flags |
 
-Pages: `/` (practice), `/progress` (history and data), `/privacy`. Every page has
-an English mirror under `/en/`.
+Pages: `/` (practice), `/lessons` (the twelve-lesson path, one page per lesson),
+`/progress` (history and data), `/privacy`. Every page has an English mirror under
+`/en/`.
 
 ## Test
 

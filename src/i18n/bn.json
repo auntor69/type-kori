@@ -10,6 +10,7 @@
   "nav.skipToContent": "মূল অংশে যান",
   "nav.primary": "প্রধান",
   "nav.practice": "প্র্যাকটিস",
+  "nav.lessons": "পাঠ",
   "nav.progress": "অগ্রগতি",
   "nav.how": "কীভাবে কাজ করে",
   "nav.privacy": "গোপনীয়তা",
@@ -102,6 +103,13 @@
   "progress.importFailed": "ফাইলটি Type Kori-র ব্যাকআপ নয়।",
   "progress.resetDone": "এই ব্রাউজার থেকে সব ডেটা মুছে ফেলা হয়েছে।",
   "progress.storageUnavailable": "এই ব্রাউজারে কিছুই সংরক্ষণ হচ্ছে না, তাই হিস্ট্রি শুধু এই সেশনের জন্য থাকবে।",
+
+  "lesson.criterion": "পাসের শর্ত",
+  "lesson.passed": "পাঠ পাস হয়েছে।",
+  "lesson.failed": "এবার হয়নি — ৯০% নির্ভুলতা দরকার।",
+  "lesson.bestAccuracy": "সেরা",
+  "lesson.nextDrill": "আরেকটি ড্রিল",
+  "lesson.allLessons": "সব পাঠ",
 
   "a11y.themeToggle": "থিম বদলান",
   "a11y.languageSwitch": "ভাষা বদলান",

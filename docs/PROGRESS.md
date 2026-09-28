@@ -74,16 +74,27 @@ and the phase is **not** complete. See items 11-16 in `docs/VERIFY.md`.
 
 ## Phase 4 — Content and lessons
 
-- [ ] Curriculum pages
-- [ ] Lesson runner with pass criteria
-- [ ] Text library
-- [ ] Build-time content validator
+- [x] Curriculum pages — 2026-09-28 · working tree (`/lessons` and
+      `/lessons/[slug]`, plus the English mirrors: twelve lessons with their own
+      copy, a real crawlable link per lesson, `ItemList` on the index and
+      `BreadcrumbList` on each lesson page)
+- [x] Lesson runner with pass criteria — 2026-09-28 · working tree (the typing
+      island takes a lesson: a fixed drill set, untimed, and a pass/fail banner at
+      90% accuracy; the best result so far is shown beside the criterion)
+- [ ] Text library — 26 practice texts and 29 lesson drills today, against the
+      ~150 reviewed texts the phase asks for
+- [x] Build-time content validator — 2026-09-28 · working tree (now also validates
+      `content/lessons/drills.json`, rejects a drill that shadows a practice text
+      id, and fails on a lesson pointing at a drill id that does not exist)
 - [ ] Custom text mode
 
-*Done when:* 12 lessons and ~150 reviewed texts are in. **Not started:** every
-text needs a native-speaker review before it ships (Section 8), so the content half
-of this phase is the owner's work. Phase 5 was taken first for that reason; see the
-note on phase order at the end of this file.
+*Done when:* 12 lessons and ~150 reviewed texts are in. **Partly met:** the twelve
+lessons exist and every link, drill id and copy field is checked by a test, so the
+mechanics of the phase are in place. What is missing is volume and review: 55
+authored items (26 practice texts, 29 drills) are still `reviewed: false`, against a
+target of ~150 reviewed texts, so `validate:text --strict` still fails. Custom text
+mode is next. The Bangla in the lesson copy and drills is a first draft and is
+listed in `docs/VERIFY.md`.
 
 ## Phase 5 — Progress and persistence
 
