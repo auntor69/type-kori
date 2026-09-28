@@ -36,7 +36,7 @@ import {
   recordRun,
   type LessonProgress,
 } from "../lib/progress";
-import { defaultSettings } from "../lib/settings";
+import { defaultSettings, type CaretStyle } from "../lib/settings";
 import CustomText from "./CustomText";
 
 /** Everything the runner needs for one lesson, resolved at build time. */
@@ -75,20 +75,35 @@ function createRun(options: {
   seed: number;
   history?: readonly string[];
   difficulty?: Difficulty | "all";
+  /** Letter/word strictness, applied for the whole run. */
+  stopOnError?: boolean;
 }): RunModel {
-  const { pool, durationMs, seed, history = [], difficulty = "all" } = options;
+  const { pool, durationMs, seed, history = [], difficulty = "all", stopOnError = false } = options;
   const text = pickText(pool, { difficulty, exclude: [...history], rng: createRng(seed) }) ?? pool[0];
 
   return {
     text,
     durationMs,
-    session: createSession({ targetWords: wordsOf(text), durationMs }),
+    session: createSession({ targetWords: wordsOf(text), durationMs, stopOnError }),
     history: [...history, text.id].slice(-HISTORY_LIMIT),
   };
 }
 
-function clusterClass(state: ClusterState, isNext: boolean): string {
-  const caret = isNext ? " border-s-2 border-s-accent ps-0.5" : "";
+function clusterClass(
+  state: ClusterState,
+  isNext: boolean,
+  blindMode: boolean,
+  caretStyle: CaretStyle,
+): string {
+  const caret =
+    isNext && caretStyle === "bar"
+      ? " border-s-2 border-s-accent ps-0.5"
+      : isNext && caretStyle === "underline"
+        ? " border-b-2 border-accent"
+        : "";
+
+  // Blind mode: correctness is never coloured — raw speed only.
+  if (blindMode) return `text-text${caret}`;
 
   switch (state) {
     case "correct":
@@ -131,12 +146,20 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const [customRun, setCustomRun] = useState<PracticeText | null>(null);
   const [customPanelOpen, setCustomPanelOpen] = useState(false);
   const [customStorageOk, setCustomStorageOk] = useState(true);
+  const [blindMode, setBlindMode] = useState(false);
+  const [liveWpm, setLiveWpm] = useState(true);
+  const [caretStyle, setCaretStyle] = useState<CaretStyle>("bar");
+  const [stopOnError, setStopOnError] = useState(false);
+  const [stopOnErrorWord, setStopOnErrorWord] = useState(false);
+  const [storedDifficulty, setStoredDifficulty] = useState<Difficulty | "all">("all");
+  const [showAllLines, setShowAllLines] = useState(true);
 
   // A lesson drills a fixed set, untimed, and a custom run drills exactly the
   // text the user pasted. On the practice page the first text is deliberately an
   // easy one: a beginner should not meet a conjunct-heavy sentence in the first
   // five seconds.
   const pool = lesson?.texts ?? (customRun !== null ? [customRun] : practiceTexts);
+  const difficulty = lesson === undefined ? storedDifficulty : "all";
 
   const [model, setModel] = useState<RunModel>(() =>
     createRun({ pool, durationMs: null, seed, difficulty: lesson === undefined ? "easy" : "all" }),
@@ -154,6 +177,13 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     const stored = loadAndApplySettings();
     setMode(stored.inputMode);
     engineRef.current = createEngine(stored.inputMode);
+    setBlindMode(stored.blindMode);
+    setLiveWpm(stored.liveWpm);
+    setCaretStyle(stored.caretStyle);
+    setStopOnError(stored.stopOnError !== "off");
+    setStopOnErrorWord(stored.stopOnError === "word");
+    setStoredDifficulty(stored.difficulty);
+    setShowAllLines(stored.showAllLines);
   }, []);
 
   // The settings drawer can change the input mode while a run is on screen.
@@ -170,6 +200,13 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           }));
           return settings.inputMode;
         });
+        setBlindMode(settings.blindMode);
+        setLiveWpm(settings.liveWpm);
+        setCaretStyle(settings.caretStyle);
+        setStopOnError(settings.stopOnError !== "off");
+        setStopOnErrorWord(settings.stopOnError === "word");
+        setStoredDifficulty(settings.difficulty);
+        setShowAllLines(settings.showAllLines);
       }),
     [],
   );
@@ -197,6 +234,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         durationMs: current.durationMs,
         seed: Date.now() % 0x7fff_ffff,
         history: current.history,
+        difficulty,
+        stopOnError: stopOnErrorWord || stopOnError,
       }),
     );
   };
@@ -210,6 +249,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         durationMs,
         seed: Date.now() % 0x7fff_ffff,
         history: current.history,
+        difficulty,
+        stopOnError: stopOnErrorWord || stopOnError,
       }),
     );
   };
@@ -247,6 +288,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         durationMs: null,
         seed: Date.now() % 0x7fff_ffff,
         history: [],
+        difficulty,
       }),
     );
   };
@@ -344,6 +386,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   const { session } = model;
   const finished = session.state === "finished";
+  const activeIndex = session.committed.length;
   const stats = sessionStats(session, now);
   const view = renderProgress(session.target, session.committed, session.active);
   const mistakes = finished ? collectMistakes(session.committed, session.target) : [];
@@ -536,6 +579,15 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           class="typing-text flex select-none flex-wrap content-start gap-x-[0.55em] gap-y-2 px-5 py-6 sm:px-7 sm:py-8"
         >
           {view.words.map((word, wordIndex) => {
+            // Single-line mode: only a window around the active word is shown,
+            // monkeytype-style. The words still exist — they are just not drawn.
+            if (
+              !showAllLines &&
+              (wordIndex < activeIndex - 1 || wordIndex > activeIndex + 11)
+            ) {
+              return null;
+            }
+
             const nextCluster = word.status === "active"
               ? word.clusters.findIndex((cluster) => cluster.state !== "correct")
               : -1;
@@ -545,13 +597,18 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
                 {word.clusters.map((cluster, clusterIndex) => (
                   <span
                     key={clusterIndex}
-                    class={clusterClass(cluster.state, clusterIndex === nextCluster)}
+                    class={clusterClass(
+                      cluster.state,
+                      clusterIndex === nextCluster,
+                      blindMode,
+                      caretStyle,
+                    )}
                   >
                     {cluster.target}
                   </span>
                 ))}
                 {word.extra.map((cluster, extraIndex) => (
-                  <span key={`extra-${extraIndex}`} class={clusterClass("extra", false)}>
+                  <span key={`extra-${extraIndex}`} class={clusterClass("extra", false, blindMode, caretStyle)}>
                     {cluster}
                   </span>
                 ))}
@@ -607,8 +664,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         </p>
       )}
 
-      {/* Live stats */}
-      <div class="mt-5 flex flex-wrap items-end gap-x-6 gap-y-3 border-t border-border pt-5">
+      {/* Live stats: only while the user wants them (monkeytype hides these by default). */}
+      <div
+        class={`mt-5 flex flex-wrap items-end gap-x-6 gap-y-3 border-t border-border pt-5 ${
+          liveWpm ? "" : "hidden"
+        }`}
+      >
         <Stat label={t("practice.wpm")} value={String(stats.wpm)} />
         <Stat
           label={t("practice.accuracy")}

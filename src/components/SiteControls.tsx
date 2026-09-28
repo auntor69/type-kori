@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { localizePath, useTranslations, type Lang } from "../i18n";
 import {
@@ -12,51 +12,111 @@ import {
   FONT_SIZE_MIN,
   clampFontSize,
   defaultSettings,
+  type CaretStyle,
   type Settings,
-  type ThemeChoice,
+  type StopOnError,
 } from "../lib/settings";
+import { themes } from "../lib/themes";
 
 interface Props {
   lang: Lang;
 }
 
-const THEMES: readonly ThemeChoice[] = ["light", "dark", "system"];
+type Tab = "behavior" | "appearance" | "theme" | "danger";
 
-function ThemeIcon({ theme }: { theme: ThemeChoice }) {
-  const common = {
-    width: 18,
-    height: 18,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-width": "1.7",
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "aria-hidden": "true",
-  } as const;
+const STOP_ON_ERROR_OPTIONS: readonly StopOnError[] = ["off", "letter", "word"];
+const CARET_STYLES: readonly CaretStyle[] = ["bar", "underline", "off"];
 
-  if (theme === "light") {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19" />
-      </svg>
-    );
-  }
-
-  if (theme === "dark") {
-    return (
-      <svg {...common}>
-        <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
-      </svg>
-    );
-  }
-
+/** One labelled row: explanation on the left, control on the right. */
+function Row({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: preact.ComponentChildren;
+}) {
   return (
-    <svg {...common}>
-      <rect x="2.5" y="4" width="19" height="13" rx="2" />
-      <path d="M8 20h8M12 17v3" />
-    </svg>
+    <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 border-b border-border py-4 last:border-b-0">
+      <div class="min-w-0 max-w-md flex-1">
+        <h4 class="text-sm font-semibold text-text">{label}</h4>
+        {hint !== undefined && <p class="mt-1 text-xs leading-relaxed text-muted">{hint}</p>}
+      </div>
+      <div class="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+/** A segmented control, monkeytype-style: the active segment is filled. */
+function Segmented<T extends string>({
+  value,
+  options,
+  labels,
+  onChange,
+}: {
+  value: T;
+  options: readonly T[];
+  labels: (option: T) => string;
+  onChange: (option: T) => void;
+}) {
+  return (
+    <div role="radiogroup" class="flex flex-wrap gap-1">
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          role="radio"
+          aria-checked={value === option}
+          onClick={() => onChange(option)}
+          class={`rounded-control px-3 py-1.5 text-xs font-medium transition-colors duration-150 ease-out ${
+            value === option
+              ? "bg-accent text-on-accent"
+              : "bg-surface-2 text-muted hover:text-text"
+          }`}
+        >
+          {labels(option)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A plain on/off switch. */
+function Switch({
+  value,
+  label,
+  onChange,
+}: {
+  value: boolean;
+  label: string;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} class="flex gap-1">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === false}
+        onClick={() => onChange(false)}
+        class={`rounded-control px-4 py-1.5 text-xs font-medium transition-colors duration-150 ease-out ${
+          value === false ? "bg-accent text-on-accent" : "bg-surface-2 text-muted hover:text-text"
+        }`}
+      >
+        off
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === true}
+        onClick={() => onChange(true)}
+        class={`rounded-control px-4 py-1.5 text-xs font-medium transition-colors duration-150 ease-out ${
+          value === true ? "bg-accent text-on-accent" : "bg-surface-2 text-muted hover:text-text"
+        }`}
+      >
+        on
+      </button>
+    </div>
   );
 }
 
@@ -64,6 +124,8 @@ export default function SiteControls({ lang }: Props) {
   const t = useTranslations(lang);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("behavior");
+  const [query, setQuery] = useState("");
   const [storageAvailable, setStorageAvailable] = useState(true);
 
   const settingsRef = useRef(settings);
@@ -115,26 +177,24 @@ export default function SiteControls({ lang }: Props) {
     setStorageAvailable(updateSettings(next));
   };
 
-  const cycleTheme = () => {
-    const index = THEMES.indexOf(settings.theme);
-    commit({ theme: THEMES[(index + 1) % THEMES.length] });
-  };
+  const filteredThemes = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length === 0) return themes;
+    return themes.filter((theme) => theme.id.includes(q));
+  }, [query]);
+
+  const themeTabs: readonly { id: Tab; label: string }[] = [
+    { id: "behavior", label: t("settings.tab.behavior") },
+    { id: "appearance", label: t("settings.tab.appearance") },
+    { id: "theme", label: t("settings.tab.theme") },
+    { id: "danger", label: t("settings.tab.danger") },
+  ];
 
   return (
     <>
       <button
         type="button"
         ref={triggerRef}
-        onClick={cycleTheme}
-        class="inline-flex size-10 items-center justify-center rounded-control text-muted transition-colors duration-150 ease-out hover:bg-surface-2 hover:text-text"
-        aria-label={`${t("a11y.themeToggle")} — ${t(`theme.${settings.theme}`)}`}
-        title={`${t("nav.theme")}: ${t(`theme.${settings.theme}`)}`}
-      >
-        <ThemeIcon theme={settings.theme} />
-      </button>
-
-      <button
-        type="button"
         onClick={() => setOpen(true)}
         class="inline-flex size-10 items-center justify-center rounded-control text-muted transition-colors duration-150 ease-out hover:bg-surface-2 hover:text-text"
         aria-label={t("nav.settings")}
@@ -172,7 +232,7 @@ export default function SiteControls({ lang }: Props) {
             aria-modal="true"
             aria-label={t("settings.heading")}
             tabIndex={-1}
-            class="absolute inset-y-0 right-0 w-full max-w-sm overflow-y-auto border-l border-border bg-surface p-6 shadow-xl outline-none"
+            class="absolute inset-y-0 right-0 w-full max-w-lg overflow-y-auto border-l border-border bg-bg p-6 outline-none"
           >
             <div class="flex items-center justify-between gap-4">
               <h2 class="text-lg font-semibold text-text">{t("settings.heading")}</h2>
@@ -185,129 +245,198 @@ export default function SiteControls({ lang }: Props) {
               </button>
             </div>
 
+            {/* Tabs */}
+            <div role="tablist" class="mt-4 flex flex-wrap gap-1">
+              {themeTabs.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === item.id}
+                  onClick={() => setTab(item.id)}
+                  class={`rounded-control px-3 py-1.5 text-xs font-medium transition-colors duration-150 ease-out ${
+                    tab === item.id
+                      ? "bg-accent text-on-accent"
+                      : "bg-surface-2 text-muted hover:text-text"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
             {!storageAvailable && (
               <p class="mt-4 rounded-control border border-accent-2/40 bg-surface-2 p-3 text-xs text-muted">
                 {t("settings.storageUnavailable")}
               </p>
             )}
 
-            {/* Input mode */}
-            <section class="mt-6">
-              <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
-                {t("settings.inputMode")}
-              </h3>
-              <div role="radiogroup" aria-label={t("settings.inputMode")} class="mt-3 grid gap-2">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={settings.inputMode === "system"}
-                  onClick={() => commit({ inputMode: "system" })}
-                  class={`rounded-card border p-3 text-left transition-colors duration-150 ease-out ${
-                    settings.inputMode === "system"
-                      ? "border-accent bg-accent-soft"
-                      : "border-border hover:bg-surface-2"
-                  }`}
-                >
-                  <span class="block text-sm font-medium text-text">
-                    {t("practice.mode.system")}
-                  </span>
-                  <span class="mt-1 block text-xs text-muted">
-                    {t("practice.mode.systemHint")}
-                  </span>
-                </button>
+            {tab === "behavior" && (
+              <div class="mt-2">
+                <Row label={t("settings.difficulty")} hint={t("settings.difficultyHint")}>
+                  <Segmented
+                    value={settings.difficulty}
+                    options={["all", "easy", "medium", "hard"] as const}
+                    labels={(option) => t(`settings.difficulty.${option}`)}
+                    onChange={(difficulty) => commit({ difficulty })}
+                  />
+                </Row>
 
-                {/*
-                  Built-in mode is a preview, not a default: its grammar is ours
-                  and no native speaker has signed off the rules yet, so the
-                  warning is part of the option rather than a footnote.
-                */}
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={settings.inputMode === "avro-phonetic"}
-                  onClick={() => commit({ inputMode: "avro-phonetic" })}
-                  class={`rounded-card border p-3 text-left transition-colors duration-150 ease-out ${
-                    settings.inputMode === "avro-phonetic"
-                      ? "border-accent bg-accent-soft"
-                      : "border-border hover:bg-surface-2"
-                  }`}
-                >
-                  <span class="flex items-center gap-2 text-sm font-medium text-text">
-                    {t("practice.mode.builtin")}
-                    <span class="rounded-pill bg-surface-2 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-muted">
-                      {t("practice.mode.preview")}
-                    </span>
-                  </span>
-                  <span class="mt-1 block text-xs text-muted">
-                    {t("practice.mode.builtinHint")}
-                  </span>
-                  <span class="mt-2 block text-xs text-accent-2">
+                <Row label={t("settings.stopOnError")} hint={t("settings.stopOnErrorHint")}>
+                  <Segmented
+                    value={settings.stopOnError}
+                    options={STOP_ON_ERROR_OPTIONS}
+                    labels={(option) => t(`settings.stopOnError.${option}`)}
+                    onChange={(stopOnError) => commit({ stopOnError })}
+                  />
+                </Row>
+
+                <Row label={t("settings.blindMode")} hint={t("settings.blindModeHint")}>
+                  <Switch
+                    value={settings.blindMode}
+                    label={t("settings.blindMode")}
+                    onChange={(blindMode) => commit({ blindMode })}
+                  />
+                </Row>
+
+                <Row label={t("settings.liveWpm")} hint={t("settings.liveWpmHint")}>
+                  <Switch
+                    value={settings.liveWpm}
+                    label={t("settings.liveWpm")}
+                    onChange={(liveWpm) => commit({ liveWpm })}
+                  />
+                </Row>
+
+                <Row label={t("settings.inputMode")} hint={t("settings.inputModeHint")}>
+                  <Segmented
+                    value={settings.inputMode}
+                    options={["system", "avro-phonetic"] as const}
+                    labels={(option) =>
+                      option === "system"
+                        ? t("practice.mode.system")
+                        : t("practice.mode.builtin")
+                    }
+                    onChange={(inputMode) => commit({ inputMode })}
+                  />
+                </Row>
+
+                {settings.inputMode === "avro-phonetic" && (
+                  <p class="mt-2 rounded-control border border-accent-2/40 bg-surface-2 p-3 text-xs text-muted">
                     {t("practice.mode.builtinWarning")}
-                  </span>
-                </button>
+                  </p>
+                )}
               </div>
-            </section>
+            )}
 
-            {/* Theme */}
-            <section class="mt-6">
-              <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
-                {t("settings.theme")}
-              </h3>
-              <div class="mt-3 grid grid-cols-3 gap-2">
-                {THEMES.map((theme) => (
-                  <button
-                    key={theme}
-                    type="button"
-                    aria-pressed={settings.theme === theme}
-                    onClick={() => commit({ theme })}
-                    class={`flex flex-col items-center gap-1.5 rounded-card border p-3 text-xs font-medium transition-colors duration-150 ease-out ${
-                      settings.theme === theme
-                        ? "border-accent bg-accent-soft text-text"
-                        : "border-border text-muted hover:bg-surface-2 hover:text-text"
-                    }`}
+            {tab === "appearance" && (
+              <div class="mt-2">
+                <Row label={t("settings.fontSize")} hint={t("settings.fontSizeHint")}>
+                  <div class="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={FONT_SIZE_MIN}
+                      max={FONT_SIZE_MAX}
+                      step={1}
+                      value={settings.fontSize}
+                      aria-label={t("settings.fontSize")}
+                      onInput={(event) =>
+                        commit({ fontSize: clampFontSize(Number(event.currentTarget.value)) })
+                      }
+                      class="w-40 accent-accent"
+                    />
+                    <span class="w-10 text-right text-xs tabular-nums text-muted">
+                      {settings.fontSize}px
+                    </span>
+                  </div>
+                </Row>
+
+                <Row label={t("settings.caretStyle")} hint={t("settings.caretStyleHint")}>
+                  <Segmented
+                    value={settings.caretStyle}
+                    options={CARET_STYLES}
+                    labels={(option) => t(`settings.caretStyle.${option}`)}
+                    onChange={(caretStyle) => commit({ caretStyle })}
+                  />
+                </Row>
+
+                <Row label={t("settings.showAllLines")} hint={t("settings.showAllLinesHint")}>
+                  <Switch
+                    value={settings.showAllLines}
+                    label={t("settings.showAllLines")}
+                    onChange={(showAllLines) => commit({ showAllLines })}
+                  />
+                </Row>
+              </div>
+            )}
+
+            {tab === "theme" && (
+              <div class="mt-2">
+                <input
+                  type="search"
+                  value={query}
+                  placeholder={t("settings.themeSearch")}
+                  onInput={(event) => setQuery(event.currentTarget.value)}
+                  class="w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-text outline-none transition-colors duration-150 ease-out focus:border-accent"
+                  aria-label={t("settings.themeSearch")}
+                />
+
+                <ul class="mt-3 grid gap-1">
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => commit({ theme: "system" })}
+                      aria-pressed={settings.theme === "system"}
+                      class={`flex w-full items-center justify-between rounded-control px-3 py-2 text-left text-sm transition-colors duration-150 ease-out ${
+                        settings.theme === "system"
+                          ? "bg-accent-soft text-text"
+                          : "text-muted hover:bg-surface-2 hover:text-text"
+                      }`}
+                    >
+                      {t("theme.system")}
+                      <span class="flex gap-1">
+                        <span class="size-3.5 rounded-full border border-border" style="background:#fafaf9" />
+                        <span class="size-3.5 rounded-full border border-border" style="background:#2c2e31" />
+                      </span>
+                    </button>
+                  </li>
+
+                  {filteredThemes.map((theme) => (
+                    <li key={theme.id}>
+                      <button
+                        type="button"
+                        onClick={() => commit({ theme: theme.id })}
+                        aria-pressed={settings.theme === theme.id}
+                        class={`flex w-full items-center justify-between rounded-control px-3 py-2 text-left text-sm transition-colors duration-150 ease-out ${
+                          settings.theme === theme.id
+                            ? "bg-accent-soft text-text"
+                            : "text-muted hover:bg-surface-2 hover:text-text"
+                        }`}
+                      >
+                        {theme.id}
+                        <span class="flex gap-1">
+                          <span class="size-3.5 rounded-full border border-border" style={`background:${theme.bg}`} />
+                          <span class="size-3.5 rounded-full border border-border" style={`background:${theme.text}`} />
+                          <span class="size-3.5 rounded-full border border-border" style={`background:${theme.accent}`} />
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {tab === "danger" && (
+              <div class="mt-2">
+                <Row label={t("settings.data")} hint={t("settings.dataNote")}>
+                  <a
+                    href={localizePath("/progress", lang)}
+                    class="rounded-control bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors duration-150 ease-out hover:bg-accent hover:text-on-accent"
                   >
-                    <ThemeIcon theme={theme} />
-                    {t(`theme.${theme}`)}
-                  </button>
-                ))}
+                    {t("settings.openProgress")}
+                  </a>
+                </Row>
               </div>
-            </section>
-
-            {/* Text size */}
-            <section class="mt-6">
-              <div class="flex items-baseline justify-between">
-                <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
-                  {t("settings.fontSize")}
-                </h3>
-                <span class="text-xs tabular-nums text-muted">{settings.fontSize}px</span>
-              </div>
-              <input
-                type="range"
-                min={FONT_SIZE_MIN}
-                max={FONT_SIZE_MAX}
-                step={1}
-                value={settings.fontSize}
-                aria-label={t("settings.fontSize")}
-                onInput={(event) =>
-                  commit({ fontSize: clampFontSize(Number(event.currentTarget.value)) })
-                }
-                class="mt-3 w-full accent-accent"
-              />
-            </section>
-
-            {/* Data */}
-            <section class="mt-6 border-t border-border pt-5">
-              <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
-                {t("settings.data")}
-              </h3>
-              <p class="mt-2 text-xs leading-relaxed text-muted">{t("settings.dataNote")}</p>
-              <a
-                href={localizePath("/progress", lang)}
-                class="mt-3 inline-block text-xs font-medium text-accent hover:underline"
-              >
-                {t("settings.openProgress")}
-              </a>
-            </section>
+            )}
           </div>
         </div>
       )}

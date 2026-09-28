@@ -25,8 +25,34 @@ const banglaUrl = absolute(localizePath(path, "bn"));
 const englishUrl = absolute(localizePath(path, "en"));
 
 // Resolves the stored theme and text size before the first paint, so there is no
-// flash of the wrong theme. Kept inline and dependency-free on purpose.
-const themeBootstrap = `(function(){try{var s=JSON.parse(localStorage.getItem("${STORAGE_PREFIX}settings")||"{}");var c=s.theme;var d=c==="dark"||(c!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");var f=Number(s.fontSize);if(isFinite(f)&&f>0){var z=Math.min(48,Math.max(20,Math.round(f)));document.documentElement.style.setProperty("--typing-size",z+"px");}}catch(e){}})();`;
+// flash of the wrong theme. Kept inline and dependency-free on purpose; it
+// mirrors applySettings for the concrete-theme case.
+const themeBootstrap = `(function(){
+  try{
+    var s=JSON.parse(localStorage.getItem("${STORAGE_PREFIX}settings")||"{}");
+    var r=document.documentElement;
+    var f=Number(s.fontSize);
+    if(isFinite(f)&&f>0){var z=Math.min(48,Math.max(20,Math.round(f)));r.style.setProperty("--typing-size",z+"px");}
+    var t=s.theme;
+    var applied=false;
+    if(t&&t!=="system"){
+      var p=localStorage.getItem("${STORAGE_PREFIX}theme:"+t);
+      if(p){
+        try{
+          var v=JSON.parse(p);
+          for(var k in v){if(k.charAt(0)!=="_")r.style.setProperty(k,v[k]);}
+          r.setAttribute("data-theme",v["__dark"]?"dark":"light");
+          r.style.colorScheme=v["__dark"]?"dark":"light";
+          applied=true;
+        }catch(e){}
+      }
+    }
+    if(!applied){
+      var d=window.matchMedia("(prefers-color-scheme: dark)").matches;
+      r.setAttribute("data-theme",d?"dark":"light");
+    }
+  }catch(e){}
+})();`;
 ---
 
 <!doctype html>

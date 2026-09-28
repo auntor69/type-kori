@@ -263,6 +263,22 @@ with the reason. Newest last.
   privacy remain reachable from the header and footer, so nothing user-facing
   was lost — only prose that repeated the toolbar. The formula definitions that
   used to live in the FAQ are already printed on the results screen.
+- 2026-09-28 — **The home page is only the test, and settings gained real
+  depth.** The owner pushed further: no tagline, no lead, no footnote — the page
+  is one muted title line plus the practice island (`homeCopy` is now only
+  `h1`). In the same pass the settings drawer became a tabbed dialog in the
+  monkeytype mould: behavior (difficulty, stop-on-error letter/word, blind mode,
+  live WPM, input mode), appearance (text size, caret style bar/underline/off,
+  show-all-lines), theme, and data. `src/lib/themes.ts` adds a registry of 18
+  concrete palettes (serika, paper, nord, gruvbox, terminal, …) applied by
+  overriding the Section 6 CSS custom properties at runtime; a serialized
+  snapshot of the chosen palette is cached under `tk:v1:theme:<id>` so the
+  no-flash inline bootstrap can apply it before any module loads. `theme: "dark"
+  /"light"` legacy values are no longer valid in stored settings — `parseSettings`
+  repairs them to `system` — and backups carrying them re-resolve the same way.
+  Difficulty filtering, stop-on-error, blind mode, the caret styles, live-WPM
+  hiding and single-line mode are wired into the practice island; the current
+  run is never rebuilt mid-run by a settings change, only the next text is.
 - 2026-09-28 — **Dark palette re-tuned toward monkeytype's "serika dark".** The
   owner asked for monkeytype-inspired styling. The dark values in
   `src/styles/tokens.css` changed (light mode is untouched): background and

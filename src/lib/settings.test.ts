@@ -49,14 +49,15 @@ describe("parseSettings", () => {
     expect(
       parseSettings({
         lang: "en",
-        theme: "dark",
+        theme: "nord",
         fontSize: 40,
         inputMode: "avro-phonetic",
         difficulty: "hard",
       }),
     ).toEqual({
+      ...defaultSettings,
       lang: "en",
-      theme: "dark",
+      theme: "nord",
       fontSize: 40,
       inputMode: "avro-phonetic",
       difficulty: "hard",
@@ -81,12 +82,54 @@ describe("parseSettings", () => {
     expect(defaultSettings.inputMode).toBe("system");
     expect(parseSettings({}).inputMode).toBe("system");
   });
+
+  it("accepts a concrete theme id and repairs a broken one", () => {
+    expect(parseSettings({ theme: "nord" }).theme).toBe("nord");
+    expect(parseSettings({ theme: "system" }).theme).toBe("system");
+    expect(parseSettings({ theme: "not-a-theme" }).theme).toBe("system");
+  });
+
+  it("keeps the new behavior and appearance fields", () => {
+    const parsed = parseSettings({
+      stopOnError: "word",
+      blindMode: true,
+      liveWpm: false,
+      caretStyle: "underline",
+      showAllLines: false,
+    });
+
+    expect(parsed.stopOnError).toBe("word");
+    expect(parsed.blindMode).toBe(true);
+    expect(parsed.liveWpm).toBe(false);
+    expect(parsed.caretStyle).toBe("underline");
+    expect(parsed.showAllLines).toBe(false);
+  });
+
+  it("repairs malformed behavior and appearance fields to the defaults", () => {
+    const parsed = parseSettings({
+      stopOnError: "maybe",
+      blindMode: "yes",
+      liveWpm: 1,
+      caretStyle: "blinking",
+      showAllLines: "no",
+    });
+
+    expect(parsed).toEqual({
+      ...defaultSettings,
+      lang: defaultSettings.lang,
+    });
+    expect(parsed.stopOnError).toBe("off");
+    expect(parsed.blindMode).toBe(false);
+    expect(parsed.liveWpm).toBe(true);
+    expect(parsed.caretStyle).toBe("bar");
+    expect(parsed.showAllLines).toBe(true);
+  });
 });
 
 describe("loadSettings and saveSettings", () => {
   it("round-trips through storage", () => {
     const storage = createMemoryStorage();
-    const settings: Settings = { ...defaultSettings, theme: "dark", lang: "en", fontSize: 32 };
+    const settings: Settings = { ...defaultSettings, theme: "nord", lang: "en", fontSize: 32 };
 
     expect(saveSettings(settings, storage)).toBe(true);
     expect(loadSettings(storage)).toEqual(settings);
