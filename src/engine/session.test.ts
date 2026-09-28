@@ -210,6 +210,71 @@ describe("timed runs", () => {
   });
 });
 
+describe("built-in phonetic mode", () => {
+  const compose = (state: SessionState, text: string, composing: string, at: number) =>
+    reduce(state, { type: "compose", text, composing, at });
+
+  it("replaces the whole word instead of appending to it", () => {
+    let state = compose(createSession({ targetWords: target }), "আ", "a", 1_000);
+    expect(state.active).toBe("আ");
+    expect(state.composing).toBe("a");
+    expect(state.keystrokes).toBe(1);
+    expect(state.startedAt).toBe(1_000);
+
+    // `k` is ক, then `kh` is খ: the second keystroke replaces the first output.
+    state = compose(state, "ক", "k", 2_000);
+    expect(state.active).toBe("ক");
+    expect(state.composing).toBe("k");
+
+    state = compose(state, "খ", "kh", 3_000);
+    expect(state.active).toBe("খ");
+    expect(state.keystrokes).toBe(3);
+  });
+
+  it("does not claim the user is on the wrong keyboard, because Roman input is the point", () => {
+    const state = compose(createSession({ targetWords: target }), "আ", "a", 1_000);
+    expect(state.warning).toBeNull();
+  });
+
+  it("clears the Roman buffer when the word is committed", () => {
+    let state = compose(createSession({ targetWords: target }), "আমি", "ami", 1_000);
+    state = press(state, "commit", 2_000);
+
+    expect(state.committed).toHaveLength(1);
+    expect(state.active).toBe("");
+    expect(state.composing).toBe("");
+  });
+
+  it("can scrub the buffered word down to nothing and then delete a whole cluster", () => {
+    let state = compose(createSession({ targetWords: target }), "আমি", "ami", 1_000);
+    expect(state.active).toBe("আমি");
+
+    state = press(state, "backspace", 2_000);
+    expect(state.active).toBe("আ");
+    expect(state.correctedMistakes).toBe(0);
+  });
+
+  it("finishes the run when the last word is complete", () => {
+    const state = compose(createSession({ targetWords: ["আমি"] }), "আমি", "ami", 1_000);
+
+    expect(state.state).toBe("finished");
+    expect(sessionStats(state, 1_000).correctWords).toBe(1);
+  });
+
+  it("ignores composition once the run is finished", () => {
+    const finished = compose(createSession({ targetWords: ["আমি"] }), "আমি", "ami", 1_000);
+    expect(compose(finished, "ক", "k", 2_000)).toBe(finished);
+  });
+
+  it("clears the buffer on restart", () => {
+    let state = compose(createSession({ targetWords: target }), "আ", "a", 1_000);
+    state = reduce(state, { type: "restart", at: 2_000 });
+
+    expect(state.composing).toBe("");
+    expect(state.active).toBe("");
+  });
+});
+
 describe("input from the wrong keyboard", () => {
   it("flags Latin letters so the interface can warn", () => {
     const state = type(createSession({ targetWords: target }), ["a", "m"], 1_000);

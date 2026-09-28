@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "scheme": "avro-phonetic",
+    "specVersion": "seed-1",
+    "nativeReviewed": false,
+    "note": "Our own grammar for the well-known Avro phonetic conventions. It is NOT copied from any existing implementation: the reference implementations are GPL-3.0 (avro-php), MPL (ibus-avro) or unstated (jsAvroPhonetic), and none of them can be relicensed under this project's MIT licence. See docs/DECISIONS.md for the licence analysis. Every row records where it came from. Rows whose source is a third-party guide are marked nativeReviewed:false until the owner checks them; see docs/VERIFY.md.",
+    "sources": {
+      "masterplan": "docs/MASTERPLAN.md Section 7.6 starter test cases (authoritative for this project)",
+      "guide": "published third-party Avro Phonetic guide (learntype.app, Avro Phonetic Bangla Typing: Complete Guide)",
+      "unsourced": "not attested by a written source; needs a native speaker before this mode can be trusted"
+    }
+  },
+
+  "vowels": [
+    { "latin": "a", "independent": "আ", "sign": "া", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "i", "independent": "ই", "sign": "ি", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "u", "independent": "উ", "sign": "ু", "source": "guide", "nativeReviewed": false },
+    { "latin": "e", "independent": "এ", "sign": "ে", "source": "guide", "nativeReviewed": false },
+    { "latin": "o", "independent": "ও", "sign": "ো", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "ii", "independent": "ঈ", "sign": "ী", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "uu", "independent": "ঊ", "sign": "ূ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "oi", "independent": "ঐ", "sign": "ৈ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "ou", "independent": "ঔ", "sign": "ৌ", "source": "unsourced", "nativeReviewed": false }
+  ],
+
+  "consonants": [
+    { "latin": "k", "bangla": "ক", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "kh", "bangla": "খ", "source": "guide", "nativeReviewed": false },
+    { "latin": "g", "bangla": "গ", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "gh", "bangla": "ঘ", "source": "guide", "nativeReviewed": false },
+    { "latin": "Ng", "bangla": "ঙ", "source": "guide", "nativeReviewed": false },
+    { "latin": "c", "bangla": "চ", "source": "guide", "nativeReviewed": false },
+    { "latin": "ch", "bangla": "ছ", "source": "guide", "nativeReviewed": false },
+    { "latin": "j", "bangla": "জ", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "jh", "bangla": "ঝ", "source": "guide", "nativeReviewed": false },
+    { "latin": "T", "bangla": "ট", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "Th", "bangla": "ঠ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "D", "bangla": "ড", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "Dh", "bangla": "ঢ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "N", "bangla": "ণ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "t", "bangla": "ত", "source": "guide", "nativeReviewed": false },
+    { "latin": "th", "bangla": "থ", "source": "guide", "nativeReviewed": false },
+    { "latin": "d", "bangla": "দ", "source": "guide", "nativeReviewed": false },
+    { "latin": "dh", "bangla": "ধ", "source": "guide", "nativeReviewed": false },
+    { "latin": "n", "bangla": "ন", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "p", "bangla": "প", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "ph", "bangla": "ফ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "f", "bangla": "ফ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "b", "bangla": "ব", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "bh", "bangla": "ভ", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "v", "bangla": "ভ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "m", "bangla": "ম", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "z", "bangla": "য", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "r", "bangla": "র", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "l", "bangla": "ল", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "sh", "bangla": "শ", "source": "guide", "nativeReviewed": false },
+    { "latin": "ss", "bangla": "ষ", "source": "guide", "nativeReviewed": false },
+    { "latin": "s", "bangla": "স", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "h", "bangla": "হ", "source": "guide", "nativeReviewed": false },
+    { "latin": "y", "bangla": "য়", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "R", "bangla": "ড়", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "Rh", "bangla": "ঢ়", "source": "unsourced", "nativeReviewed": false }
+  ],
+
+  "marks": [
+    { "latin": "ng", "bangla": "ং", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "^", "bangla": "ঁ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": ":", "bangla": "ঃ", "source": "unsourced", "nativeReviewed": false },
+    { "latin": "`", "bangla": "্", "source": "masterplan", "nativeReviewed": false }
+  ],
+
+  "conjuncts": [
+    { "latin": "kkh", "bangla": "ক্ষ", "source": "guide", "nativeReviewed": false }
+  ],
+
+  "digits": [
+    { "latin": "0", "bangla": "০", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "1", "bangla": "১", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "2", "bangla": "২", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "3", "bangla": "৩", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "4", "bangla": "৪", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "5", "bangla": "৫", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "6", "bangla": "৬", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "7", "bangla": "৭", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "8", "bangla": "৮", "source": "masterplan", "nativeReviewed": false },
+    { "latin": "9", "bangla": "৯", "source": "masterplan", "nativeReviewed": false }
+  ],
+
+  "behavior": {
+    "autoHasanta": {
+      "enabled": true,
+      "source": "guide",
+      "nativeReviewed": false,
+      "note": "Two consonants typed in a row form a conjunct: a hasanta is inserted between them, which is how tto becomes ত্ত."
+    },
+    "digitsAreBengali": {
+      "enabled": true,
+      "source": "masterplan",
+      "nativeReviewed": false,
+      "note": "Section 7.3.5: the engine's digit output is configurable and Avro Phonetic produces Bengali digits."
+    }
+  }
+}

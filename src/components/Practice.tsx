@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "preact/hooks";
 
 import { practiceTexts } from "../content/texts";
 import { collectMistakes, renderProgress, type ClusterState, type WordStatus } from "../engine/compare";
+import { createPhoneticEngine } from "../engine/input/phonetic";
 import { createSystemEngine } from "../engine/input/system";
+import type { EngineAction, InputEngine, InputEngineId } from "../engine/input/types";
 import { formatDuration } from "../engine/metrics";
 import {
   createSession,
@@ -19,7 +21,9 @@ import {
   type PracticeText,
 } from "../engine/text/provider";
 import { useTranslations, type Lang } from "../i18n";
-import { loadAndApplySettings } from "../lib/applySettings";
+import { loadAndApplySettings, onSettingsChange } from "../lib/applySettings";
+import { newRunId, recordRun } from "../lib/progress";
+import { defaultSettings } from "../lib/settings";
 
 interface Props {
   lang: Lang;
@@ -36,6 +40,10 @@ interface RunModel {
 
 const DURATIONS: readonly (number | null)[] = [null, 60_000, 180_000, 300_000];
 const HISTORY_LIMIT = 6;
+
+function createEngine(mode: InputEngineId): InputEngine {
+  return mode === "avro-phonetic" ? createPhoneticEngine() : createSystemEngine();
+}
 
 function createRun(
   durationMs: number | null,
@@ -97,38 +105,66 @@ export default function Practice({ lang, seed = 1 }: Props) {
   // conjunct-heavy sentence in the first five seconds.
   const [model, setModel] = useState<RunModel>(() => createRun(null, seed, [], "easy"));
   const [now, setNow] = useState(0);
+  const [mode, setMode] = useState<InputEngineId>(defaultSettings.inputMode);
+  const [osKeyboard, setOsKeyboard] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const engineRef = useRef<InputEngine>(createEngine(defaultSettings.inputMode));
 
-  // Apply the stored theme and text size as soon as this island is on screen.
+  // Apply the stored theme, text size and input mode as soon as the island is up.
   useEffect(() => {
-    loadAndApplySettings();
+    const stored = loadAndApplySettings();
+    setMode(stored.inputMode);
+    engineRef.current = createEngine(stored.inputMode);
   }, []);
+
+  // The settings drawer can change the input mode while a run is on screen.
+  useEffect(
+    () =>
+      onSettingsChange((settings) => {
+        setMode((current) => {
+          if (current === settings.inputMode) return current;
+          engineRef.current = createEngine(settings.inputMode);
+          setOsKeyboard(false);
+          setModel((run) => ({
+            ...run,
+            session: reduce(run.session, { type: "restart", at: Date.now() }),
+          }));
+          return settings.inputMode;
+        });
+      }),
+    [],
+  );
 
   const apply = (event: SessionEvent) => {
     setModel((current) => ({ ...current, session: reduce(current.session, event) }));
     if ("at" in event) setNow(event.at);
   };
 
-  const restart = () =>
+  const restart = () => {
+    engineRef.current.reset();
+    setOsKeyboard(false);
     setModel((current) => ({
       ...current,
       session: reduce(current.session, { type: "restart", at: Date.now() }),
     }));
+  };
 
-  const nextText = () =>
-    setModel((current) =>
-      createRun(current.durationMs, Date.now() % 0x7fff_ffff, current.history),
-    );
+  const nextText = () => {
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setModel((current) => createRun(current.durationMs, Date.now() % 0x7fff_ffff, current.history));
+  };
 
-  const chooseDuration = (durationMs: number | null) =>
+  const chooseDuration = (durationMs: number | null) => {
+    engineRef.current.reset();
+    setOsKeyboard(false);
     setModel((current) => createRun(durationMs, Date.now() % 0x7fff_ffff, current.history));
+  };
 
   // One listener for the whole document: the first keystroke anywhere starts the
   // run, so there is nothing to click before the first word.
   useEffect(() => {
-    const engine = createSystemEngine();
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
       if (document.documentElement.hasAttribute("data-tk-drawer")) return;
@@ -143,7 +179,7 @@ export default function Practice({ lang, seed = 1 }: Props) {
         return;
       }
 
-      const action = engine.translate({
+      const action: EngineAction = engineRef.current.translate({
         key: event.key,
         code: event.code,
         shiftKey: event.shiftKey,
@@ -155,15 +191,28 @@ export default function Practice({ lang, seed = 1 }: Props) {
 
       const at = Date.now();
 
-      if (action.type === "append") {
-        event.preventDefault();
-        apply({ type: "input", text: action.text, at });
-      } else if (action.type === "backspace") {
-        event.preventDefault();
-        apply({ type: "backspace", at });
-      } else if (action.type === "commit") {
-        event.preventDefault();
-        apply({ type: "commit", at });
+      switch (action.type) {
+        case "append":
+          event.preventDefault();
+          apply({ type: "input", text: action.text, at });
+          break;
+        case "compose":
+          event.preventDefault();
+          apply({ type: "compose", text: action.text, composing: action.composing, at });
+          break;
+        case "backspace":
+          event.preventDefault();
+          apply({ type: "backspace", at });
+          break;
+        case "commit":
+          event.preventDefault();
+          apply({ type: "commit", at });
+          break;
+        case "ignore":
+          // A Bangla character arrived from an installed keyboard while the
+          // built-in engine was on: say so instead of dropping it silently.
+          if (action.reason === "wrong-script") setOsKeyboard(true);
+          break;
       }
     };
 
@@ -192,6 +241,36 @@ export default function Practice({ lang, seed = 1 }: Props) {
   const timed = model.durationMs !== null;
   const countdown = timed ? Math.max(0, (model.durationMs ?? 0) - stats.elapsedMs) : 0;
 
+  // A finished run is recorded exactly once: the key is the run's own identity, so
+  // later re-renders (a resize, a settings broadcast) cannot double-count it.
+  const recordedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (session.state !== "finished") return;
+
+    const key = `${session.startedAt ?? 0}:${session.finishedAt ?? 0}:${model.text.id}`;
+    if (recordedRef.current === key) return;
+    recordedRef.current = key;
+
+    recordRun(
+      {
+        id: newRunId(),
+        ts: session.finishedAt ?? Date.now(),
+        mode,
+        textId: model.text.id,
+        wpm: stats.wpm,
+        kpm: stats.kpm,
+        accuracy: stats.accuracy,
+        // Time actually spent typing, which is what the results screen shows.
+        durationMs: Math.round(stats.elapsedMs),
+        errors: collectMistakes(session.committed, session.target).map((mistake) => ({
+          expected: mistake.expected ?? "",
+          typed: mistake.actual ?? "",
+        })),
+      },
+      session.committed,
+    );
+  }, [session.state, session.startedAt, session.finishedAt, model.text.id, mode]);
+
   const focusInput = () => inputRef.current?.focus();
 
   const summary = finished
@@ -206,7 +285,12 @@ export default function Practice({ lang, seed = 1 }: Props) {
       <div class="flex flex-wrap items-center gap-2">
         <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
           <span class="size-1.5 rounded-full bg-accent" aria-hidden="true" />
-          {t("practice.mode.system")}
+          {mode === "avro-phonetic" ? t("practice.mode.builtin") : t("practice.mode.system")}
+          {mode === "avro-phonetic" && (
+            <span class="rounded-pill bg-surface-2 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide">
+              {t("practice.mode.preview")}
+            </span>
+          )}
         </span>
 
         <div
@@ -293,9 +377,21 @@ export default function Practice({ lang, seed = 1 }: Props) {
           autocorrect="off"
           spellcheck={false}
           onPaste={(event) => event.preventDefault()}
+          onCompositionStart={() => setOsKeyboard(true)}
+          onCompositionUpdate={() => setOsKeyboard(true)}
           class="absolute inset-0 h-full w-full cursor-text resize-none border-0 bg-transparent p-0 text-transparent caret-transparent outline-none"
         />
       </div>
+
+      {/* Built-in mode: the Roman keystrokes behind the current word (Section 5.3) */}
+      {mode === "avro-phonetic" && session.composing.length > 0 && (
+        <p class="mt-3 text-sm text-muted">
+          <span class="sr-only">{t("practice.composingLabel")}: </span>
+          <span class="font-mono text-accent">{session.composing}</span>
+          <span aria-hidden="true"> → </span>
+          <span lang="bn" class="font-bangla text-text">{session.active}</span>
+        </p>
+      )}
 
       {session.state === "idle" && (
         <p class="mt-3 text-sm text-muted">{t("practice.startHint")}</p>
@@ -307,6 +403,15 @@ export default function Practice({ lang, seed = 1 }: Props) {
           class="mt-3 rounded-card border border-accent-2/40 bg-surface-2 px-4 py-2.5 text-sm text-text"
         >
           {t("practice.latinWarning")}
+        </p>
+      )}
+
+      {osKeyboard && mode === "avro-phonetic" && (
+        <p
+          role="status"
+          class="mt-3 rounded-card border border-accent-2/40 bg-surface-2 px-4 py-2.5 text-sm text-text"
+        >
+          {t("practice.osKeyboardOn")}
         </p>
       )}
 

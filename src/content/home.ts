@@ -80,15 +80,15 @@ export const homeCopy: Record<Lang, HomeCopy> = {
       },
     ],
     modesTitle: "দুটি ইনপুট মোড",
-    modesLead: "এখন সিস্টেম মোড আছে; বিল্ট-ইন ফোনেটিক মোড পরের ধাপে আসছে।",
+    modesLead: "সিস্টেম কীবোর্ড মোড ডিফল্ট; বিল্ট-ইন ফোনেটিক মোড এখন পরীক্ষামূলক প্রিভিউ হিসেবে আছে।",
     modes: [
       {
         title: "সিস্টেম কীবোর্ড",
         body: "আপনার কম্পিউটারে থাকা বাংলা কীবোর্ডই ব্যবহার করুন। যেকোনো লেআউটে কাজ করে, ইনস্টল করার কিছু নেই।",
       },
       {
-        title: "বিল্ট-ইন ফোনেটিক (শীঘ্রই)",
-        body: "রোমান হাতে টাইপ করলে অ্যাপ নিজেই বাংলা বানাবে — শিক্ষানবিশদের জন্য সবচেয়ে সহজ এবং কিছু ইনস্টল করতে হয় না।",
+        title: "বিল্ট-ইন ফোনেটিক (প্রিভিউ)",
+        body: "রোমান হাতে টাইপ করলে অ্যাপ নিজেই বাংলা বানায় — ইনস্টল করার কিছু নেই। নেটিভ স্পিকার এখনো নিয়মগুলো যাচাই করেননি, তাই এটি পরীক্ষামূলক।",
       },
     ],
     faqTitle: "সাধারণ প্রশ্ন",
@@ -165,15 +165,15 @@ export const homeCopy: Record<Lang, HomeCopy> = {
       },
     ],
     modesTitle: "Two input modes",
-    modesLead: "System mode is available today; built-in phonetic mode arrives in the next phase.",
+    modesLead: "System keyboard mode is the default; built-in phonetic mode is an experimental preview.",
     modes: [
       {
         title: "System keyboard",
         body: "Use the Bangla keyboard already installed on your computer. Works with any layout, nothing to install.",
       },
       {
-        title: "Built-in phonetic (coming soon)",
-        body: "Type Roman letters and the app converts them to Bangla — the easiest route for beginners, and nothing to install.",
+        title: "Built-in phonetic (preview)",
+        body: "Type Roman letters and the app converts them to Bangla — nothing to install. A native speaker has not verified the rules yet, so it is experimental.",
       },
     ],
     faqTitle: "Common questions",

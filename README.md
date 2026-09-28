@@ -19,11 +19,17 @@ Two input modes:
 - **System keyboard mode** — you already have a Bangla keyboard (Avro Keyboard,
   an OS layout, …). The app compares the Unicode your keyboard produces against
   the target text. Any layout works, and the app scores what you actually typed.
-- **Built-in mode** — the app converts Roman keystrokes into Bangla itself, so
-  nothing needs to be installed. (Phase 3 of the roadmap.)
+- **Built-in mode (preview)** — the app converts Roman keystrokes into Bangla
+  itself, so nothing needs to be installed. Native speakers have not signed off the
+  rules yet, so it stays an opt-in preview and the system keyboard remains the
+  default.
 
 A word counts as correct when its final Unicode text matches the target after
 normalization, no matter which keystrokes produced it.
+
+Finished runs, the error map and the settings all live in `localStorage`. The
+progress page summarises them and can export, import or reset them as one JSON
+file.
 
 ## Requirements
 
@@ -65,6 +71,9 @@ Other scripts:
 | `bun run check:attribution` | Authorship guard: tracked files + commit messages |
 | `bun run validate:text` | Content validator: characters, encodings, review flags |
 
+Pages: `/` (practice), `/progress` (history and data), `/privacy`. Every page has
+an English mirror under `/en/`.
+
 ## Test
 
 ```sh
@@ -103,8 +112,20 @@ typing engine are welcome. Every text needs a native-speaker review before it
 ships, and every rule of pure logic needs a test. See `docs/MASTERPLAN.md`
 Sections 8, 13 and 15.
 
+## The phonetic grammar
+
+`src/engine/input/phonetic-rules.json` is this project's own grammar for the
+well-known Avro phonetic conventions. It is **not** copied from an existing
+implementation: the reference implementations are GPL-3.0, MPL, or state no
+licence at all, so none of them can be relicensed under MIT. Every row records
+where it came from in the file's own `meta.sources`, and a row is only marked
+`nativeReviewed: true` once a human has checked it against a real keyboard.
+Built-in mode therefore ships as an opt-in preview, not the default. The full
+licence analysis is in `docs/DECISIONS.md`.
+
 ## License
 
 - Code: MIT — see `LICENSE`.
 - Lesson and practice text: original content of this project, released under CC0
   (`content/`), unless a file states otherwise.
+- The phonetic grammar: original to this project, MIT, like the rest of the code.

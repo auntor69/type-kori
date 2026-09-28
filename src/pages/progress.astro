@@ -1,0 +1,46 @@
+---
+import Progress from "../components/Progress.tsx";
+import { progressCopy } from "../content/progress";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const lang = "bn" as const;
+const copy = progressCopy[lang];
+---
+
+<BaseLayout lang={lang} title={copy.title} description={copy.description} path="/progress">
+  <div class="mx-auto w-full max-w-[960px] px-4 py-14 sm:px-6">
+    <h1 class="font-bangla text-3xl font-semibold text-text">{copy.h1}</h1>
+    <p class="font-bangla mt-4 max-w-2xl text-base leading-relaxed text-muted">{copy.lead}</p>
+
+    <div class="mt-10">
+      <Progress client:load lang={lang} />
+    </div>
+
+    <section class="mt-12 grid gap-4 sm:grid-cols-2">
+      <article class="rounded-card border border-border bg-surface p-5">
+        <h2 class="font-bangla text-base font-semibold text-text">{copy.whatTitle}</h2>
+        <p class="font-bangla mt-2 text-sm leading-relaxed text-muted">{copy.whatBody}</p>
+      </article>
+
+      <article class="rounded-card border border-border bg-surface p-5">
+        <h2 class="font-bangla text-base font-semibold text-text">{copy.dataTitle}</h2>
+        <p class="font-bangla mt-2 text-sm leading-relaxed text-muted">{copy.dataBody}</p>
+      </article>
+    </section>
+
+    <section class="mt-4 rounded-card border border-border bg-surface p-5">
+      <h2 class="font-bangla text-base font-semibold text-text">{copy.formulaTitle}</h2>
+
+      <dl class="mt-4 grid gap-4 sm:grid-cols-3">
+        {
+          copy.formulas.map((formula) => (
+            <div>
+              <dt class="font-bangla text-sm font-semibold text-text">{formula.term}</dt>
+              <dd class="font-bangla mt-1 text-sm leading-relaxed text-muted">{formula.body}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+  </div>
+</BaseLayout>
