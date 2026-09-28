@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Type Kori">
+  <rect width="32" height="32" rx="8" fill="#0E7C5A" />
+  <rect x="9" y="11.6" width="14" height="2.4" rx="1.2" fill="#FFFFFF" />
+  <text
+    x="16"
+    y="24.6"
+    text-anchor="middle"
+    font-size="15"
+    font-weight="600"
+    fill="#FFFFFF"
+    font-family="'Noto Sans Bengali', 'Nirmala UI', 'Bangla MN', 'Vrinda', sans-serif"
+  >ট</text>
+</svg>
