@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
+import { drillTexts } from "../content/drills";
 import { practiceTexts } from "../content/texts";
 import { collectMistakes, renderProgress, type ClusterState, type WordStatus } from "../engine/compare";
 import { createPhoneticEngine } from "../engine/input/phonetic";
@@ -13,6 +14,7 @@ import {
   type SessionEvent,
   type SessionState,
 } from "../engine/session";
+import { createWordBank, drawWords } from "../engine/wordbank";
 import {
   createRng,
   pickText,
@@ -66,14 +68,39 @@ interface RunModel {
   history: readonly string[];
   /** Words mode: end after this many committed words; null = text/timed mode. */
   wordGoal: number | null;
+  /** Infinite streaming: the word bank backing this run, or null for fixed texts. */
+  bank: WordBankHandle | null;
+}
+
+/** Everything needed to keep feeding words into a running target. */
+interface WordBankHandle {
+  bank: ReturnType<typeof createWordBank>;
+  /** Seed lineage: every extension derives from the previous one. */
+  seed: number;
 }
 
 const DURATIONS: readonly (number | null)[] = [null, 60_000, 180_000, 300_000];
 const WORD_GOALS: readonly number[] = [10, 25, 50, 100];
 const HISTORY_LIMIT = 6;
+/** How far ahead of the caret the stream keeps drawing new words. */
+const STREAM_BUFFER = 12;
 
 function createEngine(mode: InputEngineId): InputEngine {
   return mode === "avro-phonetic" ? createPhoneticEngine() : createSystemEngine();
+}
+
+/** The vocabulary the infinite stream draws from: every curated text and drill. */
+function buildVocabulary(difficulty: Difficulty | "all"): string[] {
+  const texts = difficulty === "all" ? practiceTexts : practiceTexts.filter((text) => text.difficulty === difficulty);
+  const drills = difficulty === "all" ? drillTexts : drillTexts.filter((text) => text.difficulty === difficulty);
+  const words: string[] = [];
+  for (const text of [...texts, ...drills]) words.push(...wordsOf(text));
+  // A difficulty bucket can never be empty (the content validator guarantees
+  // texts per level), but a guard costs nothing.
+  if (words.length === 0) {
+    for (const text of practiceTexts) words.push(...wordsOf(text));
+  }
+  return words;
 }
 
 function createRun(options: {
@@ -86,6 +113,9 @@ function createRun(options: {
   stopOnError?: boolean;
   /** Words mode target; null keeps the whole text. */
   wordGoal?: number | null;
+  /** Infinite streaming mode; null keeps a fixed target text. */
+  infinite?: boolean;
+  vocabulary?: readonly string[];
 }): RunModel {
   const {
     pool,
@@ -95,8 +125,27 @@ function createRun(options: {
     difficulty = "all",
     stopOnError = false,
     wordGoal = null,
+    infinite = false,
+    vocabulary,
   } = options;
   const text = pickText(pool, { difficulty, exclude: [...history], rng: createRng(seed) }) ?? pool[0];
+
+  // Infinite mode: the target starts as one generated line and the island keeps
+  // extending it while the user types. The `text` is then only the run's
+  // identity for progress records.
+  if (infinite && vocabulary !== undefined && vocabulary.length > 0) {
+    const bank = createWordBank(vocabulary);
+    const first = drawWords(bank, STREAM_BUFFER, seed);
+    return {
+      text,
+      durationMs,
+      session: createSession({ targetWords: first, durationMs, stopOnError, infinite: true }),
+      history: [...history, text.id].slice(-HISTORY_LIMIT),
+      wordGoal,
+      bank: { bank, seed },
+    };
+  }
+
   // Words mode: exactly goal words. A longer text is truncated; a shorter pool
   // text is used whole (a custom paste is never truncated).
   const allWords = wordsOf(text);
@@ -105,9 +154,10 @@ function createRun(options: {
   return {
     text,
     durationMs,
-    session: createSession({ targetWords, durationMs, stopOnError }),
+    session: createSession({ targetWords, durationMs, stopOnError, infinite: false }),
     history: [...history, text.id].slice(-HISTORY_LIMIT),
     wordGoal,
+    bank: null,
   };
 }
 
@@ -191,22 +241,37 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   // five seconds.
   const pool = lesson?.texts ?? (customRun !== null ? [customRun] : practiceTexts);
   const difficulty = lesson === undefined ? storedDifficulty : "all";
+  // Only a free practice run streams. A lesson, a weak-key drill and a custom
+  // paste are fixed texts by definition — the user chose those exact words.
+  const infinite = lesson === undefined && customRun === null && weakDrill === null;
+  const vocabulary = useMemo(() => buildVocabulary(difficulty), [difficulty]);
 
   const [model, setModel] = useState<RunModel>(() =>
-    createRun({ pool, durationMs: null, seed, difficulty: lesson === undefined ? "easy" : "all" }),
+    createRun({
+      pool,
+      durationMs: null,
+      seed,
+      difficulty: lesson === undefined ? "easy" : "all",
+      infinite,
+      vocabulary,
+    }),
   );
   const [now, setNow] = useState(0);
-  const [mode, setMode] = useState<InputEngineId>(defaultSettings.inputMode);
+  const [mode, setInputMode] = useState<InputEngineId>(defaultSettings.inputMode);
   const [osKeyboard, setOsKeyboard] = useState(false);
   const [lessonRecord, setLessonRecord] = useState<LessonProgress | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const engineRef = useRef<InputEngine>(createEngine(defaultSettings.inputMode));
+  // The document-level key handler is mounted once, so it reads the run through
+  // this ref instead of a stale closure.
+  const modelRef = useRef<RunModel | null>(null);
+  modelRef.current = model;
 
   // Apply the stored theme, text size and input mode as soon as the island is up.
   useEffect(() => {
     const stored = loadAndApplySettings();
-    setMode(stored.inputMode);
+    setInputMode(stored.inputMode);
     engineRef.current = createEngine(stored.inputMode);
     setBlindMode(stored.blindMode);
     setLiveWpm(stored.liveWpm);
@@ -223,7 +288,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   useEffect(
     () =>
       onSettingsChange((settings) => {
-        setMode((current) => {
+        setInputMode((current) => {
           if (current === settings.inputMode) return current;
           engineRef.current = createEngine(settings.inputMode);
           setOsKeyboard(false);
@@ -285,6 +350,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         difficulty,
         stopOnError: stopOnErrorWord || stopOnError,
         wordGoal,
+        infinite,
+        vocabulary,
       }),
     );
   };
@@ -303,6 +370,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         difficulty,
         stopOnError: stopOnErrorWord || stopOnError,
         wordGoal: null,
+        infinite,
+        vocabulary,
       }),
     );
   };
@@ -322,6 +391,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         difficulty,
         stopOnError: stopOnErrorWord || stopOnError,
         wordGoal: goal,
+        infinite: goal === null,
+        vocabulary,
       }),
     );
   };
@@ -381,6 +452,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         seed: Date.now() % 0x7fff_ffff,
         history: [],
         difficulty,
+        infinite: true,
+        vocabulary,
       }),
     );
   };
@@ -419,6 +492,23 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       if (event.key === "Escape") {
         event.preventDefault();
         restart();
+        return;
+      }
+
+      // Tab completes an endless run (monkeytype zen convention): the results
+      // screen shows everything typed so far. A timed or word-goal run ends on
+      // its own, so Tab is left alone there.
+      const current = modelRef.current;
+      if (
+        event.key === "Tab" &&
+        current !== null &&
+        current.bank !== null &&
+        current.durationMs === null &&
+        current.wordGoal === null &&
+        current.session.state === "running"
+      ) {
+        event.preventDefault();
+        apply({ type: "end", at: Date.now() });
         return;
       }
 
@@ -479,6 +569,29 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     return () => window.clearInterval(id);
   }, [model.session.state]);
 
+  // The stream: as the caret approaches the end of the generated target, extend
+  // it with a fresh line of words. This is the whole trick behind an endless run.
+  useEffect(() => {
+    const { bank, session } = model;
+    if (bank === null) return;
+    if (session.state === "finished") return;
+    if (session.target.length - session.committed.length > STREAM_BUFFER) return;
+
+    // The next seed derives from the last one, so long runs never repeat a line.
+    const seed = (bank.seed * 1_664_525 + 1_013_904_223) % 0x7fff_ffff;
+    const words = drawWords(bank.bank, STREAM_BUFFER, seed, session.target.slice(-8));
+
+    setModel((current) =>
+      current.bank === null
+        ? current
+        : {
+            ...current,
+            bank: { ...current.bank, seed },
+            session: reduce(current.session, { type: "extend", words, at: Date.now() }),
+          },
+    );
+  }, [model.session.committed.length, model.session.target.length, model.session.state]);
+
   const { session } = model;
   const finished = session.state === "finished";
   const activeIndex = session.committed.length;
@@ -486,7 +599,16 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const weakAvailable =
     lesson === undefined && customRun === null && topWeakKeyCount(loadErrorMap()) > 0;
   const stats = sessionStats(session, now);
-  const view = renderProgress(session.target, session.committed, session.active);
+  // The rendered window: enough committed context to read back, enough pending
+  // words that the stream never catches the caret. Rendering the whole target
+  // would grow without bound in an infinite run.
+  const windowStart = Math.max(0, activeIndex - (showAllLines ? 12 : 1));
+  const windowEnd = Math.min(session.target.length, activeIndex + (showAllLines ? 24 : 12));
+  const view = renderProgress(
+    session.target.slice(windowStart, windowEnd),
+    session.committed.slice(windowStart, windowEnd),
+    session.active,
+  );
   const mistakes = finished ? collectMistakes(session.committed, session.target) : [];
   const timed = model.durationMs !== null;
   const countdown = timed ? Math.max(0, (model.durationMs ?? 0) - stats.elapsedMs) : 0;
@@ -546,6 +668,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         "results.time",
       )} ${formatDuration(stats.elapsedMs)}`
     : "";
+
+  // In single-line mode the visible window slides with the caret; the stream
+  // simply keeps that window populated forever.
 
   return (
     <div>
@@ -714,21 +839,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           class="typing-text flex select-none flex-wrap content-start gap-x-[0.55em] gap-y-2 px-5 py-6 sm:px-7 sm:py-8"
         >
           {view.words.map((word, wordIndex) => {
-            // Single-line mode: only a window around the active word is shown,
-            // monkeytype-style. The words still exist — they are just not drawn.
-            if (
-              !showAllLines &&
-              (wordIndex < activeIndex - 1 || wordIndex > activeIndex + 11)
-            ) {
-              return null;
-            }
-
             const nextCluster = word.status === "active"
               ? word.clusters.findIndex((cluster) => cluster.state !== "correct")
               : -1;
 
             return (
-              <span key={wordIndex} class={`inline-flex ${wordClass(word.status)}`}>
+              <span key={windowStart + wordIndex} class={`inline-flex ${wordClass(word.status)}`}>
                 {word.clusters.map((cluster, clusterIndex) => (
                   <span
                     key={clusterIndex}
@@ -822,7 +938,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         <Stat
           label={t("results.correct")}
           value={formatNumeral(
-            `${stats.correctWords}/${session.target.length}`,
+            `${stats.correctWords}/${session.committed.length}`,
             numerals,
           )}
         />
@@ -950,6 +1066,11 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         <span>
           <kbd class="keycap">Esc</kbd> {t("practice.restart")}
         </span>
+        {model.bank !== null && !timed && wordGoal === null && (
+          <span>
+            <kbd class="keycap">Tab</kbd> {t("practice.endTest")}
+          </span>
+        )}
         <span>{t("practice.offlineNote")}</span>
       </p>
     </div>
