@@ -19,6 +19,16 @@ const mirror = mirrorPath(Astro.url.pathname, otherLang);
 
 const iconClass =
   "inline-flex size-9 items-center justify-center rounded-control text-muted transition-colors duration-150 ease-out hover:bg-surface-2 hover:text-text";
+
+// One line of glue for the theme quick picker: forward the click to the
+// settings drawer island. The event name is shared with applySettings.ts; it is
+// spelled out here because this script must run before any island hydrates.
+const themePickerGlue = `
+  document.addEventListener("click", function (event) {
+    var button = event.target instanceof Element ? event.target.closest("[data-tk-theme-button]") : null;
+    if (button) window.dispatchEvent(new CustomEvent("tk:open-theme-picker"));
+  });
+`;
 ---
 
 <!-- Monkeytype-style bar: logo left, icon buttons right. No text links, no border.
@@ -99,8 +109,40 @@ const iconClass =
         </svg>
       </a>
 
+      {/* Theme quick picker: the small palette icon, monkeytype's footer "dev"
+          equivalent. It asks the settings drawer island to open on its theme
+          tab; before that island hydrates the click simply does nothing. */}
+      <button
+        type="button"
+        class={iconClass}
+        aria-label={t("nav.theme")}
+        title={t("nav.theme")}
+        data-tk-theme-button
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+          <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+          <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+          <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"
+          />
+        </svg>
+      </button>
+
       <CommandBar client:load lang={lang} />
       <SiteControls client:load lang={lang} />
     </div>
   </div>
 </header>
+
+<script is:inline set:html={themePickerGlue} />

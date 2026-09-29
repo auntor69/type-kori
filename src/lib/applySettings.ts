@@ -147,3 +147,10 @@ export function setOverlayOpen(name: string, open: boolean): void {
 }
 
 export const OVERLAY_ATTRIBUTE = "data-tk-overlay";
+
+/**
+ * The header's theme icon asks the settings drawer to open straight onto the
+ * theme tab. The event name lives here so the inline script in the header and
+ * the drawer island cannot drift apart.
+ */
+export const THEME_PICKER_EVENT = "tk:open-theme-picker";

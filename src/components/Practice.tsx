@@ -9,7 +9,7 @@ import { formatDuration } from "../engine/metrics";
 import { reduce, sessionStats, type SessionEvent } from "../engine/session";
 import type { Difficulty, PracticeText } from "../engine/text/provider";
 import { useTranslations, type Lang } from "../i18n";
-import { loadAndApplySettings, onSettingsChange } from "../lib/applySettings";
+import { loadAndApplySettings, onSettingsChange, updateSettings } from "../lib/applySettings";
 import { onRunCommand, type RunCommand } from "../lib/commands";
 import type { FunboxMode } from "../lib/funbox";
 import {
@@ -33,6 +33,7 @@ import {
   type ConfidenceMode,
   type IndicateTypos,
   type QuickRestart,
+  type Settings,
   type WordHistory,
 } from "../lib/settings";
 import { formatNumeral } from "../lib/numerals";
@@ -67,8 +68,11 @@ interface Props {
   lesson?: LessonRun;
 }
 
-const DURATIONS: readonly (number | null)[] = [null, 60_000, 180_000, 300_000];
+/** Time-mode chips in **seconds**, monkeytype-style. */
+const TIME_CHIPS: readonly number[] = [15, 30, 60, 120];
 const WORD_GOALS: readonly number[] = [10, 25, 50, 100];
+const TEST_MODES = ["time", "words", "zen", "custom"] as const;
+type TestMode = (typeof TEST_MODES)[number];
 /** How many typed words the results screen lists back. */
 const WORD_HISTORY_ROWS = 40;
 
@@ -213,10 +217,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   prefsRef.current = { sound, soundVolume, quickRestart, confidenceMode, capsLockWarning };
 
   // Apply the stored theme, text size and input mode as soon as the island is up.
-  // The run itself is not rebuilt with the stored funbox: pinning each run to the
-  // mode it started with keeps one target text and one recorded test type.
+  // The stored funbox and difficulty are loaded into state; when either differs
+  // from what the first run was built with, the rebuild effect below restarts
+  // the run with them, so a stored choice is on screen without a click.
   useEffect(() => {
     const stored = loadAndApplySettings();
+    settingsRef.current = stored;
     setInputMode(stored.inputMode);
     engineRef.current = createEngine(stored.inputMode);
     setBlindMode(stored.blindMode);
@@ -238,13 +244,14 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setWordHistory(stored.wordHistory);
     setFocusMode(stored.focusMode);
     setCapsLockWarning(stored.capsLockWarning);
-    // The stored funbox waits for the next run; the current one stays pinned.
+    setFunbox(stored.funbox);
   }, []);
 
   // The settings drawer can change the input mode while a run is on screen.
   useEffect(
     () =>
       onSettingsChange((settings) => {
+        settingsRef.current = settings;
         setInputMode((current) => {
           if (current === settings.inputMode) return current;
           engineRef.current = createEngine(settings.inputMode);
@@ -276,14 +283,53 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         setCapsLockWarning(settings.capsLockWarning);
         setFunbox((current) => {
           if (current === settings.funbox) return current;
-          // A funbox change takes effect on the next run, not inside this one:
-          // half the words reversed would misrepresent both the target and the
-          // recorded test type.
+          // The rebuild effect below restarts the run with the new twist, so
+          // the choice is visible immediately instead of on some later run.
           return settings.funbox;
         });
       }),
     [],
   );
+
+  // The last full settings snapshot this island knows about, so a quick control
+  // here can write a complete settings object without owning the whole schema.
+  const settingsRef = useRef<Settings>(defaultSettings);
+
+  // A difficulty or funbox change is visible immediately: the run on screen is
+  // rebuilt from the new choice, the way monkeytype restarts when the test type
+  // changes. Before this, difficulty only reached "Next text" — switching it
+  // looked like nothing happened — and a stored funbox never loaded at all.
+  // The first render is skipped (the deliberate easy first text survives) and a
+  // custom paste, a lesson drill or a weak-key drill is left alone: those are
+  // fixed targets by definition, and a funbox must never rewrite them.
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    if (!infinite) return;
+
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setFailReason(null);
+    setModel((current) =>
+      createRun({
+        pool,
+        durationMs: current.durationMs,
+        seed: Date.now() % 0x7fff_ffff,
+        history: current.history,
+        difficulty,
+        stopOnError: stopOnErrorWord || stopOnError,
+        wordGoal,
+        infinite,
+        vocabulary,
+        funbox: activeFunbox,
+      }),
+    );
+    // Only the difficulty and the funbox drive the rebuild; the other values are
+    // read as they are in the render that scheduled this effect.
+  }, [difficulty, activeFunbox]);
 
   const apply = (event: SessionEvent) => {
     setModel((current) => ({ ...current, session: reduce(current.session, event) }));
@@ -352,6 +398,60 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         funbox: activeFunbox,
       }),
     );
+  };
+
+  /**
+   * The config bar's active mode, derived from the run: which chip row makes
+   * sense right now. `custom` wins once a paste is on screen.
+   */
+  const activeMode: TestMode =
+    customRun !== null
+      ? "custom"
+      : wordGoal !== null
+        ? "words"
+        : model.durationMs !== null
+          ? "time"
+          : "zen";
+
+  /**
+   * Switch the test mode from the config bar. `time`/`words` land on their
+   * first chip so the change is visible; `zen` is the endless run; `custom`
+   * opens the paste panel. A custom paste and a lesson drill keep their own
+   * run until the user leaves them.
+   */
+  const chooseMode = (testMode: TestMode) => {
+    if (testMode === activeMode) return;
+    if (testMode === "custom") {
+      setCustomPanelOpen(true);
+      return;
+    }
+    if (customRun !== null) {
+      setCustomRun(null);
+      setWeakDrill(null);
+    }
+    setWeakDrill(null);
+
+    if (testMode === "time") {
+      chooseDuration(TIME_CHIPS[0] * 1000);
+      return;
+    }
+    if (testMode === "words") {
+      chooseWordGoal(WORD_GOALS[0]);
+      return;
+    }
+    chooseDuration(null);
+  };
+
+  /**
+   * Stream-twist toggle for the config bar. Writing through `updateSettings`
+   * stores the choice, applies it and broadcasts it, and the rebuild effect
+   * above restarts the run with the new twist.
+   */
+  const toggleFunbox = (next: FunboxMode) => {
+    if (next === funbox) return;
+    const snapshot: Settings = { ...settingsRef.current, funbox: next };
+    settingsRef.current = snapshot;
+    updateSettings(snapshot);
   };
 
   /** Words mode: commit a fixed number of words, untimed. */
@@ -804,51 +904,107 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         )}
 
         {lesson === undefined && customRun === null && weakDrill === null && (
-          <>
+          <div
+            role="group"
+            aria-label={t("practice.configBar")}
+            class="flex flex-wrap items-center justify-center gap-2"
+          >
+            {/* Stream twists: monkeytype's @ punctuation / # numbers. */}
             <div
               role="group"
-              aria-label={t("practice.time")}
+              aria-label={t("settings.funbox")}
               class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
             >
-              {DURATIONS.map((duration) => (
+              <button
+                type="button"
+                aria-pressed={activeFunbox === "punctuation"}
+                onClick={() =>
+                  toggleFunbox(activeFunbox === "punctuation" ? "none" : "punctuation")
+                }
+                class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
+                  activeFunbox === "punctuation"
+                    ? "bg-accent text-on-accent"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                @ {t("command.funbox.punctuation")}
+              </button>
+              <button
+                type="button"
+                aria-pressed={activeFunbox === "numbers"}
+                onClick={() => toggleFunbox(activeFunbox === "numbers" ? "none" : "numbers")}
+                class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
+                  activeFunbox === "numbers"
+                    ? "bg-accent text-on-accent"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                # {t("command.funbox.numbers")}
+              </button>
+            </div>
+
+            {/* Mode: monkeytype's time / words / zen / custom row. */}
+            <div
+              role="group"
+              aria-label={t("practice.testMode")}
+              class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
+            >
+              {TEST_MODES.map((testMode) => (
                 <button
-                  key={String(duration)}
+                  key={testMode}
                   type="button"
-                  aria-pressed={model.durationMs === duration && wordGoal === null}
-                  onClick={() => chooseDuration(duration)}
+                  aria-pressed={activeMode === testMode}
+                  onClick={() => chooseMode(testMode)}
                   class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
-                    model.durationMs === duration && wordGoal === null
+                    activeMode === testMode
                       ? "bg-accent text-on-accent"
                       : "text-muted hover:text-text"
                   }`}
                 >
-                  {duration === null ? "∞" : formatNumeral(duration / 60_000, numerals) + "m"}
+                  {t(`practice.modeChip.${testMode}`)}
                 </button>
               ))}
             </div>
 
+            {/* Durations for the active mode: seconds in time mode, word counts in words mode. */}
             <div
               role="group"
-              aria-label={t("practice.words")}
+              aria-label={activeMode === "words" ? t("practice.words") : t("practice.time")}
               class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
             >
-              {WORD_GOALS.map((goal) => (
-                <button
-                  key={goal}
-                  type="button"
-                  aria-pressed={wordGoal === goal}
-                  onClick={() => chooseWordGoal(goal)}
-                  class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
-                    wordGoal === goal
-                      ? "bg-accent text-on-accent"
-                      : "text-muted hover:text-text"
-                  }`}
-                >
-                  {formatNumeral(goal, numerals)}
-                </button>
-              ))}
+              {activeMode === "words"
+                ? WORD_GOALS.map((goal) => (
+                    <button
+                      key={goal}
+                      type="button"
+                      aria-pressed={wordGoal === goal}
+                      onClick={() => chooseWordGoal(goal)}
+                      class={`rounded-pill px-2.5 py-1 text-xs font-medium tabular-nums transition-colors duration-150 ease-out ${
+                        wordGoal === goal
+                          ? "bg-accent text-on-accent"
+                          : "text-muted hover:text-text"
+                      }`}
+                    >
+                      {formatNumeral(goal, numerals)}
+                    </button>
+                  ))
+                : TIME_CHIPS.map((seconds) => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      aria-pressed={model.durationMs === seconds * 1000}
+                      onClick={() => chooseDuration(seconds * 1000)}
+                      class={`rounded-pill px-2.5 py-1 text-xs font-medium tabular-nums transition-colors duration-150 ease-out ${
+                        model.durationMs === seconds * 1000
+                          ? "bg-accent text-on-accent"
+                          : "text-muted hover:text-text"
+                      }`}
+                    >
+                      {formatNumeral(seconds, numerals)}
+                    </button>
+                  ))}
             </div>
-          </>
+          </div>
         )}
 
         {lesson === undefined && customRun === null && (
