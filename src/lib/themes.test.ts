@@ -1,11 +1,57 @@
 import { describe, expect, it } from "vitest";
 
-import { applyThemeVars, getTheme, isThemeId, themes, themeStyleVars } from "./themes";
+import {
+  allThemes,
+  applyThemeVars,
+  exportTheme,
+  getTheme,
+  isThemeId,
+  searchThemes,
+  themeCategoryOf,
+  themeLabel,
+  themes,
+  themeStyleVars,
+} from "./themes";
 
 describe("theme registry", () => {
   it("has unique ids", () => {
-    const ids = themes.map((theme) => theme.id);
+    const ids = allThemes.map((theme) => theme.id);
     expect(new Set(ids).size).toBe(ids.length);
+    expect(allThemes.length).toBeGreaterThan(themes.length + 150);
+  });
+
+  it("sorts the hand-written themes into light and dark", () => {
+    expect(themeCategoryOf(getTheme("serika"))).toBe("dark");
+    expect(themeCategoryOf(getTheme("paper"))).toBe("light");
+    expect(themeCategoryOf(getTheme("flag-bd"))).toBe("flags");
+    expect(themeLabel(getTheme("paper"))).toBe("paper");
+  });
+
+  it("searches and filters for the picker", () => {
+    expect(searchThemes("", "dark").every((theme) => theme.dark)).toBe(true);
+    expect(searchThemes("", "flags").length).toBeGreaterThan(190);
+    expect(searchThemes("nord", "all").map((theme) => theme.id)).toContain("nord");
+    expect(searchThemes("bangladesh", "all").map((theme) => theme.id)).toContain("flag-bd");
+    expect(searchThemes("", "favourites", ["nord", "flag-bd"]).map((theme) => theme.id)).toEqual([
+      "nord",
+      "flag-bd",
+    ]);
+    expect(searchThemes("flag-", "dark").length).toBe(0);
+  });
+
+  it("optimises nothing away with an empty query and no favourites", () => {
+    expect(searchThemes("", "favourites", [])).toEqual([]);
+  });
+
+  it("exports a theme as JSON", () => {
+    const parsed = JSON.parse(exportTheme(getTheme("nord"))) as {
+      kind: string;
+      theme: { id: string; vars: Record<string, string> };
+    };
+
+    expect(parsed.kind).toBe("theme");
+    expect(parsed.theme.id).toBe("nord");
+    expect(parsed.theme.vars["--bg"]).toBe("#2e3440");
   });
 
   it("keeps serika and paper as the built-in palettes", () => {

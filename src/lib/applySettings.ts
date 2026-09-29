@@ -116,7 +116,17 @@ export function watchSystemTheme(getSettings: () => Settings): () => void {
   return () => query.removeEventListener("change", handler);
 }
 
-export function setDrawerOpen(open: boolean): void {
-  if (open) document.documentElement.setAttribute(DRAWER_ATTRIBUTE, "open");
+/**
+ * Overlays that are open, by name. The typing island stops reading keystrokes
+ * while the attribute is set, and two overlays closing in either order must not
+ * cancel each other out — hence a set rather than a boolean.
+ */
+const openOverlays = new Set<string>();
+
+export function setOverlayOpen(name: string, open: boolean): void {
+  if (open) openOverlays.add(name);
+  else openOverlays.delete(name);
+
+  if (openOverlays.size > 0) document.documentElement.setAttribute(DRAWER_ATTRIBUTE, "open");
   else document.documentElement.removeAttribute(DRAWER_ATTRIBUTE);
 }

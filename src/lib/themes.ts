@@ -9,8 +9,13 @@
  * duality here, a theme is one concrete look.
  */
 
+import { mix } from "./colors";
+import { flagThemes } from "./flags";
+
 export interface ThemeDef {
   id: string;
+  /** Display name when it differs from the id, e.g. "🇧🇩 Bangladesh". */
+  label?: string;
   dark: boolean;
   bg: string;
   surface: string;
@@ -20,6 +25,17 @@ export interface ThemeDef {
   accentSoft: string;
   wrong: string;
 }
+
+/** What the picker groups by. Flags are generated; the rest are hand-written. */
+export type ThemeCategory = "all" | "dark" | "light" | "flags" | "favourites";
+
+export const themeCategories: readonly ThemeCategory[] = [
+  "all",
+  "dark",
+  "light",
+  "flags",
+  "favourites",
+];
 
 export const themes: readonly ThemeDef[] = [
   // ——— The built-ins: the Section 6 palettes ———
@@ -76,18 +92,84 @@ export const themes: readonly ThemeDef[] = [
   { id: "metropolis", dark: true, bg: "#1d1d26", surface: "#272733", text: "#e6e6ef", muted: "#70708a", accent: "#8be9fd", accentSoft: "#2b3843", wrong: "#ff6188" },
   { id: "dorsom", dark: true, bg: "#17181f", surface: "#212230", text: "#d8dee9", muted: "#5f6b7f", accent: "#88c0d0", accentSoft: "#263340", wrong: "#bf616a" },
   { id: "nightfoil", dark: true, bg: "#101418", surface: "#181d23", text: "#dde4ea", muted: "#5c6a76", accent: "#66d9c2", accentSoft: "#1e3230", wrong: "#f0687a" },
+
+  // ——— Editors and terminals people already know ———
+  { id: "vscode", dark: true, bg: "#1e1e1e", surface: "#252526", text: "#d4d4d4", muted: "#6a6a6a", accent: "#569cd6", accentSoft: "#2b3542", wrong: "#f14c4c" },
+  { id: "material", dark: true, bg: "#263238", surface: "#2e3c43", text: "#eeffff", muted: "#607d8b", accent: "#82aaff", accentSoft: "#31424e", wrong: "#f07178" },
+  { id: "palenight", dark: true, bg: "#292d3e", surface: "#34394d", text: "#a6accd", muted: "#676e95", accent: "#c792ea", accentSoft: "#383d55", wrong: "#ff5370" },
+  { id: "ayu", dark: true, bg: "#0b0e14", surface: "#131721", text: "#d0d6e0", muted: "#565b66", accent: "#ffb454", accentSoft: "#2a2519", wrong: "#f07178" },
+  { id: "horizon", dark: true, bg: "#1c1e26", surface: "#232530", text: "#d5d8da", muted: "#6c6f93", accent: "#e95678", accentSoft: "#33232c", wrong: "#fab795" },
+  { id: "kanagawa", dark: true, bg: "#1f1f28", surface: "#2a2a37", text: "#dcd7ba", muted: "#727169", accent: "#7e9cd8", accentSoft: "#2d3646", wrong: "#e82424" },
+  { id: "nightowl", dark: true, bg: "#011627", surface: "#0b2942", text: "#d6deeb", muted: "#5f7e97", accent: "#82aaff", accentSoft: "#12344e", wrong: "#ef5350" },
+  { id: "poimandres", dark: true, bg: "#1b1e28", surface: "#252b37", text: "#e4f0fb", muted: "#767c9d", accent: "#5de4c7", accentSoft: "#1d3a3a", wrong: "#d0679d" },
+  { id: "vesper", dark: true, bg: "#101010", surface: "#1a1a1a", text: "#ffffff", muted: "#7e7e7e", accent: "#ffc799", accentSoft: "#2e2822", wrong: "#ff8080" },
+  { id: "zenburn", dark: true, bg: "#3f3f3f", surface: "#4a4a4a", text: "#dcdccc", muted: "#8a8a80", accent: "#f0dfaf", accentSoft: "#55524a", wrong: "#cc9393" },
+  { id: "iceberg", dark: true, bg: "#161821", surface: "#1e2132", text: "#c6c8d1", muted: "#6b7089", accent: "#84a0c6", accentSoft: "#2a3245", wrong: "#e27878" },
+  { id: "moonlight", dark: true, bg: "#191f2b", surface: "#222a3a", text: "#c8d3f5", muted: "#636da6", accent: "#82aaff", accentSoft: "#2a3550", wrong: "#ff757f" },
+
+  // ——— Bright and playful ———
+  { id: "flamingo", dark: false, bg: "#fff5f7", surface: "#ffffff", text: "#3d2430", muted: "#a3808c", accent: "#e0377c", accentSoft: "#fbdde8", wrong: "#c2185b" },
+  { id: "kiwi", dark: false, bg: "#f3f8ee", surface: "#ffffff", text: "#25331f", muted: "#7c8b72", accent: "#5f9e2f", accentSoft: "#e3f0d4", wrong: "#c0392b" },
+  { id: "grape", dark: true, bg: "#1e1530", surface: "#291d42", text: "#eee6ff", muted: "#7b6a9e", accent: "#c084fc", accentSoft: "#33254f", wrong: "#ff7ba0" },
+  { id: "coral", dark: false, bg: "#fff6f0", surface: "#ffffff", text: "#3a2a24", muted: "#a08678", accent: "#f2603c", accentSoft: "#fde2d7", wrong: "#c62828" },
+  { id: "lagoon", dark: true, bg: "#06202a", surface: "#0b2c38", text: "#d6f1f5", muted: "#5b8694", accent: "#2ed3c6", accentSoft: "#123b44", wrong: "#ff7a90" },
+  { id: "neon", dark: true, bg: "#08080f", surface: "#12121c", text: "#f2f2ff", muted: "#5a5a80", accent: "#39ff14", accentSoft: "#12301a", wrong: "#ff0055" },
+  { id: "slate", dark: true, bg: "#1a1d23", surface: "#242830", text: "#dfe3e8", muted: "#6b7280", accent: "#93c5fd", accentSoft: "#2a3442", wrong: "#f87171" },
+  { id: "sandstone", dark: false, bg: "#f7f2ea", surface: "#fffdf9", text: "#3b3226", muted: "#8b7f6b", accent: "#a8541e", accentSoft: "#f0e3d3", wrong: "#b03030" },
+  { id: "victorian", dark: true, bg: "#1c1512", surface: "#271d18", text: "#ecd9c6", muted: "#8a7361", accent: "#c9a227", accentSoft: "#392d21", wrong: "#b4534b" },
+  { id: "bushido", dark: true, bg: "#1b1b1d", surface: "#262628", text: "#e6e0d4", muted: "#7d7768", accent: "#c0392b", accentSoft: "#33272a", wrong: "#e0a35c" },
+  { id: "susurrus", dark: true, bg: "#1a1f1d", surface: "#232b28", text: "#dfe8e3", muted: "#6f7d78", accent: "#8fd6b4", accentSoft: "#26362f", wrong: "#e5989b" },
+  { id: "palette", dark: true, bg: "#1f1b24", surface: "#2a2430", text: "#efe9f4", muted: "#7d7188", accent: "#ffb4a2", accentSoft: "#352a34", wrong: "#ff8fab" },
 ];
 
-export type ThemeId = (typeof themes)[number]["id"];
+export type ThemeId = (typeof themes)[number]["id"] | `flag-${string}`;
 
-const themeIds = new Set<string>(themes.map((theme) => theme.id));
+export const allThemes: readonly ThemeDef[] = [...themes, ...flagThemes];
+
+const themeIds = new Set<string>(allThemes.map((theme) => theme.id));
 
 export function isThemeId(value: unknown): value is ThemeId {
   return typeof value === "string" && themeIds.has(value);
 }
 
+/** The name to show: an explicit label, the flag name, or the bare id. */
+export function themeLabel(theme: ThemeDef): string {
+  return theme.label ?? theme.id;
+}
+
+export function themeCategoryOf(theme: ThemeDef): Exclude<ThemeCategory, "all"> {
+  if (theme.id.startsWith("flag-")) return "flags";
+  return theme.dark ? "dark" : "light";
+}
+
+/** Everything a picker needs to filter one row, lower-cased once. */
+export function themeSearchText(theme: ThemeDef): string {
+  return `${theme.id} ${themeLabel(theme)}`.toLowerCase();
+}
+
+export function searchThemes(
+  query: string,
+  category: ThemeCategory,
+  favourites: readonly string[] = [],
+): ThemeDef[] {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const favouriteSet = new Set(favourites);
+
+  return allThemes.filter((theme) => {
+    if (category === "favourites") {
+      if (!favouriteSet.has(theme.id)) return false;
+    } else if (category !== "all" && themeCategoryOf(theme) !== category) {
+      return false;
+    }
+
+    if (terms.length === 0) return true;
+    const haystack = themeSearchText(theme);
+    return terms.every((term) => haystack.includes(term));
+  });
+}
+
 export function getTheme(id: string): ThemeDef {
-  return themes.find((theme) => theme.id === id) ?? themes[0];
+  return allThemes.find((theme) => theme.id === id) ?? themes[0];
 }
 
 /**
@@ -134,25 +216,14 @@ function darken(hex: string, amount: number): string {
   return mix(hex, "#000000", amount);
 }
 
-function mix(a: string, b: string, amount: number): string {
-  const ca = parseHex(a);
-  const cb = parseHex(b);
-  const channel = (i: number) => Math.round(ca[i] + (cb[i] - ca[i]) * amount);
-  return `#${[0, 1, 2].map((i) => channel(i).toString(16).padStart(2, "0")).join("")}`;
-}
-
-function parseHex(hex: string): [number, number, number] {
-  const value = hex.replace("#", "");
-  const full =
-    value.length === 3
-      ? value
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : value;
-  return [
-    Number.parseInt(full.slice(0, 2), 16),
-    Number.parseInt(full.slice(2, 4), 16),
-    Number.parseInt(full.slice(4, 6), 16),
-  ];
+/**
+ * Serialise the current theme the way the no-flash snapshot does, so a theme
+ * can be exported, pasted into an issue, or shipped as a preset file.
+ */
+export function exportTheme(theme: ThemeDef): string {
+  return JSON.stringify(
+    { app: "type-kori", kind: "theme", theme: { ...theme, vars: themeStyleVars(theme) } },
+    null,
+    2,
+  );
 }

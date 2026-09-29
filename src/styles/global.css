@@ -107,6 +107,23 @@
     margin-bottom: 0.875rem;
   }
 
+  /* Focus mode: while a test is running the surrounding chrome — the header and
+     the practice toolbar — fades away. Anything focusable still comes back on
+     keyboard focus, so the navigation never becomes unreachable. */
+  [data-tk-chrome] {
+    transition: opacity 200ms var(--ease-out);
+  }
+
+  html[data-tk-focus="on"] [data-tk-chrome] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  html[data-tk-focus="on"] [data-tk-chrome]:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .keycap {
     display: inline-flex;
     align-items: center;

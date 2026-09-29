@@ -13,6 +13,7 @@ import {
   averageAccuracy,
   backupFileName,
   bestWpm,
+  clusterHeat,
   createBackup,
   errorMapForRun,
   loadErrorMap,
@@ -27,6 +28,7 @@ import {
   parseLessonProgress,
   parseRun,
   parseRuns,
+  personalBests,
   recordLessonResult,
   recordRun,
   resetAll,
@@ -396,5 +398,68 @@ describe("the backup file", () => {
     expect(storage.getItem(RUNS_KEY)).toBeNull();
     expect(storage.getItem(ERROR_MAP_KEY)).toBeNull();
     expect(storage.getItem(LESSONS_KEY)).toBeNull();
+  });
+});
+
+describe("test type on a run", () => {
+  it("keeps a recorded test type", () => {
+    expect(parseRun(makeRun({ testType: "time 60" }))?.testType).toBe("time 60");
+  });
+
+  it("reads history recorded before test types existed", () => {
+    const { testType: _dropped, ...withoutTestType } = makeRun();
+    expect(parseRun(withoutTestType)?.testType).toBeUndefined();
+  });
+
+  it("drops an absurd test type rather than storing it", () => {
+    expect(parseRun(makeRun({ testType: "x".repeat(64) }))?.testType).toBeUndefined();
+  });
+});
+
+describe("personalBests", () => {
+  it("groups by test type and keeps the best of each", () => {
+    const runs = [
+      makeRun({ id: "a", testType: "time 60", wpm: 40, accuracy: 95, ts: 200 }),
+      makeRun({ id: "b", testType: "time 60", wpm: 55, accuracy: 97, ts: 100 }),
+      makeRun({ id: "c", testType: "words 25", wpm: 30, accuracy: 99, ts: 300 }),
+      makeRun({ id: "d", wpm: 10, accuracy: 50, ts: 400 }),
+    ];
+
+    const bests = personalBests(runs);
+    const time = bests.find((best) => best.testType === "time 60");
+
+    expect(time?.runs).toBe(2);
+    expect(time?.bestWpm).toBe(55);
+    expect(time?.bestAccuracy).toBe(97);
+    // The newest run of that type, not the best one.
+    expect(time?.latestWpm).toBe(40);
+    expect(bests.map((best) => best.testType).sort()).toEqual(["time 60", "unknown", "words 25"]);
+  });
+
+  it("reports nothing without history", () => {
+    expect(personalBests([])).toEqual([]);
+  });
+});
+
+describe("clusterHeat", () => {
+  it("sorts by miss rate and ignores clusters seen too rarely", () => {
+    const heat = clusterHeat({
+      ক: { missed: 3, seen: 100 },
+      খ: { missed: 2, seen: 4 },
+      গ: { missed: 1, seen: 3 },
+      ঘ: { missed: 4, seen: 2 },
+      ঙ: { missed: 0, seen: 50 },
+    });
+
+    expect(heat.map((entry) => entry.cluster)).toEqual(["খ", "গ", "ক"]);
+    expect(heat[0].rate).toBeCloseTo(0.5);
+    expect(heat[0].seen).toBe(4);
+  });
+
+  it("respects its limit", () => {
+    const map = Object.fromEntries(
+      Array.from({ length: 40 }, (_value, index) => [`ক${index}`, { missed: 2, seen: 5 }]),
+    );
+    expect(clusterHeat(map, 3, 10).length).toBe(10);
   });
 });

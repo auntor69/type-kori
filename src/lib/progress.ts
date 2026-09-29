@@ -49,6 +49,11 @@ export interface RunRecord {
   /** Time actually spent typing, not the timer the run was started with. */
   durationMs: number;
   errors: RunError[];
+  /**
+   * Which test produced the run, e.g. `time 60`, `words 25`, `∞` or `lesson`.
+   * Optional because history recorded before personal bests existed has none.
+   */
+  testType?: string;
 }
 
 /** How often one target cluster was typed and how often it was missed. */
@@ -98,6 +103,10 @@ export function parseRun(raw: unknown): RunRecord | null {
     accuracy: run.accuracy,
     durationMs: run.durationMs,
     errors: parseRunErrors(run.errors),
+    testType:
+      typeof run.testType === "string" && run.testType.length > 0 && run.testType.length <= 32
+        ? run.testType
+        : undefined,
   };
 }
 
@@ -250,6 +259,84 @@ export function wpmSeries(runs: readonly RunRecord[], limit = 30): number[] {
     .slice(0, limit)
     .map((run) => run.wpm)
     .reverse();
+}
+
+/** One test type's best result, in the spirit of monkeytype's personal bests. */
+export interface PersonalBest {
+  testType: string;
+  runs: number;
+  bestWpm: number;
+  bestAccuracy: number;
+  /** Speed of the most recent run of this type, for a "vs best" comparison. */
+  latestWpm: number;
+  latestAt: number;
+}
+
+export const UNKNOWN_TEST_TYPE = "unknown";
+
+/**
+ * Group the history by test type and keep the best of each. Types are ordered by
+ * how much they have been practised, then by name, so the list is stable.
+ */
+export function personalBests(runs: readonly RunRecord[]): PersonalBest[] {
+  const groups = new Map<string, PersonalBest>();
+
+  for (const run of runs) {
+    const testType = run.testType ?? UNKNOWN_TEST_TYPE;
+    const current = groups.get(testType);
+
+    if (current === undefined) {
+      groups.set(testType, {
+        testType,
+        runs: 1,
+        bestWpm: run.wpm,
+        bestAccuracy: run.accuracy,
+        latestWpm: run.wpm,
+        latestAt: run.ts,
+      });
+      continue;
+    }
+
+    current.runs += 1;
+    current.bestWpm = Math.max(current.bestWpm, run.wpm);
+    current.bestAccuracy = Math.max(current.bestAccuracy, run.accuracy);
+    if (run.ts > current.latestAt) {
+      current.latestAt = run.ts;
+      current.latestWpm = run.wpm;
+    }
+  }
+
+  return [...groups.values()].sort(
+    (a, b) => b.runs - a.runs || a.testType.localeCompare(b.testType),
+  );
+}
+
+/** One cluster's hit rate, for the heat grid. */
+export interface ClusterHeat {
+  cluster: string;
+  missed: number;
+  seen: number;
+  /** Missed ÷ seen, 0–1. */
+  rate: number;
+}
+
+/**
+ * The clusters worth practising: practised at least `minSeen` times and missed
+ * at least once, worst hit rate first. A cluster seen twice and missed twice is
+ * a stronger signal than one seen a hundred times and missed three, which is why
+ * this sorts by rate rather than by raw count.
+ */
+export function clusterHeat(map: ErrorMap, minSeen = 3, limit = 24): ClusterHeat[] {
+  return Object.entries(map)
+    .map(([cluster, stat]) => ({
+      cluster,
+      missed: stat.missed,
+      seen: stat.seen,
+      rate: stat.seen > 0 ? stat.missed / stat.seen : 0,
+    }))
+    .filter((entry) => entry.missed > 0 && entry.seen >= minSeen)
+    .sort((a, b) => b.rate - a.rate || b.missed - a.missed || a.cluster.localeCompare(b.cluster))
+    .slice(0, limit);
 }
 
 export const LESSONS_KEY = `${STORAGE_PREFIX}lessons`;

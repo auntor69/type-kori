@@ -1,7 +1,8 @@
 # Progress
 
 Checklist copied from Section 16 of `docs/MASTERPLAN.md`. Ticked as each item is
-finished, with the date and the commit hash.
+finished, with the date and the commit hash. Owner-requested work that no phase
+covers is appended at the end under its own heading.
 
 ## Phase 0 — Foundation
 
@@ -147,6 +148,21 @@ real browser is the owner's check. The 26 practice texts are still
 - [ ] Submit to Search Console and share in communities
 
 *Done when:* the Launch Checklist (Section 19) is fully ticked.
+
+## Beyond the plan (owner-requested)
+
+Work the owner asked for that no phase covers. Recorded here so the ledger stays
+in one place; the reasoning is in `DECISIONS.md`.
+
+- 2026-09-29 · `faf6b7b` — monkeytype-style endless word stream: the untimed
+  practice test generates its target instead of using a fixed passage, and Tab
+  ends the run.
+- 2026-09-29 — minimal, monkeytype-only interface: footer removed, icon-only
+  header, borderless typing area, ~250 themes including one derived from every
+  country flag, a deeper settings drawer, a `Ctrl+K` command palette with a
+  command line, funbox modes (numbers, punctuation, backwards, memory), focus
+  mode, and a deeper progress page (personal bests per test type, streaks,
+  badges, miss-rate heat grid).
 
 ## Note on phase order
 

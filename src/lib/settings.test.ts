@@ -4,6 +4,7 @@ import {
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
   SETTINGS_KEY,
+  allowsBackspace,
   clampFontSize,
   defaultSettings,
   loadSettings,
@@ -66,7 +67,7 @@ describe("parseSettings", () => {
     expect(
       parseSettings({
         lang: "fr",
-        theme: "neon",
+        theme: "neon-sign",
         fontSize: "big",
         inputMode: "handwriting",
         difficulty: "extreme",
@@ -87,6 +88,69 @@ describe("parseSettings", () => {
     expect(parseSettings({ theme: "nord" }).theme).toBe("nord");
     expect(parseSettings({ theme: "system" }).theme).toBe("system");
     expect(parseSettings({ theme: "not-a-theme" }).theme).toBe("system");
+  });
+
+  it("accepts a generated flag theme", () => {
+    expect(parseSettings({ theme: "flag-bd" }).theme).toBe("flag-bd");
+    expect(parseSettings({ theme: "flag-zz" }).theme).toBe("system");
+  });
+
+  it("keeps the deeper options and repairs the rest", () => {
+    expect(
+      parseSettings({
+        quickRestart: "tab",
+        confidenceMode: "max",
+        indicateTypos: "below",
+        hideExtraLetters: true,
+        minWpm: 30,
+        minAccuracy: 90,
+        wordHistory: "always",
+        focusMode: true,
+        capsLockWarning: false,
+        soundVolume: 25,
+        funbox: "numbers",
+      }),
+    ).toEqual({
+      ...defaultSettings,
+      quickRestart: "tab",
+      confidenceMode: "max",
+      indicateTypos: "below",
+      hideExtraLetters: true,
+      minWpm: 30,
+      minAccuracy: 90,
+      wordHistory: "always",
+      focusMode: true,
+      capsLockWarning: false,
+      soundVolume: 25,
+      funbox: "numbers",
+    });
+
+    expect(
+      parseSettings({
+        quickRestart: "space",
+        confidenceMode: "total",
+        indicateTypos: "upside-down",
+        wordHistory: "forever",
+        funbox: "chaos",
+        soundVolume: 900,
+        minWpm: -10,
+        minAccuracy: 1000,
+      }),
+      // The volume and the accuracy cap are clamped; `minWpm: -10` reads as off.
+    ).toEqual({ ...defaultSettings, soundVolume: 100, minAccuracy: 100 });
+  });
+
+  it("keeps only known theme ids in the favourites list", () => {
+    expect(parseSettings({ themeFavourites: ["nord", "nope", "nord", "flag-bd"] }).themeFavourites).toEqual([
+      "nord",
+      "flag-bd",
+    ]);
+    expect(parseSettings({ themeFavourites: "nord" }).themeFavourites).toEqual([]);
+  });
+
+  it("clamps a stored sound volume", () => {
+    expect(parseSettings({ soundVolume: -5 }).soundVolume).toBe(0);
+    expect(parseSettings({ soundVolume: 200 }).soundVolume).toBe(100);
   });
 
   it("keeps the new behavior and appearance fields", () => {
@@ -123,6 +187,15 @@ describe("parseSettings", () => {
     expect(parsed.liveWpm).toBe(true);
     expect(parsed.caretStyle).toBe("bar");
     expect(parsed.showAllLines).toBe(true);
+  });
+});
+
+describe("allowsBackspace", () => {
+  it("only blocks what the confidence mode is meant to block", () => {
+    expect(allowsBackspace("off", 0)).toBe(true);
+    expect(allowsBackspace("on", 3)).toBe(true);
+    expect(allowsBackspace("on", 0)).toBe(false);
+    expect(allowsBackspace("max", 5)).toBe(false);
   });
 });
 

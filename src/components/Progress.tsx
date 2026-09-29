@@ -2,20 +2,25 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 
 import { formatDuration } from "../engine/metrics";
 import { localizePath, useTranslations, type Lang } from "../i18n";
+import { earnedCount, evaluateBadges, currentStreak, longestStreak } from "../lib/badges";
 import {
   applyBackup,
   averageAccuracy,
   backupFileName,
   bestWpm,
+  clusterHeat,
   createBackup,
   loadErrorMap,
+  loadLessonProgress,
   loadRuns,
   mostMissed,
   parseBackupText,
+  personalBests,
   resetAll,
   totalTypingMs,
   wpmSeries,
   type ErrorMap,
+  type LessonProgressMap,
   type RunRecord,
 } from "../lib/progress";
 
@@ -94,6 +99,7 @@ export default function Progress({ lang }: Props) {
 
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [errorMap, setErrorMap] = useState<ErrorMap>({});
+  const [lessons, setLessons] = useState<LessonProgressMap>({});
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -103,11 +109,17 @@ export default function Progress({ lang }: Props) {
   useEffect(() => {
     setRuns(loadRuns());
     setErrorMap(loadErrorMap());
+    setLessons(loadLessonProgress());
     setReady(true);
   }, []);
 
   const missed = useMemo(() => mostMissed(errorMap), [errorMap]);
+  const heat = useMemo(() => clusterHeat(errorMap), [errorMap]);
   const points = useMemo(() => wpmSeries(runs), [runs]);
+  const bests = useMemo(() => personalBests(runs), [runs]);
+  const badges = useMemo(() => evaluateBadges({ runs, lessons }), [runs, lessons]);
+  const streak = useMemo(() => currentStreak(runs), [runs]);
+  const bestStreak = useMemo(() => longestStreak(runs), [runs]);
   const dateFormat = useMemo(
     () =>
       new Intl.DateTimeFormat(lang === "bn" ? "bn-BD" : "en-GB", {
@@ -142,6 +154,7 @@ export default function Progress({ lang }: Props) {
     applyBackup(backup);
     setRuns(loadRuns());
     setErrorMap(loadErrorMap());
+    setLessons(loadLessonProgress());
     setMessage("progress.importOk");
   };
 
@@ -165,6 +178,7 @@ export default function Progress({ lang }: Props) {
     resetAll();
     setRuns([]);
     setErrorMap({});
+    setLessons({});
     setConfirmingReset(false);
     setMessage("progress.resetDone");
   };
@@ -175,7 +189,7 @@ export default function Progress({ lang }: Props) {
 
   return (
     <div class="grid gap-5">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatTile label={t("progress.runs")} value={String(runs.length)} />
         <StatTile label={t("progress.bestWpm")} value={String(bestWpm(runs))} />
         <StatTile
@@ -183,6 +197,14 @@ export default function Progress({ lang }: Props) {
           value={runs.length > 0 ? `${averageAccuracy(runs)}%` : "—"}
         />
         <StatTile label={t("progress.totalTime")} value={formatTotal(totalTypingMs(runs))} />
+        <StatTile
+          label={t("progress.streak")}
+          value={`${streak} · ${bestStreak}`}
+        />
+        <StatTile
+          label={t("progress.badges")}
+          value={`${earnedCount(badges)}/${badges.length}`}
+        />
       </div>
 
       {runs.length === 0 ? (
@@ -209,6 +231,106 @@ export default function Progress({ lang }: Props) {
               label={t("progress.trend")}
               note={t("progress.trendNote")}
             />
+          </section>
+
+          <section
+            aria-labelledby="progress-bests"
+            class="rounded-card border border-border bg-surface p-5"
+          >
+            <h2
+              id="progress-bests"
+              class="text-xs font-semibold uppercase tracking-wide text-muted"
+            >
+              {t("progress.bests")}
+            </h2>
+
+            <div class="mt-3 overflow-x-auto">
+              <table class="w-full border-collapse text-sm">
+                <caption class="sr-only">{t("progress.bests")}</caption>
+                <thead>
+                  <tr class="text-left text-xs uppercase tracking-wide text-muted">
+                    <th scope="col" class="py-2 pr-4 font-semibold">
+                      {t("progress.bestsTest")}
+                    </th>
+                    <th scope="col" class="py-2 pr-4 text-right font-semibold">
+                      {t("progress.columnWpm")}
+                    </th>
+                    <th scope="col" class="py-2 pr-4 text-right font-semibold">
+                      {t("progress.columnAccuracy")}
+                    </th>
+                    <th scope="col" class="py-2 text-right font-semibold">
+                      {t("progress.bestsRuns")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bests.map((best) => (
+                    <tr key={best.testType} class="border-t border-border">
+                      <td class="py-2 pr-4 font-mono text-xs text-text">{best.testType}</td>
+                      <td class="py-2 pr-4 text-right font-medium tabular-nums text-text">
+                        {best.bestWpm}
+                        {best.latestWpm < best.bestWpm && (
+                          <span class="ms-2 text-xs tabular-nums text-muted">
+                            ({best.latestWpm})
+                          </span>
+                        )}
+                      </td>
+                      <td class="py-2 pr-4 text-right tabular-nums text-muted">
+                        {best.bestAccuracy}%
+                      </td>
+                      <td class="py-2 text-right tabular-nums text-muted">{best.runs}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section
+            aria-labelledby="progress-badges"
+            class="rounded-card border border-border bg-surface p-5"
+          >
+            <h2
+              id="progress-badges"
+              class="text-xs font-semibold uppercase tracking-wide text-muted"
+            >
+              {t("progress.badges")} · {earnedCount(badges)}/{badges.length}
+            </h2>
+
+            <ul class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {badges.map((badge) => (
+                <li
+                  key={badge.id}
+                  class={`rounded-control border px-3 py-2 ${
+                    badge.earned
+                      ? "border-accent/50 bg-accent-soft"
+                      : "border-border bg-surface-2"
+                  }`}
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <span
+                      class={`text-sm font-medium ${
+                        badge.earned ? "text-text" : "text-muted"
+                      }`}
+                    >
+                      {t(`badge.${badge.id}`)}
+                    </span>
+                    <span class="text-[0.65rem] uppercase tracking-wide text-muted">
+                      {t(`badge.group.${badge.group}`)}
+                    </span>
+                  </div>
+                  <span
+                    class="mt-2 block h-1 overflow-hidden rounded-pill bg-bg/40"
+                    aria-hidden="true"
+                  >
+                    <span
+                      class={`block h-full rounded-pill ${badge.earned ? "bg-accent" : "bg-muted"}`}
+                      style={`width: ${Math.round(badge.progress * 100)}%`}
+                    />
+                  </span>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section
@@ -250,6 +372,43 @@ export default function Progress({ lang }: Props) {
                     </li>
                   );
                 })}
+              </ul>
+            )}
+          </section>
+
+          <section
+            aria-labelledby="progress-heat"
+            class="rounded-card border border-border bg-surface p-5"
+          >
+            <h2
+              id="progress-heat"
+              class="text-xs font-semibold uppercase tracking-wide text-muted"
+            >
+              {t("progress.heat")}
+            </h2>
+            <p class="mt-2 text-xs leading-relaxed text-muted">{t("progress.heatNote")}</p>
+
+            {heat.length === 0 ? (
+              <p class="mt-3 text-sm text-muted">{t("progress.noHeat")}</p>
+            ) : (
+              <ul class="mt-4 flex flex-wrap gap-2">
+                {heat.map((entry) => (
+                  <li
+                    key={entry.cluster}
+                    class="flex min-w-[4.5rem] flex-col items-center rounded-control border border-border px-3 py-2"
+                    style={`background-color: color-mix(in oklab, var(--wrong) ${Math.round(
+                      entry.rate * 60,
+                    )}%, var(--surface-2))`}
+                    title={`${Math.round(entry.rate * 100)}%`}
+                  >
+                    <span lang="bn" class="font-bangla text-lg leading-none text-text">
+                      {entry.cluster}
+                    </span>
+                    <span class="mt-1 text-[0.65rem] tabular-nums text-muted">
+                      {entry.missed}/{entry.seen}
+                    </span>
+                  </li>
+                ))}
               </ul>
             )}
           </section>

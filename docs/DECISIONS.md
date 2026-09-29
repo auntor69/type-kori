@@ -332,3 +332,65 @@ with the reason. Newest last.
     so only `activeIndex - 12 … activeIndex + 24` words render (1 and 12 when
     "show all lines" is off). Committed words outside the window are still scored
     — the session keeps the whole target — they are just not painted.
+- 2026-09-29 — **Deeper settings, a command palette, funbox modes, a theme for
+  every country flag, and a deeper progress page — one pass.** All of it is
+  beyond `MASTERPLAN.md`, which is why it is recorded here; the phase checklist is
+  untouched.
+  - **Twelve new settings, each one wired to something that actually happens.**
+    `quickRestart` (off/esc/tab/enter — **`esc` stays the default**, so the
+    documented shortcut and the earlier accessibility reasoning are unchanged),
+    `confidenceMode` (on = backspace stops at the word being typed, max = no
+    backspace at all), `indicateTypos` (off/below/replace), `hideExtraLetters`,
+    `minWpm` and `minAccuracy` (`0` = off; a run that drops below either ends
+    early and says why, with a four-second and twenty-cluster grace period so a
+    fresh run cannot fail on its own first word), `wordHistory` (off/results/
+    always — **off by default**, so the results screen people already know does
+    not change under them), `focusMode`, `capsLockWarning` (**on by default**: a
+    locked keyboard changes what the phonetic engine produces), `soundVolume`,
+    `funbox`, and `themeFavourites` (in the settings, so favourites ride along in
+    the backup file). Settings that monster keyboards have but this app cannot do
+    honestly — a layout-specific opposite-shift mode, free-target zen typing —
+    were left out rather than faked.
+  - **A bug from the previous batch, found and fixed**: the typing island binds
+    its key handler once, and the handler read `sound` from the first render's
+    closure, so the sound feature never played anything. Every value the handler
+    needs now goes through a `prefsRef` that is refreshed on each render.
+  - **The command bar is one island with two faces**: `Ctrl+K` opens the palette,
+    `Ctrl+/` the command line, both over the same `parseCommand` grammar (unit
+    tested at the grammar level, so `theme dracula`, `time 60`, `conf max` and
+    `goto progress` all go through one code path). Run-level commands (`time`,
+    `words`, `restart`, `next`, `end`, `weak`, `custom`) are broadcast as a window
+    event and handled by the island that owns them; settings commands are written
+    through `updateSettings`, so the settings module keeps a single writer and the
+    practice island picks them up on the existing settings event.
+  - **Overlays are tracked by name.** Both the settings drawer and the command bar
+    set the attribute that pauses typing; with a boolean, closing either one would
+    have cleared it while the other was still open.
+  - **Funbox modes are transforms of the curated stream**, never new content:
+    `numbers` (Bengali digits woven in), `punctuation` (danda, commas, quotes),
+    `backwards` (cluster order reversed, so a conjunct stays one unit) and
+    `memory` (only the word being typed and the next one stay visible). Invented
+    text would need a native speaker before it could ship, and a transform needs
+    nobody.
+  - **A theme for every country flag, derived rather than hand-written.**
+    `src/lib/flags.ts` holds 193 countries with two to five dominant flag colours
+    each, and `flagTheme` computes the palette: a flag with a dark colour becomes
+    a dark theme, a flag whose darkest colour is still light stays light, and
+    every colour is pushed until it clears a WCAG contrast floor (4.5:1 for text,
+    3.2:1 for muted and accent). The unit test re-checks all 193 palettes against
+    those floors, so no flag can ship an unreadable theme. **The colour lists are
+    this project's reading of each flag's dominant colours, not an official
+    specification** — they exist to make a recognisable theme, not to document
+    flags. The theme registry therefore went from 40 hand-written palettes to
+    ~250 themes, and the picker gained category chips (all/dark/light/flags/
+    favourites), search over ids and names, a star per row, and a JSON export;
+    the theme tab renders every theme at once, which is a few hundred small
+    nodes in a modal and was measured as acceptable rather than assumed.
+  - **Progress depth**: a run now records which test produced it (`time 60`,
+    `words 25`, `∞`, `lesson`, `custom`, with the funbox mode appended when one is
+    on), which is what makes personal bests per test type possible. The field is
+    optional, so history recorded before it existed still loads and no backup
+    version bump was needed. The page also gained streaks, 21 badges and a
+    miss-rate heat grid — the grid sorts by rate rather than by raw count, because
+    a cluster missed twice out of twice is a stronger signal than one missed three
+    times out of a hundred.
