@@ -7,7 +7,6 @@
  * the rendering; everything here is a pure function of its arguments.
  */
 
-import { drillTexts } from "../content/drills";
 import { practiceTexts } from "../content/texts";
 import { createSession, type SessionState } from "../engine/session";
 import { createWordBank, drawWords, type WordBank } from "../engine/wordbank";
@@ -65,15 +64,22 @@ export interface RunOptions {
   funbox?: FunboxMode;
 }
 
-/** The vocabulary the infinite stream draws from: every curated text and drill. */
+/**
+ * The vocabulary the infinite stream draws from: the curated practice
+ * sentences.
+ *
+ * The lesson drills are deliberately excluded. They are pedagogy, not
+ * vocabulary — bare letters (ক খ গ), syllable fragments (কা কি), conjunct
+ * studies (র্ক র্ত) and digit tokens (০১ ২৩) — and a free-practice stream
+ * built from them types the alphabet instead of language. Lessons drill those
+ * shapes themselves; the stream only ever offers real words.
+ */
 export function buildVocabulary(difficulty: Difficulty | "all"): string[] {
   const texts =
     difficulty === "all" ? practiceTexts : practiceTexts.filter((text) => text.difficulty === difficulty);
-  const drills =
-    difficulty === "all" ? drillTexts : drillTexts.filter((text) => text.difficulty === difficulty);
 
   const words: string[] = [];
-  for (const text of [...texts, ...drills]) words.push(...wordsOf(text));
+  for (const text of texts) words.push(...wordsOf(text));
 
   // A difficulty bucket can never be empty (the content validator guarantees
   // texts per level), but a guard costs nothing.

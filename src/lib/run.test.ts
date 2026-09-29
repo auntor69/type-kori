@@ -31,9 +31,20 @@ function fixedText(): PracticeText {
 }
 
 describe("buildVocabulary", () => {
-  it("draws from the curated texts and drills", () => {
+  it("draws from the curated practice sentences", () => {
     expect(vocabulary.length).toBeGreaterThan(50);
     expect(vocabulary.every((word) => word.trim().length > 0)).toBe(true);
+  });
+
+  it("never streams the lesson drills: pedagogy is not vocabulary", () => {
+    // Bare letters, syllable fragments, conjunct studies and digit tokens are
+    // lesson material; a free-practice stream must type language, not the
+    // alphabet. These shapes all exist in the drills and none in the stream.
+    for (const fragment of ["ক", "খ", "কা", "কি", "র্ক", "০", "১০"]) {
+      expect(vocabulary, fragment).not.toContain(fragment);
+    }
+    // Real words from the practice texts are all still in.
+    expect(vocabulary).toContain("বাংলা");
   });
 
   it("narrows to a difficulty without emptying", () => {
