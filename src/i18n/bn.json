@@ -1,5 +1,5 @@
 {
-  "meta.title": "Type Kori — বাংলা টাইপিং প্র্যাকটিস ও স্পিড টেস্ট",
+  "meta.title": "Type Kori: বাংলা টাইপিং প্র্যাকটিস ও স্পিড টেস্ট",
   "meta.description": "ব্রাউজারেই বিনামূল্যে বাংলা টাইপিং শিখুন ও প্র্যাকটিস করুন। সাইন-আপ নেই, বিজ্ঞাপন নেই, ডেটা আপনার ডিভাইসেই থাকে।",
 
   "brand.name": "Type Kori",
@@ -50,7 +50,7 @@
   "command.themes": "থিম",
 
   "practice.heading": "এখানেই টাইপ করুন",
-  "practice.startHint": "টাইপ শুরু করুন — শব্দ শেষ হবে না",
+  "practice.startHint": "টাইপ শুরু করুন, শব্দ শেষ হবে না",
   "practice.words": "শব্দ",
   "practice.configBar": "টেস্ট সেটআপ",
   "practice.testMode": "টেস্ট মোড",
@@ -80,7 +80,7 @@
   "practice.latinWarning": "ইংরেজি অক্ষর আসছে। কীবোর্ডটি বাংলায় বদলে নিন।",
   "practice.osKeyboardOn": "মনে হচ্ছে একটি বাংলা কীবোর্ড চালু আছে। বিল্ট-ইন মোডের আগে সেটি বন্ধ করুন।",
   "practice.offlineNote": "ইন্টারনেট ছাড়াও কাজ করে। কিছুই সার্ভারে যাচ্ছে না।",
-  "practice.capsLock": "ক্যাপস লক চালু আছে — এতে বিল্ট-ইন ইঞ্জিনের ফল বদলে যেতে পারে।",
+  "practice.capsLock": "ক্যাপস লক চালু আছে। এতে বিল্ট-ইন ইঞ্জিনের ফল বদলে যেতে পারে।",
 
   "results.heading": "ফলাফল",
   "results.wpm": "গতি (WPM)",
@@ -234,7 +234,7 @@
   "progress.bestsRuns": "রান",
   "progress.heat": "যেখানে আঙুল বেশি হোঁচট খায়",
   "progress.heatNote": "গণনা নয়, ভুলের হার অনুযায়ী সাজানো: রঙ যত গাঢ়, সেই ক্লাস্টারটি তত বেশি ভুল হয়।",
-  "progress.noHeat": "এখনো যথেষ্ট তথ্য জমেনি — আর কয়েকটি রান করলেই এটা ভরে যাবে।",
+  "progress.noHeat": "এখনো যথেষ্ট তথ্য জমেনি, আর কয়েকটি রান করলেই এটা ভরে যাবে।",
   "progress.testType.endless": "অসীম",
   "progress.testType.lesson": "পাঠ",
   "progress.testType.custom": "নিজের লেখা",
@@ -271,7 +271,7 @@
 
   "lesson.criterion": "পাসের শর্ত",
   "lesson.passed": "পাঠ পাস হয়েছে।",
-  "lesson.failed": "এবার হয়নি — ৯০% নির্ভুলতা দরকার।",
+  "lesson.failed": "এবার হয়নি, ৯০% নির্ভুলতা দরকার।",
   "lesson.bestAccuracy": "সেরা",
   "lesson.nextDrill": "আরেকটি ড্রিল",
   "lesson.allLessons": "সব পাঠ",
@@ -289,7 +289,7 @@
   "custom.limitLabel": "সীমা",
   "custom.error.empty": "আগে বাংলা লেখা লিখুন বা পেস্ট করুন।",
   "custom.error.latin": "ইংরেজি অক্ষর পাওয়া গেছে। শুধু বাংলা লেখা ব্যবহার করুন।",
-  "custom.error.notBangla": "বাংলা ছাড়া অন্য কিছু আছে — ইমোজি, ইংরেজি সংখ্যা বা চিহ্ন বাদ দিন।",
+  "custom.error.notBangla": "বাংলা ছাড়া অন্য কিছু আছে। ইমোজি, ইংরেজি সংখ্যা বা চিহ্ন বাদ দিন।",
   "custom.error.tooShort": "লেখাটি খুব ছোট, একটু বড় করুন।",
   "custom.error.tooLong": "লেখাটি অনেক বড়, একটু ছোট করুন।",
   "custom.error.wordRange": "শব্দসংখ্যা সীমার বাইরে।",

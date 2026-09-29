@@ -55,13 +55,22 @@ describe("funbox", () => {
 
   it("adds Bangla punctuation without losing the word", () => {
     const out = applyFunbox(WORDS, "punctuation", createRng(5));
-    const marks = ["।", ",", "—", "!", "”", "’", "“", "‘"];
+    const marks = ["।", ",", "!", "”", "’", "“", "‘"];
 
     expect(out.some((word) => marks.some((mark) => word.includes(mark)))).toBe(true);
     out.forEach((word, index) => {
       const stripped = marks.reduce((current, mark) => current.replaceAll(mark, ""), word);
       expect(stripped).toBe(WORDS[index]);
     });
+  });
+
+  it("never asks for a mark no keyboard can produce", () => {
+    // The em dash is on no Bangla layout, so a stream that contained it could
+    // never be completed. Sample many seeds to be sure no roll can produce one.
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const out = applyFunbox(WORDS, "punctuation", createRng(seed));
+      expect(out.some((word) => word.includes("—")), `seed ${seed}`).toBe(false);
+    }
   });
 
   it("reverses whole clusters, so a conjunct stays one unit", () => {

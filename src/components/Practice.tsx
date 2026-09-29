@@ -427,10 +427,11 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   /**
    * The config bar's active mode, derived from the run: which chip row makes
-   * sense right now. `custom` wins once a paste is on screen.
+   * sense right now. `custom` wins once a paste is on screen — or while the
+   * paste panel is open, since the user is headed there.
    */
   const activeMode: TestMode =
-    customRun !== null
+    customRun !== null || customPanelOpen
       ? "custom"
       : wordGoal !== null
         ? "words"
@@ -445,11 +446,20 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
    * run until the user leaves them.
    */
   const chooseMode = (testMode: TestMode) => {
-    if (testMode === activeMode) return;
     if (testMode === "custom") {
+      // The chip is a switch, not just a door: a paste this browser already
+      // saved starts right away, so the words on screen become the user's own
+      // the moment they click. Only with nothing saved does it open the panel
+      // to ask for the text first.
+      const stored = customRun ?? loadCustomText();
+      if (stored !== null) {
+        startCustomRun(stored.text);
+        return;
+      }
       setCustomPanelOpen(true);
       return;
     }
+    if (testMode === activeMode) return;
 
     if (testMode === "time") {
       startBuiltinRun({ durationMs: TIME_CHIPS[0] * 1000, wordGoal: null });
@@ -1041,35 +1051,21 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           </button>
         )}
 
-        {lesson === undefined && (
-          <>
-            {customRun !== null && (
-              <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
-                <span class="size-1.5 rounded-full bg-accent" aria-hidden="true" />
-                {t("custom.active")}
-              </span>
-            )}
+        {customRun !== null && (
+          <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
+            <span class="size-1.5 rounded-full bg-accent" aria-hidden="true" />
+            {t("custom.active")}
+          </span>
+        )}
 
-            {customRun !== null && (
-              <button
-                type="button"
-                onClick={useBuiltinTexts}
-                class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
-              >
-                {t("custom.useBuiltin")}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setCustomPanelOpen((open) => !open)}
-              aria-expanded={customPanelOpen}
-              aria-controls="custom-text-panel"
-              class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
-            >
-              {t("custom.open")}
-            </button>
-          </>
+        {customRun !== null && (
+          <button
+            type="button"
+            onClick={useBuiltinTexts}
+            class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
+          >
+            {t("custom.useBuiltin")}
+          </button>
         )}
       </div>
 

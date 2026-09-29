@@ -38,8 +38,12 @@ function bengaliNumber(rng: Rng, digits: number): string {
   return out;
 }
 
-/** The marks a Bangla sentence actually uses. */
-const PUNCTUATION = ["।", "।", ",", "—", "—", "!"] as const;
+/**
+ * The marks a Bangla sentence actually uses — and a keyboard can actually
+ * produce. The em dash was here once and is gone on purpose: no Bangla keyboard
+ * layout offers it, so a stream that asked for it asked for the impossible.
+ */
+const PUNCTUATION = ["।", "।", ",", "!"] as const;
 const OPENING = ["“", "‘"] as const;
 const CLOSING = ["”", "’"] as const;
 
@@ -72,13 +76,12 @@ export function applyFunbox(
         if (index === words.length - 1 && roll < 0.6) return `${word}।`;
         if (roll < 0.28) return `${word}।`;
         if (roll < 0.42) return `${word},`;
-        if (roll < 0.52) return `${word}—`;
-        if (roll < 0.58) {
+        if (roll < 0.52) {
           const open = OPENING[Math.floor(rng() * OPENING.length)] ?? "“";
           const close = CLOSING[Math.floor(rng() * CLOSING.length)] ?? "”";
           return `${open}${word}${close}`;
         }
-        if (roll < 0.62) return `${word}!`;
+        if (roll < 0.58) return `${word}!`;
         return word;
       });
 

@@ -1,5 +1,5 @@
 {
-  "meta.title": "Type Kori — Free Bangla Typing Practice & Speed Test",
+  "meta.title": "Type Kori: Free Bangla Typing Practice & Speed Test",
   "meta.description": "Learn and practise Bangla typing free in your browser. No sign-up, no ads, and your data never leaves your device.",
 
   "brand.name": "Type Kori",
@@ -50,7 +50,7 @@
   "command.themes": "themes",
 
   "practice.heading": "Type here",
-  "practice.startHint": "Start typing to begin — the words never run out",
+  "practice.startHint": "Start typing to begin; the words never run out",
   "practice.words": "Words",
   "practice.configBar": "Test setup",
   "practice.testMode": "Test mode",
@@ -80,7 +80,7 @@
   "practice.latinWarning": "Latin letters are arriving. Switch your keyboard to Bangla.",
   "practice.osKeyboardOn": "It looks like a Bangla keyboard is already on. Turn it off before using built-in mode.",
   "practice.offlineNote": "Works offline. Nothing is sent to a server.",
-  "practice.capsLock": "Caps lock is on — it changes what the built-in engine produces.",
+  "practice.capsLock": "Caps lock is on. It changes what the built-in engine produces.",
 
   "results.heading": "Results",
   "results.wpm": "Speed (WPM)",
@@ -234,7 +234,7 @@
   "progress.bestsRuns": "Runs",
   "progress.heat": "Where your fingers slip",
   "progress.heatNote": "Ordered by miss rate, not by count: the darker the chip, the more often that cluster comes out wrong.",
-  "progress.noHeat": "Not enough history yet — a few more runs and this fills in.",
+  "progress.noHeat": "Not enough history yet; a few more runs and this fills in.",
   "progress.testType.endless": "endless",
   "progress.testType.lesson": "lesson",
   "progress.testType.custom": "your own text",
@@ -271,7 +271,7 @@
 
   "lesson.criterion": "Pass at",
   "lesson.passed": "Lesson passed.",
-  "lesson.failed": "Not passed yet — 90% accuracy is the bar.",
+  "lesson.failed": "Not passed yet; 90% accuracy is the bar.",
   "lesson.bestAccuracy": "Best",
   "lesson.nextDrill": "Another drill",
   "lesson.allLessons": "All lessons",
@@ -289,7 +289,7 @@
   "custom.limitLabel": "Limit",
   "custom.error.empty": "Write or paste some Bangla text first.",
   "custom.error.latin": "Latin letters found. Use Bangla text only.",
-  "custom.error.notBangla": "Something that is not Bangla is in there — remove emoji, ASCII digits or symbols.",
+  "custom.error.notBangla": "Something that is not Bangla is in there. Remove emoji, ASCII digits or symbols.",
   "custom.error.tooShort": "That text is too short; add a little more.",
   "custom.error.tooLong": "That text is too long; trim it down.",
   "custom.error.wordRange": "The word count is outside the limit.",
