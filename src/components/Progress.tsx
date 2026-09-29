@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { formatDuration } from "../engine/metrics";
 import { localizePath, useTranslations, type Lang } from "../i18n";
 import { earnedCount, evaluateBadges, currentStreak, longestStreak } from "../lib/badges";
+import { parseTestType } from "../lib/run";
 import {
   applyBackup,
   averageAccuracy,
@@ -42,6 +43,14 @@ function formatTotal(ms: number): string {
   if (totalMinutes >= 60) return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
   if (totalMinutes > 0) return `${totalMinutes}m`;
   return `${Math.round(ms / 1000)}s`;
+}
+
+/**
+ * A single `time` test, stored in whole seconds: `1m`, `5m`, `30s`. Minutes are
+ * used only when they divide exactly, so a 90-second test never reads as `1m`.
+ */
+function formatTestSeconds(seconds: number): string {
+  return seconds >= 60 && seconds % 60 === 0 ? `${seconds / 60}m` : `${seconds}s`;
 }
 
 function StatTile({ label, value }: { label: string; value: string }) {
@@ -183,6 +192,24 @@ export default function Progress({ lang }: Props) {
     setMessage("progress.resetDone");
   };
 
+  /** `time 60 · numbers` reads as বাংলা, not as the stored string. */
+  const testTypeLabel = (testType: string): string => {
+    const parsed = parseTestType(testType);
+
+    const base =
+      parsed.kind === "time"
+        ? `${t("command.time")} ${formatTestSeconds(parsed.value ?? 0)}`
+        : parsed.kind === "words"
+          ? `${t("command.words")} ${parsed.value ?? 0}`
+          : parsed.kind === "endless"
+            ? t("progress.testType.endless")
+            : parsed.kind === "unknown"
+              ? t("progress.testType.unknown")
+              : t(`progress.testType.${parsed.kind}`);
+
+    return parsed.funbox === "none" ? base : `${base} · ${t(`command.funbox.${parsed.funbox}`)}`;
+  };
+
   if (!ready) {
     return <div class="h-44 rounded-card border border-border bg-surface" aria-hidden="true" />;
   }
@@ -266,7 +293,7 @@ export default function Progress({ lang }: Props) {
                 <tbody>
                   {bests.map((best) => (
                     <tr key={best.testType} class="border-t border-border">
-                      <td class="py-2 pr-4 font-mono text-xs text-text">{best.testType}</td>
+                      <td class="py-2 pr-4 text-xs text-text">{testTypeLabel(best.testType)}</td>
                       <td class="py-2 pr-4 text-right font-medium tabular-nums text-text">
                         {best.bestWpm}
                         {best.latestWpm < best.bestWpm && (

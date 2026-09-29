@@ -173,3 +173,10 @@ a native speaker, and Phase 4 needs native-reviewed content, so those two are
 gated on the owner rather than on engineering. Phase 5 was therefore taken next:
 it is the one remaining MVP phase whose acceptance criteria need no Bangla
 judgement. Phase 4 follows, and Phase 3's sign-off can happen in parallel.
+- 2026-09-29 — verification pass over the batch above, with fixes: the command
+  grammar's `time` now counts seconds (the documented `time 60` started a
+  one-hour test), a run keeps the funbox mode it started with instead of picking
+  up mid-run changes, and the badge catalogue is a real 21 (new `endless10`
+  milestone; docs said 21, code built 20). The command palette's duration rows
+  are 15/30/60/120 s, and the personal-bests buckets now coincide with the
+  duration buttons.

@@ -1,0 +1,322 @@
+import { describe, expect, it } from "vitest";
+
+import { practiceTexts } from "../content/texts";
+import { clustersOf } from "../engine/compare";
+import type { PracticeText } from "../engine/text/provider";
+import {
+  buildVocabulary,
+  createRun,
+  extendStream,
+  nextStreamSeed,
+  parseTestType,
+  STREAM_BUFFER,
+  testTypeFor,
+  type WordBankHandle,
+} from "./run";
+
+/** Any Bengali digit, zero included: the drawn number is not always zero-free. */
+const BENGALI_NUMBER = /^[০-৯]+$/;
+
+const vocabulary = buildVocabulary("all");
+
+function fixedText(): PracticeText {
+  return {
+    id: "test-fixed",
+    text: "কথা বলা শেখা ভালো কাজ করে সবাই মিলে",
+    difficulty: "easy",
+    topic: "practice",
+    source: "original",
+    reviewed: false,
+  };
+}
+
+describe("buildVocabulary", () => {
+  it("draws from the curated texts and drills", () => {
+    expect(vocabulary.length).toBeGreaterThan(50);
+    expect(vocabulary.every((word) => word.trim().length > 0)).toBe(true);
+  });
+
+  it("narrows to a difficulty without emptying", () => {
+    for (const difficulty of ["easy", "medium", "hard"] as const) {
+      expect(buildVocabulary(difficulty).length, difficulty).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("createRun", () => {
+  it("starts an endless run on a generated line", () => {
+    const run = createRun({
+      pool: practiceTexts,
+      durationMs: null,
+      seed: 7,
+      infinite: true,
+      vocabulary,
+    });
+
+    expect(run.bank).not.toBeNull();
+    expect(run.session.infinite).toBe(true);
+    expect(run.session.target.length).toBe(STREAM_BUFFER);
+    expect(run.session.state).toBe("idle");
+  });
+
+  it("keeps a fixed text fixed, funbox or not", () => {
+    const run = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 1,
+      funbox: "numbers",
+    });
+
+    expect(run.bank).toBeNull();
+    expect(run.session.infinite).toBe(false);
+    expect(run.session.target.join(" ")).toBe(fixedText().text);
+    // A funbox twist must never rewrite the user's own text.
+    expect(run.session.target.some((word) => BENGALI_NUMBER.test(word))).toBe(false);
+  });
+
+  it("twists the generated line when a funbox mode is on", () => {
+    const plain = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 11,
+      infinite: true,
+      vocabulary,
+    });
+    const numbers = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 11,
+      infinite: true,
+      vocabulary,
+      funbox: "numbers",
+    });
+
+    expect(numbers.session.target.some((word) => BENGALI_NUMBER.test(word))).toBe(true);
+    expect(
+      numbers.session.target.filter((word) => !BENGALI_NUMBER.test(word)),
+    ).toEqual(plain.session.target.filter((word, index) => index % 4 !== 1));
+  });
+
+  it("reverses whole clusters for the backwards mode", () => {
+    const run = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 3,
+      infinite: true,
+      vocabulary,
+      funbox: "backwards",
+    });
+
+    for (const word of run.session.target) {
+      expect(clustersOf(word).length).toBeGreaterThan(0);
+      const restored = clustersOf(word).reverse().join("");
+      expect(vocabulary).toContain(restored);
+    }
+  });
+
+  it("truncates to a word goal and keeps the rest of the text out", () => {
+    const run = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 1,
+      wordGoal: 3,
+    });
+
+    expect(run.session.target.length).toBe(3);
+    expect(run.wordGoal).toBe(3);
+    expect(run.session.endAfterWords).toBeUndefined();
+  });
+
+  it("keeps the text id history for the next draw", () => {
+    const run = createRun({
+      pool: practiceTexts,
+      durationMs: 60_000,
+      seed: 5,
+      history: ["a", "b"],
+    });
+
+    expect(run.history.length).toBe(3);
+    expect(run.history.slice(0, 2)).toEqual(["a", "b"]);
+    expect(run.durationMs).toBe(60_000);
+  });
+
+  it("is deterministic for a seed and varies with it", () => {
+    const build = (seed: number) =>
+      createRun({ pool: practiceTexts, durationMs: null, seed, infinite: true, vocabulary })
+        .session.target.join(" ");
+
+    expect(build(99)).toBe(build(99));
+    expect(build(99)).not.toBe(build(100));
+  });
+
+  it("still builds a fixed run when the vocabulary is empty", () => {
+    const run = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 1,
+      infinite: true,
+      vocabulary: [],
+    });
+
+    expect(run.bank).toBeNull();
+    expect(run.session.infinite).toBe(false);
+  });
+});
+
+describe("test types", () => {
+  const CASES: readonly {
+    input: Parameters<typeof testTypeFor>[0];
+    label: string;
+    kind: string;
+    value: number | null;
+  }[] = [
+    { input: { durationMs: 60_000, wordGoal: null }, label: "time 60", kind: "time", value: 60 },
+    { input: { durationMs: 300_000, wordGoal: null }, label: "time 300", kind: "time", value: 300 },
+    // A duration the minute-only format could not have told apart from `time 1`.
+    { input: { durationMs: 90_000, wordGoal: null }, label: "time 90", kind: "time", value: 90 },
+    { input: { durationMs: null, wordGoal: 25 }, label: "words 25", kind: "words", value: 25 },
+    { input: { durationMs: null, wordGoal: null }, label: "∞", kind: "endless", value: null },
+    {
+      input: { durationMs: null, wordGoal: null, kind: "lesson" },
+      label: "lesson",
+      kind: "lesson",
+      value: null,
+    },
+    {
+      input: { durationMs: null, wordGoal: null, kind: "custom" },
+      label: "custom",
+      kind: "custom",
+      value: null,
+    },
+    {
+      input: { durationMs: null, wordGoal: null, kind: "weak" },
+      label: "weak",
+      kind: "weak",
+      value: null,
+    },
+    {
+      input: { durationMs: 60_000, wordGoal: null, funbox: "numbers" },
+      label: "time 60 · numbers",
+      kind: "time",
+      value: 60,
+    },
+  ];
+
+  it("writes the label the progress page groups by", () => {
+    for (const item of CASES) expect(testTypeFor(item.input), item.label).toBe(item.label);
+  });
+
+  it("reads back what it wrote, so the writer and reader cannot drift", () => {
+    for (const item of CASES) {
+      const parsed = parseTestType(item.label);
+      expect(parsed.kind, item.label).toBe(item.kind);
+      expect(parsed.value, item.label).toBe(item.value);
+    }
+  });
+
+  it("keeps the funbox part when reading", () => {
+    expect(parseTestType("time 60 · numbers").funbox).toBe("numbers");
+    expect(parseTestType("words 25 · memory").funbox).toBe("memory");
+    expect(parseTestType("words 25").funbox).toBe("none");
+  });
+
+  it("falls back to a single bucket for history it cannot place", () => {
+    for (const input of [undefined, "", "something else", "time", "· numbers"]) {
+      const parsed = parseTestType(input);
+      expect(parsed.kind, String(input)).toBe("unknown");
+      expect(parsed.value).toBeNull();
+    }
+  });
+});
+
+describe("the endless stream", () => {
+  it("derives a new seed every time, so a line never repeats", () => {
+    const seeds = new Set<number>();
+    let seed = 1;
+    for (let step = 0; step < 50; step += 1) {
+      seed = nextStreamSeed(seed);
+      expect(Number.isInteger(seed)).toBe(true);
+      expect(seed).toBeGreaterThanOrEqual(0);
+      expect(seed).toBeLessThan(0x7fff_ffff);
+      seeds.add(seed);
+    }
+    expect(seeds.size).toBe(50);
+  });
+
+  it("grows the target without ever repeating the word just before it", () => {
+    const run = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 21,
+      infinite: true,
+      vocabulary,
+    });
+
+    let handle = run.bank as WordBankHandle;
+    let target = [...run.session.target];
+
+    for (let step = 0; step < 40; step += 1) {
+      const stream = extendStream(handle, target, "none");
+      // The line that was on screen must not reappear.
+      expect(stream.words.length).toBe(STREAM_BUFFER);
+      expect(stream.words.join(" ")).not.toBe(target.slice(-STREAM_BUFFER).join(" "));
+
+      const previous = target[target.length - 1];
+      expect(stream.words[0]).not.toBe(previous);
+
+      for (let index = 1; index < stream.words.length; index += 1) {
+        expect(stream.words[index]).not.toBe(stream.words[index - 1]);
+      }
+
+      handle = stream.handle;
+      target = [...target, ...stream.words];
+    }
+
+    expect(target.length).toBe(STREAM_BUFFER * 41);
+    expect(target.every((word) => vocabulary.includes(word))).toBe(true);
+  });
+
+  it("carries the funbox into every later line", () => {
+    const run = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 4,
+      infinite: true,
+      vocabulary,
+      funbox: "punctuation",
+    });
+
+    let handle = run.bank as WordBankHandle;
+    let target = [...run.session.target];
+
+    for (let step = 0; step < 5; step += 1) {
+      const stream = extendStream(handle, target, "punctuation");
+      expect(stream.words.some((word) => /[।,—!“”]/.test(word))).toBe(true);
+      handle = stream.handle;
+      target = [...target, ...stream.words];
+    }
+  });
+
+  it("stays deterministic when replayed from the same seed", () => {
+    const run = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 8,
+      infinite: true,
+      vocabulary,
+    });
+
+    const replay = (handle: WordBankHandle, target: readonly string[]) =>
+      Array.from({ length: 5 }).reduce<{ handle: WordBankHandle; target: string[] }>(
+        (state) => {
+          const stream = extendStream(state.handle, state.target, "none");
+          return { handle: stream.handle, target: [...state.target, ...stream.words] };
+        },
+        { handle, target: [...run.session.target] },
+      ).target.join(" ");
+
+    expect(replay(run.bank as WordBankHandle, run.session.target)).toBe(
+      replay(run.bank as WordBankHandle, run.session.target),
+    );
+  });
+});

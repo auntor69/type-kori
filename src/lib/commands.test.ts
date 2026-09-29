@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCommand } from "./commands";
+import { parseCommand, settingPatch } from "./commands";
 
 describe("parseCommand", () => {
   it("parses the test type", () => {
-    expect(parseCommand("time 60")).toEqual({ kind: "run", name: "time", durationMs: 3_600_000 });
-    expect(parseCommand("t 5")).toEqual({ kind: "run", name: "time", durationMs: 300_000 });
+    expect(parseCommand("time 60")).toEqual({ kind: "run", name: "time", durationMs: 60_000 });
+    expect(parseCommand("t 5")).toEqual({ kind: "run", name: "time", durationMs: 5_000 });
     expect(parseCommand("time 1m")).toEqual({ kind: "run", name: "time", durationMs: 60_000 });
     expect(parseCommand("time infinite")).toEqual({ kind: "run", name: "time", durationMs: null });
     expect(parseCommand("time")).toEqual({ kind: "run", name: "time", durationMs: null });
@@ -15,9 +15,18 @@ describe("parseCommand", () => {
     expect(parseCommand("words ∞")).toEqual({ kind: "run", name: "words", goal: null });
   });
 
+  it("counts a bare time in seconds and lets a suffix say otherwise", () => {
+    expect(parseCommand("time 90")).toEqual({ kind: "run", name: "time", durationMs: 90_000 });
+    expect(parseCommand("time 90s")).toEqual({ kind: "run", name: "time", durationMs: 90_000 });
+    expect(parseCommand("time 5m")).toEqual({ kind: "run", name: "time", durationMs: 300_000 });
+    expect(parseCommand("time 2min")).toEqual({ kind: "run", name: "time", durationMs: 120_000 });
+    expect(parseCommand("time 45sec")).toEqual({ kind: "run", name: "time", durationMs: 45_000 });
+  });
+
   it("refuses an out-of-range number instead of clamping silently", () => {
     expect(parseCommand("time 0")).toEqual({ kind: "run", name: "time", durationMs: 0 });
     expect(parseCommand("time 5000")).toBeNull();
+    expect(parseCommand("time 61m")).toBeNull();
     expect(parseCommand("time soon")).toBeNull();
     expect(parseCommand("words 5000")).toBeNull();
     expect(parseCommand("words none")).toBeNull();
@@ -137,5 +146,83 @@ describe("parseCommand", () => {
     expect(parseCommand("   ")).toBeNull();
     expect(parseCommand("fly me to the moon")).toBeNull();
     expect(parseCommand("theme")).toBeNull();
+  });
+});
+
+/** Every command the palette or the command line can produce, and what it does. */
+const PATCHES: readonly [string, Record<string, unknown> | null][] = [
+  ["theme dracula", { theme: "dracula" }],
+  ["theme flag-jp", { theme: "flag-jp" }],
+  ["theme system", { theme: "system" }],
+  ["difficulty easy", { difficulty: "easy" }],
+  ["funbox numbers", { funbox: "numbers" }],
+  ["sound both", { sound: "both" }],
+  ["volume 40", { soundVolume: 40 }],
+  ["caret underline", { caretStyle: "underline" }],
+  ["font 32", { fontSize: 32 }],
+  ["font 5000", { fontSize: 48 }],
+  ["numerals bengali", { numerals: "bengali" }],
+  ["stop word", { stopOnError: "word" }],
+  ["conf max", { confidenceMode: "max" }],
+  ["restartkey tab", { quickRestart: "tab" }],
+  ["typos below", { indicateTypos: "below" }],
+  ["history always", { wordHistory: "always" }],
+  ["blind on", { blindMode: true }],
+  ["focus on", { focusMode: true }],
+  ["livewpm off", { liveWpm: false }],
+  ["hideextra on", { hideExtraLetters: true }],
+  ["capswarning off", { capsLockWarning: false }],
+];
+
+describe("settingPatch", () => {
+  it("turns every settings command into the patch the drawer would write", () => {
+    for (const [input, expected] of PATCHES) {
+      const command = parseCommand(input);
+      expect(command, input).not.toBeNull();
+      expect(settingPatch(command as NonNullable<typeof command>), input).toEqual(expected);
+    }
+  });
+
+  it("leaves run commands and navigation to their own handlers", () => {
+    for (const input of ["restart", "next", "end", "weak", "custom", "time 60", "words 25"]) {
+      const command = parseCommand(input);
+      expect(command?.kind, input).toBe("run");
+      expect(settingPatch(command as NonNullable<typeof command>), input).toBeNull();
+    }
+
+    for (const input of ["goto progress", "lang en"]) {
+      const command = parseCommand(input);
+      expect(settingPatch(command as NonNullable<typeof command>), input).toBeNull();
+    }
+  });
+
+  it("covers every setting the palette offers, leaving no silent no-op", () => {
+    const patched = PATCHES.flatMap(([, patch]) => Object.keys(patch ?? {}));
+    const keys = new Set(patched);
+
+    // The settings a command can change; anything missing here would parse and
+    // then do nothing at all.
+    for (const key of [
+      "theme",
+      "difficulty",
+      "funbox",
+      "sound",
+      "soundVolume",
+      "caretStyle",
+      "fontSize",
+      "numerals",
+      "stopOnError",
+      "confidenceMode",
+      "quickRestart",
+      "indicateTypos",
+      "wordHistory",
+      "blindMode",
+      "focusMode",
+      "liveWpm",
+      "hideExtraLetters",
+      "capsLockWarning",
+    ]) {
+      expect(keys.has(key), key).toBe(true);
+    }
   });
 });

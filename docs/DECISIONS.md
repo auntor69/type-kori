@@ -394,3 +394,29 @@ with the reason. Newest last.
     miss-rate heat grid — the grid sorts by rate rather than by raw count, because
     a cluster missed twice out of twice is a stronger signal than one missed three
     times out of a hundred.
+
+- 2026-09-29 — **Verification pass on the deep-settings batch, with fixes.**
+  - **`time` counts seconds, not minutes.** The command grammar originally
+    multiplied a bare `time 60` by 60,000, so the documented example started a
+    one-hour test — every other typing trainer counts seconds, and the palette's
+    own rows said minutes while the settings row next to it says 1m/3m. Bare
+    numbers are now seconds (`time 60` = one minute, `time 90` = 90 s), an
+    explicit suffix overrides (`time 5m`, `time 45s`), the cap is 3,600 s, and
+    the palette offers 15/30/60/120 s. `testTypeFor`/`parseTestType` store
+    seconds, so the personal-bests buckets now coincide with the duration
+    buttons: a 60-second command run and a 1m button run land in the same
+    `time 60` group. A run shorter than a minute reads as `90s`, never as `1.5m`.
+    Old records that stored minutes under `time N` now parse as seconds — with
+    no deployed users yet, re-reading those few labels is cheaper than a parser
+    that has to guess the unit forever.
+  - **A run is pinned to the funbox it started with.** The stored mode used to be
+    read live everywhere: the first run of a session rendered with `none` (the
+    state default) before settings loaded, a mid-run change mixed two modes into
+    one stream (some words reversed, some not), and the run recorded whichever
+    mode was live at the end. `RunModel` now carries `funbox`, the stream
+    extensions inherit it, the results label uses it, and the settings change
+    waits for the next run — which is also what the hint text now says.
+  - **The badge catalogue is actually 21.** The docs said 21 badges but the code
+    built 20. The missing milestone is `endless10` — ten endless runs, read from
+    the recorded test type via `parseTestType`, so runs that used a funbox still
+    count. A test now pins the catalogue length so the count cannot drift again.

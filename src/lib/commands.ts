@@ -9,8 +9,17 @@
 
 import type { Difficulty } from "../engine/text/provider";
 import { funboxModes, type FunboxMode } from "./funbox";
+import { clampFontSize, type Settings } from "./settings";
 import { isThemeId, type ThemeId } from "./themes";
-import type { CaretStyle, ConfidenceMode, IndicateTypos, NumeralStyle, QuickRestart, StopOnError, WordHistory } from "./settings";
+import type {
+  CaretStyle,
+  ConfidenceMode,
+  IndicateTypos,
+  NumeralStyle,
+  QuickRestart,
+  StopOnError,
+  WordHistory,
+} from "./settings";
 
 export type Command =
   /** Run-level commands the practice island owns. */
@@ -59,6 +68,28 @@ function number(token: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/** A run can never last longer than an hour, in either unit. */
+const MAX_TIME_SECONDS = 3600;
+
+/**
+ * A `time` duration in seconds.
+ *
+ * Seconds are the unit every typing trainer counts in, so `time 60` is a minute
+ * and not an hour. An explicit suffix still says it out loud — `time 5m` is five
+ * minutes, `time 90s` is ninety seconds — which keeps the grammar readable for
+ * anyone who wants minutes.
+ */
+function durationSeconds(token: string): number | null {
+  const minutes = /^(\d+(?:\.\d+)?)m(?:in(?:ute)?s?)?$/.exec(token);
+  if (minutes !== null) return Number(minutes[1]) * 60;
+
+  const seconds = /^(\d+(?:\.\d+)?)s(?:ec(?:ond)?s?)?$/.exec(token);
+  if (seconds !== null) return Number(seconds[1]);
+
+  const plain = /^\d+(?:\.\d+)?$/.exec(token);
+  return plain !== null ? Number(plain) : null;
+}
+
 const STOP_ON_ERROR: readonly StopOnError[] = ["off", "letter", "word"];
 const CONFIDENCE: readonly ConfidenceMode[] = ["off", "on", "max"];
 const QUICK_RESTART: readonly QuickRestart[] = ["off", "esc", "tab", "enter"];
@@ -103,9 +134,9 @@ export function parseCommand(input: string): Command | null {
       if (word === "" || word === "infinite" || word === "inf" || word === "∞") {
         return { kind: "run", name: "time", durationMs: null };
       }
-      const minutes = number(word.replace(/m$/, ""));
-      if (minutes === null || minutes < 0 || minutes > 600) return null;
-      return { kind: "run", name: "time", durationMs: Math.round(minutes * 60_000) };
+      const seconds = durationSeconds(word);
+      if (seconds === null || seconds < 0 || seconds > MAX_TIME_SECONDS) return null;
+      return { kind: "run", name: "time", durationMs: Math.round(seconds * 1000) };
     }
 
     case "words":
@@ -244,6 +275,62 @@ export function parseCommand(input: string): Command | null {
       return null;
     }
 
+    default:
+      return null;
+  }
+}
+
+/**
+ * The settings a command changes, as the patch the drawer would have written.
+ * `null` means the command is not a settings change: a run command goes to the
+ * practice island and `lang` is a navigation, because the language lives in the
+ * URL rather than in the stored settings.
+ *
+ * Kept next to the parser so one test table can cover the whole grammar end to
+ * end: a command that parses but patches nothing would be a silent no-op.
+ */
+export function settingPatch(command: Command): Partial<Settings> | null {
+  if (command.kind !== "setting") return null;
+
+  switch (command.name) {
+    case "theme":
+      return { theme: command.theme };
+    case "difficulty":
+      return { difficulty: command.difficulty };
+    case "funbox":
+      return { funbox: command.funbox };
+    case "sound":
+      return { sound: command.sound };
+    case "volume":
+      return { soundVolume: command.volume };
+    case "caret":
+      return { caretStyle: command.caret };
+    case "font":
+      return { fontSize: clampFontSize(command.fontSize) };
+    case "numerals":
+      return { numerals: command.numerals };
+    case "stopOnError":
+      return { stopOnError: command.stopOnError };
+    case "confidence":
+      return { confidenceMode: command.confidence };
+    case "quickRestart":
+      return { quickRestart: command.quickRestart };
+    case "typos":
+      return { indicateTypos: command.indicateTypos };
+    case "wordHistory":
+      return { wordHistory: command.history };
+    case "blind":
+      return { blindMode: command.blindMode };
+    case "focus":
+      return { focusMode: command.focusMode };
+    case "liveWpm":
+      return { liveWpm: command.liveWpm };
+    case "hideExtra":
+      return { hideExtraLetters: command.hideExtraLetters };
+    case "capsWarning":
+      return { capsLockWarning: command.capsLockWarning };
+    case "lang":
+      return null;
     default:
       return null;
   }

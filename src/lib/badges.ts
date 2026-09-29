@@ -6,6 +6,7 @@
  * and every threshold is unit tested. Nothing here reads storage or the DOM.
  */
 
+import { parseTestType } from "./run";
 import type { LessonProgressMap, RunRecord } from "./progress";
 
 export type BadgeGroup = "milestone" | "speed" | "accuracy" | "volume" | "lessons" | "habit";
@@ -60,6 +61,11 @@ export function currentStreak(runs: readonly RunRecord[], now: number = Date.now
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
+}
+
+/** Runs recorded as an endless stream (∞) — the free-practice runs. */
+export function endlessRuns(runs: readonly RunRecord[]): number {
+  return runs.filter((run) => parseTestType(run.testType).kind === "endless").length;
 }
 
 /** The longest run of consecutive days ever recorded. */
@@ -128,6 +134,7 @@ export function evaluateBadges(input: BadgeInput): Badge[] {
     make("runs10", "milestone", 10, runs.length),
     make("runs50", "milestone", 50, runs.length),
     make("runs250", "milestone", 250, runs.length),
+    make("endless10", "milestone", 10, endlessRuns(runs)),
 
     make("speed30", "speed", 30, best),
     make("speed40", "speed", 40, best),

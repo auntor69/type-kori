@@ -39,7 +39,7 @@ describe("funbox", () => {
     const out = applyFunbox(WORDS, "numbers", createRng(3));
     expect(out.length).toBe(WORDS.length);
 
-    const numbers = out.filter((word) => /^[১২৩৪৫৬৭৮৯]+$/.test(word));
+    const numbers = out.filter((word) => /^[০-৯]+$/.test(word));
     expect(numbers.length).toBeGreaterThan(0);
 
     for (const number of numbers) {

@@ -1,31 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { drillTexts } from "../content/drills";
 import { practiceTexts } from "../content/texts";
 import { collectMistakes, renderProgress, type ClusterState, type WordStatus } from "../engine/compare";
 import { createPhoneticEngine } from "../engine/input/phonetic";
 import { createSystemEngine } from "../engine/input/system";
 import type { EngineAction, InputEngine, InputEngineId } from "../engine/input/types";
 import { formatDuration } from "../engine/metrics";
-import {
-  createSession,
-  reduce,
-  sessionStats,
-  type SessionEvent,
-  type SessionState,
-} from "../engine/session";
-import { createWordBank, drawWords } from "../engine/wordbank";
-import {
-  createRng,
-  pickText,
-  wordsOf,
-  type Difficulty,
-  type PracticeText,
-} from "../engine/text/provider";
+import { reduce, sessionStats, type SessionEvent } from "../engine/session";
+import type { Difficulty, PracticeText } from "../engine/text/provider";
 import { useTranslations, type Lang } from "../i18n";
 import { loadAndApplySettings, onSettingsChange } from "../lib/applySettings";
 import { onRunCommand, type RunCommand } from "../lib/commands";
-import { applyFunbox, type FunboxMode } from "../lib/funbox";
+import type { FunboxMode } from "../lib/funbox";
 import {
   clearCustomText,
   customPracticeText,
@@ -51,6 +37,15 @@ import {
 } from "../lib/settings";
 import { formatNumeral } from "../lib/numerals";
 import { loadErrorMap } from "../lib/progress";
+import {
+  buildVocabulary,
+  createRun,
+  extendStream,
+  HISTORY_LIMIT,
+  STREAM_BUFFER,
+  testTypeFor,
+  type RunModel,
+} from "../lib/run";
 import { playSound } from "../lib/sound";
 import { minimumFailure } from "../lib/thresholds";
 import { buildWeakKeyText, topWeakKeys } from "../lib/weakKeys";
@@ -72,109 +67,13 @@ interface Props {
   lesson?: LessonRun;
 }
 
-interface RunModel {
-  text: PracticeText;
-  durationMs: number | null;
-  session: SessionState;
-  history: readonly string[];
-  /** Words mode: end after this many committed words; null = text/timed mode. */
-  wordGoal: number | null;
-  /** Infinite streaming: the word bank backing this run, or null for fixed texts. */
-  bank: WordBankHandle | null;
-}
-
-/** Everything needed to keep feeding words into a running target. */
-interface WordBankHandle {
-  bank: ReturnType<typeof createWordBank>;
-  /** Seed lineage: every extension derives from the previous one. */
-  seed: number;
-}
-
 const DURATIONS: readonly (number | null)[] = [null, 60_000, 180_000, 300_000];
 const WORD_GOALS: readonly number[] = [10, 25, 50, 100];
-const HISTORY_LIMIT = 6;
-/** How far ahead of the caret the stream keeps drawing new words. */
-const STREAM_BUFFER = 12;
 /** How many typed words the results screen lists back. */
 const WORD_HISTORY_ROWS = 40;
 
 function createEngine(mode: InputEngineId): InputEngine {
   return mode === "avro-phonetic" ? createPhoneticEngine() : createSystemEngine();
-}
-
-/** The vocabulary the infinite stream draws from: every curated text and drill. */
-function buildVocabulary(difficulty: Difficulty | "all"): string[] {
-  const texts = difficulty === "all" ? practiceTexts : practiceTexts.filter((text) => text.difficulty === difficulty);
-  const drills = difficulty === "all" ? drillTexts : drillTexts.filter((text) => text.difficulty === difficulty);
-  const words: string[] = [];
-  for (const text of [...texts, ...drills]) words.push(...wordsOf(text));
-  // A difficulty bucket can never be empty (the content validator guarantees
-  // texts per level), but a guard costs nothing.
-  if (words.length === 0) {
-    for (const text of practiceTexts) words.push(...wordsOf(text));
-  }
-  return words;
-}
-
-function createRun(options: {
-  pool: readonly PracticeText[];
-  durationMs: number | null;
-  seed: number;
-  history?: readonly string[];
-  difficulty?: Difficulty | "all";
-  /** Letter/word strictness, applied for the whole run. */
-  stopOnError?: boolean;
-  /** Words mode target; null keeps the whole text. */
-  wordGoal?: number | null;
-  /** Infinite streaming mode; null keeps a fixed target text. */
-  infinite?: boolean;
-  vocabulary?: readonly string[];
-  /** Funbox twist applied to every drawn line; fixed texts ignore it. */
-  funbox?: FunboxMode;
-}): RunModel {
-  const {
-    pool,
-    durationMs,
-    seed,
-    history = [],
-    difficulty = "all",
-    stopOnError = false,
-    wordGoal = null,
-    infinite = false,
-    vocabulary,
-    funbox = "none",
-  } = options;
-  const text = pickText(pool, { difficulty, exclude: [...history], rng: createRng(seed) }) ?? pool[0];
-
-  // Infinite mode: the target starts as one generated line and the island keeps
-  // extending it while the user types. The `text` is then only the run's
-  // identity for progress records.
-  if (infinite && vocabulary !== undefined && vocabulary.length > 0) {
-    const bank = createWordBank(vocabulary);
-    const first = applyFunbox(drawWords(bank, STREAM_BUFFER, seed), funbox, createRng(seed));
-    return {
-      text,
-      durationMs,
-      session: createSession({ targetWords: first, durationMs, stopOnError, infinite: true }),
-      history: [...history, text.id].slice(-HISTORY_LIMIT),
-      wordGoal,
-      bank: { bank, seed },
-    };
-  }
-
-  // Words mode: exactly goal words. A longer text is truncated; a shorter pool
-  // text is used whole (a custom paste is never truncated).
-  const allWords = wordsOf(text);
-  const targetWords = wordGoal !== null ? allWords.slice(0, wordGoal) : allWords;
-
-  return {
-    text,
-    durationMs,
-    session: createSession({ targetWords, durationMs, stopOnError, infinite: false }),
-    history: [...history, text.id].slice(-HISTORY_LIMIT),
-    wordGoal,
-    bank: null,
-  };
 }
 
 function clusterClass(
@@ -287,6 +186,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       difficulty: lesson === undefined ? "easy" : "all",
       infinite,
       vocabulary,
+      funbox: "none",
     }),
   );
   const [now, setNow] = useState(0);
@@ -313,6 +213,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   prefsRef.current = { sound, soundVolume, quickRestart, confidenceMode, capsLockWarning };
 
   // Apply the stored theme, text size and input mode as soon as the island is up.
+  // The run itself is not rebuilt with the stored funbox: pinning each run to the
+  // mode it started with keeps one target text and one recorded test type.
   useEffect(() => {
     const stored = loadAndApplySettings();
     setInputMode(stored.inputMode);
@@ -336,7 +238,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setWordHistory(stored.wordHistory);
     setFocusMode(stored.focusMode);
     setCapsLockWarning(stored.capsLockWarning);
-    setFunbox(stored.funbox);
+    // The stored funbox waits for the next run; the current one stays pinned.
   }, []);
 
   // The settings drawer can change the input mode while a run is on screen.
@@ -374,7 +276,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         setCapsLockWarning(settings.capsLockWarning);
         setFunbox((current) => {
           if (current === settings.funbox) return current;
-          // A funbox change only applies to the next line of the stream.
+          // A funbox change takes effect on the next run, not inside this one:
+          // half the words reversed would misrepresent both the target and the
+          // recorded test type.
           return settings.funbox;
         });
       }),
@@ -536,21 +440,20 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   // The test type recorded with a run, so personal bests can be grouped the way
   // monkeytype groups them: `time 60`, `words 25`, `∞`, `lesson`, `custom`.
-  const testTypeFor = (run: RunModel): string => {
-    const base =
-      lesson !== undefined
-        ? "lesson"
-        : weakDrill !== null
-          ? "weak"
-          : customRun !== null
-            ? "custom"
-            : wordGoal !== null
-              ? `words ${wordGoal}`
-              : run.durationMs !== null
-                ? `time ${Math.round(run.durationMs / 60_000)}`
-                : "∞";
-    return activeFunbox === "none" ? base : `${base} · ${activeFunbox}`;
-  };
+  const testTypeOf = (run: RunModel): string =>
+    testTypeFor({
+      durationMs: run.durationMs,
+      wordGoal,
+      kind:
+        lesson !== undefined
+          ? "lesson"
+          : weakDrill !== null
+            ? "weak"
+            : customRun !== null
+              ? "custom"
+              : undefined,
+      funbox: run.funbox,
+    });
 
   /**
    * Commands from the command bar. Settings-level commands are written through
@@ -762,28 +665,23 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     if (session.state === "finished") return;
     if (session.target.length - session.committed.length > STREAM_BUFFER) return;
 
-    // The next seed derives from the last one, so long runs never repeat a line.
-    const seed = (bank.seed * 1_664_525 + 1_013_904_223) % 0x7fff_ffff;
-    const words = applyFunbox(
-      drawWords(bank.bank, STREAM_BUFFER, seed, session.target.slice(-8)),
-      activeFunbox,
-      createRng(seed),
-    );
+    setModel((current) => {
+      if (current.bank === null) return current;
 
-    setModel((current) =>
-      current.bank === null
-        ? current
-        : {
-            ...current,
-            bank: { ...current.bank, seed },
-            session: reduce(current.session, { type: "extend", words, at: Date.now() }),
-          },
-    );
+      // The extension inherits the run's pinned funbox, so a settings change
+      // mid-run cannot mix two modes into one stream.
+      const stream = extendStream(current.bank, current.session.target, current.funbox);
+      return {
+        ...current,
+        bank: stream.handle,
+        session: reduce(current.session, { type: "extend", words: stream.words, at: Date.now() }),
+      };
+    });
   }, [
     model.session.committed.length,
     model.session.target.length,
     model.session.state,
-    activeFunbox,
+    model.funbox,
   ]);
 
   const { session } = model;
@@ -828,7 +726,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         accuracy: stats.accuracy,
         // Time actually spent typing, which is what the results screen shows.
         durationMs: Math.round(stats.elapsedMs),
-        testType: testTypeFor(model),
+        testType: testTypeOf(model),
         errors: collectMistakes(session.committed, session.target).map((mistake) => ({
           expected: mistake.expected ?? "",
           typed: mistake.actual ?? "",
@@ -1049,7 +947,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
             // Memory mode: the word being typed and the one after it stay
             // visible, everything further ahead has to be held in the head.
             const hidden =
-              activeFunbox === "memory" &&
+              model.funbox === "memory" &&
               word.status === "pending" &&
               absoluteIndex > activeIndex + 1;
 

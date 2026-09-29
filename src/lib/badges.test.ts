@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { currentStreak, dayKey, earnedCount, evaluateBadges, longestStreak, typingDays } from "./badges";
+import { currentStreak, dayKey, earnedCount, endlessRuns, evaluateBadges, longestStreak, typingDays } from "./badges";
 import type { LessonProgressMap, RunRecord } from "./progress";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -125,5 +125,25 @@ describe("evaluateBadges", () => {
     expect(badges.find((badge) => badge.id === "runs10")?.progress).toBeCloseTo(0.5);
     expect(badges.find((badge) => badge.id === "runs10")?.earned).toBe(false);
     expect(badges.find((badge) => badge.id === "runs50")?.progress).toBeCloseTo(0.1);
+  });
+
+  it("counts only endless runs for the endless badge", () => {
+    const runs = [
+      makeRun({ id: "a", testType: "∞" }),
+      makeRun({ id: "b", testType: "∞ · numbers" }),
+      makeRun({ id: "c", testType: "time 60" }),
+      makeRun({ id: "d", testType: "words 25" }),
+      makeRun({ id: "e", testType: "lesson" }),
+    ];
+    expect(endlessRuns(runs)).toBe(2);
+
+    const badges = evaluateBadges({ runs: runs.slice(0, 3), lessons: {} });
+    const endless = badges.find((badge) => badge.id === "endless10");
+    expect(endless?.earned).toBe(false);
+    expect(endless?.progress).toBeCloseTo(2 / 10);
+  });
+
+  it("catalogues exactly 21 badges, as the interface copy says", () => {
+    expect(evaluateBadges({ runs: [], lessons: {} })).toHaveLength(21);
   });
 });

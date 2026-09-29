@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { languageLabel, localizePath, mirrorPath, useTranslations, type Lang } from "../i18n";
 import { loadAndApplySettings, setOverlayOpen, updateSettings } from "../lib/applySettings";
-import { emitRunCommand, parseCommand, type Command } from "../lib/commands";
+import { emitRunCommand, parseCommand, settingPatch, type Command } from "../lib/commands";
 import { funboxModes } from "../lib/funbox";
-import { clampFontSize, defaultSettings, type Settings } from "../lib/settings";
+import { defaultSettings, type Settings } from "../lib/settings";
 import { searchThemes, themeLabel, allThemes } from "../lib/themes";
 
 interface Props {
@@ -36,6 +36,7 @@ export default function CommandBar({ lang }: Props) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const settingsRef = useRef(settings);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const firstRender = useRef(true);
 
   useEffect(() => {
     setSettings(loadAndApplySettings());
@@ -75,12 +76,16 @@ export default function CommandBar({ lang }: Props) {
     return () => setOverlayOpen("command", false);
   }, [mode]);
 
+  // Focus follows the bar, but never on the first render: grabbing focus on
+  // load would move the caret to this button, and the typing island ignores
+  // keystrokes aimed at a button — the page would look dead.
   useEffect(() => {
-    if (mode === "closed") {
-      triggerRef.current?.focus();
+    if (firstRender.current) {
+      firstRender.current = false;
       return;
     }
-    inputRef.current?.focus();
+    if (mode === "closed") triggerRef.current?.focus();
+    else inputRef.current?.focus();
   }, [mode]);
 
   const close = () => {
@@ -108,67 +113,16 @@ export default function CommandBar({ lang }: Props) {
       return true;
     }
 
-    switch (command.name) {
-      case "theme":
-        commit({ theme: command.theme });
-        return true;
-      case "lang":
-        window.location.assign(mirrorPath(window.location.pathname, command.lang));
-        return true;
-      case "difficulty":
-        commit({ difficulty: command.difficulty });
-        return true;
-      case "funbox":
-        commit({ funbox: command.funbox });
-        return true;
-      case "sound":
-        commit({ sound: command.sound });
-        return true;
-      case "volume":
-        commit({ soundVolume: command.volume });
-        return true;
-      case "caret":
-        commit({ caretStyle: command.caret });
-        return true;
-      case "font":
-        commit({ fontSize: clampFontSize(command.fontSize) });
-        return true;
-      case "numerals":
-        commit({ numerals: command.numerals });
-        return true;
-      case "stopOnError":
-        commit({ stopOnError: command.stopOnError });
-        return true;
-      case "confidence":
-        commit({ confidenceMode: command.confidence });
-        return true;
-      case "quickRestart":
-        commit({ quickRestart: command.quickRestart });
-        return true;
-      case "typos":
-        commit({ indicateTypos: command.indicateTypos });
-        return true;
-      case "wordHistory":
-        commit({ wordHistory: command.history });
-        return true;
-      case "blind":
-        commit({ blindMode: command.blindMode });
-        return true;
-      case "focus":
-        commit({ focusMode: command.focusMode });
-        return true;
-      case "liveWpm":
-        commit({ liveWpm: command.liveWpm });
-        return true;
-      case "hideExtra":
-        commit({ hideExtraLetters: command.hideExtraLetters });
-        return true;
-      case "capsWarning":
-        commit({ capsLockWarning: command.capsLockWarning });
-        return true;
-      default:
-        return false;
+    // The language lives in the URL, not in the settings, so it navigates.
+    if (command.name === "lang") {
+      window.location.assign(mirrorPath(window.location.pathname, command.lang));
+      return true;
     }
+
+    const patch = settingPatch(command);
+    if (patch === null) return false;
+    commit(patch);
+    return true;
   };
 
   const onLineSubmit = () => {
@@ -184,12 +138,12 @@ export default function CommandBar({ lang }: Props) {
     const list: Entry[] = [];
 
     // Test type.
-    for (const minutes of [1, 3, 5, 10] as const) {
+    for (const seconds of [15, 30, 60, 120] as const) {
       list.push({
-        id: `time-${minutes}`,
+        id: `time-${seconds}`,
         group: "test",
-        label: `${t("command.time")} · ${minutes}m`,
-        run: () => emitRunCommand({ kind: "run", name: "time", durationMs: minutes * 60_000 }),
+        label: `${t("command.time")} · ${seconds}s`,
+        run: () => emitRunCommand({ kind: "run", name: "time", durationMs: seconds * 1000 }),
       });
     }
     list.push({
@@ -497,7 +451,7 @@ export default function CommandBar({ lang }: Props) {
                           </span>
                         )}
                         <span class="text-[0.65rem] uppercase tracking-wide text-muted/70">
-                          {entry.group}
+                          {t(`command.group.${entry.group}`)}
                         </span>
                       </span>
                     </button>

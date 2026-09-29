@@ -100,14 +100,18 @@ function Segmented<T extends string | number>({
   );
 }
 
-/** A plain on/off switch. */
+/** A plain on/off switch. Its labels are translated, like every other control. */
 function Switch({
   value,
   label,
+  offLabel,
+  onLabel,
   onChange,
 }: {
   value: boolean;
   label: string;
+  offLabel: string;
+  onLabel: string;
   onChange: (next: boolean) => void;
 }) {
   return (
@@ -121,7 +125,7 @@ function Switch({
           value === false ? "bg-accent text-on-accent" : "bg-surface-2 text-muted hover:text-text"
         }`}
       >
-        off
+        {offLabel}
       </button>
       <button
         type="button"
@@ -132,7 +136,7 @@ function Switch({
           value === true ? "bg-accent text-on-accent" : "bg-surface-2 text-muted hover:text-text"
         }`}
       >
-        on
+        {onLabel}
       </button>
     </div>
   );
@@ -383,6 +387,8 @@ export default function SiteControls({ lang }: Props) {
                   <Switch
                     value={settings.blindMode}
                     label={t("settings.blindMode")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(blindMode) => commit({ blindMode })}
                   />
                 </Row>
@@ -391,6 +397,8 @@ export default function SiteControls({ lang }: Props) {
                   <Switch
                     value={settings.liveWpm}
                     label={t("settings.liveWpm")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(liveWpm) => commit({ liveWpm })}
                   />
                 </Row>
@@ -399,6 +407,8 @@ export default function SiteControls({ lang }: Props) {
                   <Switch
                     value={settings.capsLockWarning}
                     label={t("settings.capsLockWarning")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(capsLockWarning) => commit({ capsLockWarning })}
                   />
                 </Row>
@@ -488,6 +498,8 @@ export default function SiteControls({ lang }: Props) {
                   <Switch
                     value={settings.showAllLines}
                     label={t("settings.showAllLines")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(showAllLines) => commit({ showAllLines })}
                   />
                 </Row>
@@ -508,6 +520,8 @@ export default function SiteControls({ lang }: Props) {
                   <Switch
                     value={settings.hideExtraLetters}
                     label={t("settings.hideExtraLetters")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(hideExtraLetters) => commit({ hideExtraLetters })}
                   />
                 </Row>
@@ -525,6 +539,8 @@ export default function SiteControls({ lang }: Props) {
                   <Switch
                     value={settings.focusMode}
                     label={t("settings.focusMode")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(focusMode) => commit({ focusMode })}
                   />
                 </Row>

@@ -42,8 +42,13 @@ export function applySettings(settings: Settings, root: HTMLElement = document.d
   root.dataset.inputMode = settings.inputMode;
 }
 
-/** The custom properties a concrete theme sets, so "system" can clear them. */
-const THEME_VAR_NAMES = [
+/**
+ * The custom properties a concrete theme sets, so "system" can clear them.
+ * Exported so a test can prove it still matches `themeStyleVars`: a theme that
+ * set a property this list does not clear would survive the switch back to
+ * "system" and tint the default palette with the last theme's colour.
+ */
+export const THEME_VAR_NAMES = [
   "--bg",
   "--surface",
   "--text",
@@ -127,6 +132,17 @@ export function setOverlayOpen(name: string, open: boolean): void {
   if (open) openOverlays.add(name);
   else openOverlays.delete(name);
 
-  if (openOverlays.size > 0) document.documentElement.setAttribute(DRAWER_ATTRIBUTE, "open");
-  else document.documentElement.removeAttribute(DRAWER_ATTRIBUTE);
+  const root = document.documentElement;
+  if (openOverlays.size > 0) {
+    root.setAttribute(DRAWER_ATTRIBUTE, "open");
+    // Focus mode fades the chrome out; the overlays live inside that chrome, so
+    // the fade has to stand down while one of them is open or the dialog would
+    // be invisible and unclickable.
+    root.setAttribute(OVERLAY_ATTRIBUTE, "open");
+  } else {
+    root.removeAttribute(DRAWER_ATTRIBUTE);
+    root.removeAttribute(OVERLAY_ATTRIBUTE);
+  }
 }
+
+export const OVERLAY_ATTRIBUTE = "data-tk-overlay";

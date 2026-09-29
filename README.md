@@ -61,10 +61,15 @@ theme dracula      time 60        words 25       funbox numbers
 conf max           typos below    blind on       goto progress
 ```
 
+`time` counts bare numbers in **seconds** (`time 90` is a minute and a half);
+an explicit suffix says otherwise (`time 5m`, `time 45s`). `words` counts words,
+and a bare `words` or `time` alone starts an endless run.
+
 Settings go deep: quick restart key, confidence mode, minimum speed and accuracy,
 indicate typos, hide extra letters, words history, focus mode, sound volume, and
 funbox modes that twist the stream (Bengali numerals, punctuation, reversed
-words, or words you have to remember).
+words, or words you have to remember). A funbox mode applies to the runs started
+after it is chosen; the run on screen keeps the mode it began with.
 
 The theme gallery ships ~250 palettes: the built-in ones, community classics, and
 one derived from every country flag (search "Bangladesh", or filter by *flags*).
