@@ -71,9 +71,13 @@ funbox modes that twist the stream (Bengali numerals, punctuation, reversed
 words, or words you have to remember). A funbox mode applies to the runs started
 after it is chosen; the run on screen keeps the mode it began with.
 
-The theme gallery ships ~250 palettes: the built-in ones, community classics, and
-one derived from every country flag (search "Bangladesh", or filter by *flags*).
-Themes can be starred and exported as JSON.
+The theme gallery ships 261 palettes: the built-in ones, community classics, and
+one for every country flag (search "Bangladesh", or filter by *flags*). A flag
+theme is built out of that flag's own colours — the page keeps the field colour,
+the accent is the flag's most vivid colour (Argentina's sun, Vietnam's star), the
+text is the flag's white or its darkest ink — and every palette is contrast
+checked, so none of them can be unreadable. Themes can be starred and exported as
+JSON.
 
 The progress page keeps personal bests per test type, streaks, 21 badges, a
 miss-rate heat grid and the speed trend.

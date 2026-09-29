@@ -373,12 +373,12 @@ with the reason. Newest last.
     text would need a native speaker before it could ship, and a transform needs
     nobody.
   - **A theme for every country flag, derived rather than hand-written.**
-    `src/lib/flags.ts` holds 193 countries with two to five dominant flag colours
-    each, and `flagTheme` computes the palette: a flag with a dark colour becomes
-    a dark theme, a flag whose darkest colour is still light stays light, and
-    every colour is pushed until it clears a WCAG contrast floor (4.5:1 for text,
-    3.2:1 for muted and accent). The unit test re-checks all 193 palettes against
-    those floors, so no flag can ship an unreadable theme. **The colour lists are
+    `src/lib/flags.ts` holds 196 countries with two to five dominant flag colours
+    each, and `flagTheme` computes the palette from them, every colour pushed
+    until it clears a WCAG contrast floor (4.5:1 for text, 3.2:1 for muted,
+    accent and wrong). The unit test re-checks all 196 palettes against those
+    floors, so no flag can ship an unreadable theme. The derivation itself was
+    rebuilt the same day — see the last entry in this file. **The colour lists are
     this project's reading of each flag's dominant colours, not an official
     specification** — they exist to make a recognisable theme, not to document
     flags. The theme registry therefore went from 40 hand-written palettes to
@@ -394,6 +394,11 @@ with the reason. Newest last.
     miss-rate heat grid — the grid sorts by rate rather than by raw count, because
     a cluster missed twice out of twice is a stronger signal than one missed three
     times out of a hundred.
+  - **`--on-accent` became part of a theme.** Button labels are drawn on top of
+    the accent, and a flag's accent can land anywhere on the lightness scale, so
+    `ThemeDef` gained an optional `onAccent` (default: the token pair, white on a
+    light theme and `#2c2e31` on a dark one). The flag palettes set it, and the
+    variable is published and cleared with the rest of the palette.
 
 - 2026-09-29 — **Verification pass on the deep-settings batch, with fixes.**
   - **`time` counts seconds, not minutes.** The command grammar originally
@@ -420,3 +425,38 @@ with the reason. Newest last.
     built 20. The missing milestone is `endless10` — ten endless runs, read from
     the recorded test type via `parseTestType`, so runs that used a funbox still
     count. A test now pins the catalogue length so the count cannot drift again.
+
+- 2026-09-29 — **The flag palettes were rebuilt so that the flag *is* the
+  palette.** The owner rejected the first set of flag themes, Argentina first: the
+  flag is blue, white and gold, and the theme was none of them. Two defects were
+  behind that, and both are fixed.
+  - **The table was short of colours.** Six flags were missing a colour that is
+    part of what the flag looks like — Azerbaijan's white crescent and star,
+    Comoros's green triangle, Cyprus's olive branches, Dominica's red circle —
+    Kazakhstan carried a third colour that is not on the flag at all, and
+    Micronesia listed its field twice. Two fields also contradicted this file's
+    own "most cloth" convention and are now the widest band: Libya's black and
+    Uruguay's white. Every row was re-checked against independently published
+    per-country flag colour tables; the remaining differences are readings of the
+    same flag, not gaps.
+  - **The derivation threw the flag away.** It darkened the field by mixing it
+    with black, which drains chroma — Argentina's celeste (`#74acdf`) became
+    slate — and it never allowed gold to survive, because a pale colour could not
+    clear the contrast floor on any page it produced. The palette is now read off
+    the flag: the **page** is the field itself, deepened in HSL so its hue and its
+    chroma both survive (`withLightness`, new in `colors.ts`), or paled toward
+    white when the field is already light; the **accent** is the flag's most vivid
+    colour that is neither the page nor the ink (Argentina's sun, Vietnam's star,
+    Korea's blue); the **text** is the flag's own white on a dark page and its
+    darkest ink on a light one; the **panel** leans 30% toward the field so the
+    flag's second colour shows up in the interface; the **error mark** is the
+    flag's own red, unless that red is already the accent — the caret and the
+    error mark must not be the same pixels. Ties between equally vivid colours are
+    broken by hue distance from the field, which is why Germany takes gold over
+    red.
+  - A flag with a white or gold field makes a light theme (21 of 196); the rest
+    are dark pages in their own colour. The unit test now asserts the palette is
+    still the flag — every page within 15° of its field's hue, every accent within
+    12° of one of the flag's colours — and pins Argentina, Ukraine, Libya and Japan
+    by name. The contrast floors are unchanged, and `accent === wrong` is asserted
+    away, so no theme can mark a mistake with its own caret colour.

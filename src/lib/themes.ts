@@ -24,6 +24,13 @@ export interface ThemeDef {
   accent: string;
   accentSoft: string;
   wrong: string;
+  /**
+   * Text drawn on top of `accent` (buttons, the active chip). Optional: a theme
+   * that leaves it out gets the token default for its light/dark side, and the
+   * flag palettes set it because their accent can sit anywhere on the lightness
+   * scale.
+   */
+  onAccent?: string;
 }
 
 /** What the picker groups by. Flags are generated; the rest are hand-written. */
@@ -186,6 +193,7 @@ export function themeStyleVars(theme: ThemeDef): Record<string, string> {
     "--accent": theme.accent,
     "--accent-soft": theme.accentSoft,
     "--wrong": theme.wrong,
+    "--on-accent": theme.onAccent ?? (theme.dark ? "#2c2e31" : "#ffffff"),
     "--correct": theme.text,
     "--focus-ring": theme.accent,
     "--accent-2": theme.wrong,

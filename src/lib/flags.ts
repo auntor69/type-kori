@@ -1,12 +1,31 @@
 /**
- * Country-flag themes: one palette per country, derived from that flag's own
+ * Country-flag themes: one palette per country, built out of that flag's own
  * colours.
  *
- * The table holds facts (an ISO code, an English name, the two to five dominant
- * flag colours); the palette is *computed* by `flagTheme`, so a flag can never
- * ship a theme whose text is unreadable on its background — the derivation
- * pushes each colour until it clears a WCAG contrast floor, and the unit test
- * re-checks every generated theme against it.
+ * The table holds facts (an ISO code, an English name, the flag's colours) and
+ * the palette is *computed* by `flagTheme`, so a flag can never ship a theme
+ * whose text is unreadable on its background — the derivation pushes each colour
+ * until it clears a WCAG contrast floor, and the unit test re-checks every
+ * generated theme against it.
+ *
+ * Convention: **the first colour is the flag's field** — the one that covers
+ * the most cloth (Argentina's celeste, Japan's white, Libya's black). Every
+ * other entry follows in no particular order.
+ *
+ * The palette is then the flag, read as a page:
+ *
+ * - the **page** is the field itself, deepened or paled but never recoloured.
+ *   Deepening happens in HSL, which keeps the chroma: Argentina is a deep
+ *   celeste rather than charcoal. A pale field (white, gold) makes a light
+ *   theme; everything else is a dark page in its own colour.
+ * - the **accent** is the flag's most vivid colour that is neither its page nor
+ *   its ink: Argentina's sun, Vietnam's star, Bangladesh's disc.
+ * - the **text** is the flag's own white on a dark page, and its darkest ink on
+ *   a light one.
+ * - the **panel** leans toward the field colour, so the flag's second colour is
+ *   visible in the interface and not only in the page.
+ * - the **error mark** is the flag's own red when it has one that is not the
+ *   page, and a plain red when it does not.
  *
  * The colours are this project's reading of each flag's dominant colours, not an
  * official specification (see docs/DECISIONS.md).
@@ -14,14 +33,15 @@
 
 import {
   contrastRatio,
-  darken,
-  ensureContrastAgainst,
-  ensureDarkerThan,
+  ensureContrastToward,
   ensureLighterThan,
-  lighten,
+  hueDistance,
+  hueOf,
+  lightnessOf,
   luminance,
   mix,
   saturation,
+  withLightness,
 } from "./colors";
 import type { ThemeDef } from "./themes";
 
@@ -29,13 +49,34 @@ export interface FlagCountry {
   /** ISO 3166-1 alpha-2, lowercase. */
   readonly code: string;
   readonly name: string;
-  /** Dominant flag colours, in no particular order. */
+  /** The flag's field colour first, then the other dominant colours. */
   readonly colors: readonly string[];
 }
 
 /** Contrast floors the derivation guarantees, and the test asserts. */
 export const FLAG_TEXT_CONTRAST = 4.5;
 export const FLAG_SOFT_CONTRAST = 3.2;
+
+/** A field at or below this luminance makes a dark page, anything else a light one. */
+const DARK_FIELD_MAX = 0.5;
+/** Every dark page is deepened to this HSL lightness — and never lightened to it. */
+const PAGE_LIGHTNESS = 0.16;
+/** A light page is pushed at least this light, so text always has room. */
+const LIGHT_PAGE_MIN = 0.86;
+/** Below this saturation a colour is a neutral: no hue worth preserving. */
+const NEUTRAL = 0.08;
+/** Two hues closer than this read as the same colour. */
+const HUE_GAP = 25;
+/** Below this saturation a colour is a neutral, and never an accent. */
+const VIVID = 0.15;
+/** At or above this luminance a colour is ink (a flag's white), not an accent. */
+const INK_LIGHT = 0.8;
+/** The error mark for a flag with no red of its own. */
+const WRONG_RED = "#e5484d";
+/** Text drawn on an accent-coloured button in a dark theme. */
+const ON_ACCENT_DARK = "#000000";
+/** A table entry with no colours at all still has to generate something. */
+const FALLBACK = "#888888";
 
 export const flagCountries: readonly FlagCountry[] = [
   { code: "af", name: "Afghanistan", colors: ["#000000", "#d32011", "#007a36"] },
@@ -48,8 +89,8 @@ export const flagCountries: readonly FlagCountry[] = [
   { code: "am", name: "Armenia", colors: ["#d90012", "#0033a0", "#f2a800"] },
   { code: "au", name: "Australia", colors: ["#00008b", "#ffffff", "#ff0000"] },
   { code: "at", name: "Austria", colors: ["#ed2939", "#ffffff"] },
-  { code: "az", name: "Azerbaijan", colors: ["#00b5e2", "#ef3340", "#509e2f"] },
-  { code: "bs", name: "Bahamas", colors: ["#00778b", "#ffc72c", "#000000"] },
+  { code: "az", name: "Azerbaijan", colors: ["#00b5e2", "#ef3340", "#509e2f", "#ffffff"] },
+  { code: "bs", name: "Bahamas", colors: ["#00abc9", "#fae042", "#000000"] },
   { code: "bh", name: "Bahrain", colors: ["#ce1126", "#ffffff"] },
   { code: "bd", name: "Bangladesh", colors: ["#006a4e", "#f42a41"] },
   { code: "bb", name: "Barbados", colors: ["#00267f", "#ffc726", "#000000"] },
@@ -75,18 +116,18 @@ export const flagCountries: readonly FlagCountry[] = [
   { code: "cl", name: "Chile", colors: ["#0039a6", "#ffffff", "#d52b1e"] },
   { code: "cn", name: "China", colors: ["#de2910", "#ffde00"] },
   { code: "co", name: "Colombia", colors: ["#fcd116", "#003893", "#ce1126"] },
-  { code: "km", name: "Comoros", colors: ["#3a75c4", "#fcd116", "#ffffff", "#ce1126"] },
+  { code: "km", name: "Comoros", colors: ["#3a75c4", "#fcd116", "#ffffff", "#ce1126", "#3d8e33"] },
   { code: "cg", name: "Congo", colors: ["#009543", "#fbde4a", "#dc241f"] },
   { code: "cd", name: "DR Congo", colors: ["#007fff", "#f7d618", "#ce1021"] },
   { code: "cr", name: "Costa Rica", colors: ["#002b7f", "#ffffff", "#ce1126"] },
   { code: "ci", name: "Côte d'Ivoire", colors: ["#f77f00", "#ffffff", "#009e60"] },
   { code: "hr", name: "Croatia", colors: ["#ff0000", "#ffffff", "#171796"] },
   { code: "cu", name: "Cuba", colors: ["#002a8f", "#ffffff", "#cf142b"] },
-  { code: "cy", name: "Cyprus", colors: ["#ffffff", "#d57800"] },
+  { code: "cy", name: "Cyprus", colors: ["#ffffff", "#d57800", "#435125"] },
   { code: "cz", name: "Czechia", colors: ["#ffffff", "#d7141a", "#11457e"] },
   { code: "dk", name: "Denmark", colors: ["#c8102e", "#ffffff"] },
   { code: "dj", name: "Djibouti", colors: ["#6ab2e7", "#12ad2b", "#ffffff", "#d7141a"] },
-  { code: "dm", name: "Dominica", colors: ["#006b3f", "#fcd116", "#000000", "#ffffff"] },
+  { code: "dm", name: "Dominica", colors: ["#006b3f", "#fcd116", "#000000", "#ffffff", "#d41c30"] },
   { code: "do", name: "Dominican Republic", colors: ["#002d62", "#ce1126", "#ffffff"] },
   { code: "ec", name: "Ecuador", colors: ["#ffd100", "#0072ce", "#ef3340"] },
   { code: "eg", name: "Egypt", colors: ["#ce1126", "#ffffff", "#000000", "#c09300"] },
@@ -136,7 +177,7 @@ export const flagCountries: readonly FlagCountry[] = [
   { code: "lb", name: "Lebanon", colors: ["#ed1c24", "#ffffff", "#00a651"] },
   { code: "ls", name: "Lesotho", colors: ["#00209f", "#ffffff", "#000000", "#009543"] },
   { code: "lr", name: "Liberia", colors: ["#bf0a30", "#ffffff", "#002868"] },
-  { code: "ly", name: "Libya", colors: ["#e70013", "#000000", "#239e46"] },
+  { code: "ly", name: "Libya", colors: ["#000000", "#e70013", "#239e46"] },
   { code: "li", name: "Liechtenstein", colors: ["#002b7f", "#ce1126", "#ffd83d"] },
   { code: "lt", name: "Lithuania", colors: ["#fdb913", "#006a44", "#c1272d"] },
   { code: "lu", name: "Luxembourg", colors: ["#ed2939", "#ffffff", "#00a1de"] },
@@ -187,7 +228,7 @@ export const flagCountries: readonly FlagCountry[] = [
   { code: "lc", name: "Saint Lucia", colors: ["#66ccff", "#ffffff", "#000000", "#fcd116"] },
   { code: "vc", name: "Saint Vincent and the Grenadines", colors: ["#009e60", "#fcd116", "#002674", "#ffffff"] },
   { code: "ws", name: "Samoa", colors: ["#ce1126", "#ffffff", "#002b7f"] },
-  { code: "sm", name: "San Marino", colors: ["#ffffff", "#5eb6e4"] },
+  { code: "sm", name: "San Marino", colors: ["#5eb6e4", "#ffffff"] },
   { code: "st", name: "São Tomé and Príncipe", colors: ["#12ad2b", "#ffce00", "#d21034", "#000000"] },
   { code: "sa", name: "Saudi Arabia", colors: ["#006c35", "#ffffff"] },
   { code: "sn", name: "Senegal", colors: ["#00853f", "#fdef42", "#e31b23"] },
@@ -221,14 +262,14 @@ export const flagCountries: readonly FlagCountry[] = [
   { code: "tm", name: "Turkmenistan", colors: ["#00843d", "#d22630", "#ffffff", "#f2a900"] },
   { code: "tv", name: "Tuvalu", colors: ["#00247d", "#ffffff", "#fcd116"] },
   { code: "ug", name: "Uganda", colors: ["#000000", "#fcdc04", "#d90000", "#ffffff"] },
-  { code: "ua", name: "Ukraine", colors: ["#0057b8", "#ffd700"] },
+  { code: "ua", name: "Ukraine", colors: ["#005bbb", "#ffd500"] },
   { code: "ae", name: "United Arab Emirates", colors: ["#00732f", "#ffffff", "#000000", "#ff0000"] },
   { code: "gb", name: "United Kingdom", colors: ["#012169", "#ffffff", "#c8102e"] },
   { code: "us", name: "United States", colors: ["#3c3b6e", "#ffffff", "#b22234"] },
-  { code: "uy", name: "Uruguay", colors: ["#0038a8", "#ffffff", "#fcd116"] },
+  { code: "uy", name: "Uruguay", colors: ["#ffffff", "#0038a8", "#fcd116"] },
   { code: "uz", name: "Uzbekistan", colors: ["#0099b5", "#ffffff", "#1eb53a", "#ce1126"] },
   { code: "vu", name: "Vanuatu", colors: ["#000000", "#fdce12", "#009543", "#d21034"] },
-  { code: "va", name: "Vatican City", colors: ["#ffd700", "#ffffff"] },
+  { code: "va", name: "Vatican City", colors: ["#ffffff", "#ffd700"] },
   { code: "ve", name: "Venezuela", colors: ["#ffcc00", "#00247d", "#cf142b", "#ffffff"] },
   { code: "vn", name: "Vietnam", colors: ["#da251d", "#ffff00"] },
   { code: "ye", name: "Yemen", colors: ["#ce1126", "#ffffff", "#000000"] },
@@ -247,65 +288,162 @@ export function flagEmoji(code: string): string {
 
 export function flagThemeId(code: string): string {
   return `flag-${code.toLowerCase()}`;
+}/**
+ * A text colour that clears `ratio` against `bg` while keeping `hue`'s hue.
+ *
+ * A colour that already clears the ratio is kept exactly as it is — that is
+ * what keeps Ukraine's yellow and Kazakhstan's gold as accents. Otherwise the
+ * hue is walked toward white and toward black in small steps, and the first
+ * candidate in each direction that clears the floor is taken: whichever passing
+ * candidate sits closest to the original lightness wins, so the colour moves by
+ * as little as readability demands. Both walks are bounded.
+ */
+function textOnBackground(hue: string, bg: string, ratio: number): string {
+  if (contrastRatio(hue, bg) >= ratio) return hue;
+
+  const lighter = ensureContrastToward(hue, bg, ratio, "light");
+  const darker = ensureContrastToward(hue, bg, ratio, "dark");
+  const lightOk = contrastRatio(lighter, bg) >= ratio;
+  const darkOk = contrastRatio(darker, bg) >= ratio;
+
+  if (lightOk && darkOk) {
+    const drift = (candidate: string) => Math.abs(luminance(candidate) - luminance(hue));
+    return drift(lighter) <= drift(darker) ? lighter : darker;
+  }
+  return lightOk ? lighter : darker;
+}
+
+/** The most saturated colour of `list`, or null when every entry is a neutral. */
+function vividOf(list: readonly string[]): string | null {
+  return (
+    [...list]
+      .filter((color) => saturation(color) > VIVID)
+      .sort((a, b) => saturation(b) - saturation(a))[0] ?? null
+  );
+}
+
+/**
+ * The flag's own red, when it has one that is not its page: the error mark.
+ * Restricted to the red band of the hue circle, so Argentina's sun gold and
+ * Kazakhstan's gold are never mistaken for one.
+ */
+function reddest(colors: readonly string[], field: string): string | null {
+  const neutralField = saturation(field) < NEUTRAL;
+  const isRed = (color: string) => {
+    const hue = hueOf(color);
+    return saturation(color) > 0.3 && (hue >= 335 || hue <= 20);
+  };
+
+  return (
+    [...colors]
+      .filter((color) => isRed(color) && (neutralField || hueDistance(color, field) >= HUE_GAP))
+      .sort((a, b) => saturation(b) - saturation(a))[0] ?? null
+  );
+}
+
+/**
+ * The page colour: the flag's field, deepened or paled, never recoloured.
+ *
+ * A dark field is set to `PAGE_LIGHTNESS` in HSL, which keeps its hue and its
+ * chroma — mix it with black instead and Argentina's celeste turns to slate. A
+ * field that is already darker than that (Germany's black) is left exactly as
+ * it is. A pale field makes a light page: a saturated one is washed toward white
+ * so the page is readable, a neutral one is already a page.
+ */
+function pageColor(field: string, dark: boolean): string {
+  if (dark) {
+    return lightnessOf(field) > PAGE_LIGHTNESS ? withLightness(field, PAGE_LIGHTNESS) : field;
+  }
+  if (saturation(field) < NEUTRAL) return field;
+  return ensureLighterThan(mix(field, "#ffffff", 0.6), LIGHT_PAGE_MIN);
+}
+
+/** The flag's own white, on a page dark enough for it, else plain white. */
+function lightInk(colors: readonly string[]): string {
+  return (
+    [...colors]
+      .filter((color) => luminance(color) >= INK_LIGHT)
+      .sort((a, b) => luminance(b) - luminance(a))[0] ?? "#ffffff"
+  );
+}
+
+/**
+ * The accent: the flag's most vivid colour that is neither its page nor its ink.
+ *
+ * Near-white and near-black are the ink and the page, not an accent, and a
+ * colour within `HUE_GAP` of the field would read as the page itself — so a flag
+ * that offers nothing else (Denmark's white, Guatemala's white) gets a pushed
+ * version of its own field, which is still recognisably that flag. The winner is
+ * then walked away from the page just far enough to be seen, and no further: a
+ * flag that already contrasts (Ukraine's yellow) keeps its exact colour.
+ */
+function accentColor(colors: readonly string[], field: string, bg: string, dark: boolean): string {
+  const neutralField = saturation(field) < NEUTRAL;
+  const usable = (color: string) =>
+    saturation(color) > VIVID &&
+    luminance(color) < INK_LIGHT &&
+    (neutralField || hueDistance(color, field) >= HUE_GAP);
+
+  // Equally vivid colours are split by how far their hue sits from the page's,
+  // so Germany's black field takes gold over red and not whichever came first.
+  const ranked = [...colors]
+    .filter(usable)
+    .sort(
+      (a, b) =>
+        saturation(b) - saturation(a) || hueDistance(b, field) - hueDistance(a, field),
+    );
+  const source = ranked[0] ?? vividOf(colors) ?? field;
+  return ensureContrastToward(source, bg, FLAG_SOFT_CONTRAST, dark ? "light" : "dark");
 }
 
 /**
  * Turn one flag's colours into a usable palette.
  *
- * A flag with a dark colour becomes a dark theme; a flag whose darkest colour is
- * still light becomes a light theme, so a few very pale flags stay pale instead
- * of being forced to charcoal. Either way the returned colours clear the
- * contrast floors, which is what makes "a theme for every country" safe to ship
- * in bulk.
+ * Argentina's blue, white and gold: the page is a deep celeste, the text is the
+ * flag's white, the accent is the sun's gold. Japan's white and red: the page is
+ * white, the words and the accent are the flag's red. Every colour a flag
+ * contributes is one of its own, moved only as far as readability demands, so a
+ * theme looks like the flag it came from instead of charcoal with a tint.
  */
 export function flagTheme(country: FlagCountry): ThemeDef {
-  const colors = country.colors.length > 0 ? country.colors : ["#888888"];
-  const byLuminance = [...colors].sort((a, b) => luminance(a) - luminance(b));
-  const darkest = byLuminance[0] ?? "#000000";
-  const lightest = byLuminance[byLuminance.length - 1] ?? "#ffffff";
-  const vivid = [...colors].sort((a, b) => saturation(b) - saturation(a))[0] ?? "#888888";
+  const colors = country.colors.length > 0 ? country.colors : [FALLBACK];
+  const field = colors[0] ?? FALLBACK;
+  const darkestInk = [...colors].sort((a, b) => luminance(a) - luminance(b))[0] ?? field;
 
-  const base = {
-    id: flagThemeId(country.code),
-    label: `${flagEmoji(country.code)} ${country.name}`,
-  };
+  const dark = luminance(field) < DARK_FIELD_MAX;
+  const bg = pageColor(field, dark);
+  // The panel leans toward the field, so a flag's second colour is visible in
+  // the interface too. A flag whose field *is* its page (pure white, pure black)
+  // has nothing to lean toward and gets a plain step instead.
+  const surface = field === bg ? mix(bg, dark ? "#ffffff" : "#000000", 0.07) : mix(bg, field, 0.3);
+  const accent = accentColor(colors, field, bg, dark);
 
-  if (luminance(darkest) <= 0.35) {
-    const bg = ensureDarkerThan(darken(darkest, 0.5), 0.1);
-    const surface = lighten(bg, 0.055);
-    const text = ensureLighterThan(lighten(lightest, 0.45), 0.78);
-    const muted = ensureContrastAgainst(mix(bg, text, 0.42), bg, FLAG_SOFT_CONTRAST);
-    const accent = ensureContrastAgainst(vivid, bg, FLAG_SOFT_CONTRAST);
+  const text = dark ? lightInk(colors) : textOnBackground(darkestInk, bg, FLAG_TEXT_CONTRAST);
+  const muted = textOnBackground(mix(bg, text, 0.35), bg, FLAG_SOFT_CONTRAST);
 
-    return {
-      ...base,
-      dark: true,
-      bg,
-      surface,
-      text,
-      muted,
-      accent,
-      accentSoft: mix(bg, accent, 0.2),
-      wrong: ensureContrastAgainst("#e3565f", bg, FLAG_SOFT_CONTRAST),
-    };
-  }
-
-  const bg = ensureLighterThan(mix(lightest, "#ffffff", 0.55), 0.88);
-  const surface = lighten(bg, 0.4);
-  const text = ensureDarkerThan(darken(darkest, 0.35), 0.06);
-  const muted = ensureDarkerThan(mix(bg, text, 0.5), 0.22);
-  const accent = ensureDarkerThan(vivid, 0.22);
+  // The caret and the error mark both sit in the typing area at the same time,
+  // so they must not be the same colour: a flag whose accent *is* its red
+  // (France, Bangladesh) has its error mark pushed one step further away.
+  const wrongSource = reddest(colors, field) ?? WRONG_RED;
+  let wrong = textOnBackground(wrongSource, bg, FLAG_SOFT_CONTRAST);
+  if (wrong === accent) wrong = textOnBackground(WRONG_RED, bg, FLAG_SOFT_CONTRAST);
 
   return {
-    ...base,
-    dark: false,
+    id: flagThemeId(country.code),
+    label: `${flagEmoji(country.code)} ${country.name}`,
+    dark,
     bg,
     surface,
     text,
     muted,
     accent,
-    accentSoft: mix(bg, accent, 0.14),
-    wrong: ensureDarkerThan("#c0392b", 0.22),
+    accentSoft: mix(bg, accent, dark ? 0.2 : 0.14),
+    wrong,
+    // The accent is a background for buttons, so the text on top of it is
+    // whichever pole reads better on the accent itself.
+    onAccent: contrastRatio(accent, "#ffffff") >= contrastRatio(accent, ON_ACCENT_DARK)
+      ? "#ffffff"
+      : ON_ACCENT_DARK,
   };
 }
 
