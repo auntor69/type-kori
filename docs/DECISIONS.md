@@ -478,3 +478,15 @@ with the reason. Newest last.
   icon in the header opens the settings drawer straight onto its theme tab,
   over one window event (`tk:open-theme-picker`) emitted by an inline script,
   because sibling islands cannot pass props. The drawer itself is unchanged.
+- 2026-09-29 — **Every mode switch builds its run from one helper.** The mode
+  handlers used to carry stale state across switches: a words goal survived
+  into a custom run (recording the paste as `words 25` on the progress page),
+  "Next" in words mode rebuilt an unbounded stream because the render's
+  `infinite` flag ignored the goal, and "New text" after a custom run dealt
+  the same paste again. `startBuiltinRun` now owns pool, goal and funbox, and
+  a custom run or a weak drill clears the leftover goal itself.
+- 2026-09-29 — **The config bar stays visible during a custom run.** The mode
+  chips are the only direct way out of a paste, so hiding the bar while one
+  was on screen trapped the user in `custom` mode. The twist toggles and the
+  duration chips are disabled or hidden there instead — they only shape a
+  generated stream, which a paste is not.

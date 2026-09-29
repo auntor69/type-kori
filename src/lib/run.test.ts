@@ -142,6 +142,33 @@ describe("createRun", () => {
     expect(run.session.endAfterWords).toBeUndefined();
   });
 
+  it("keeps a words run bounded while a words-goal run streams forever without one", () => {
+    // The mode handlers must pass `infinite: goal === null`, not a flag read
+    // from the render: an unbounded run behind a words goal never ends at the
+    // goal, and a bounded run without a goal stops at the end of one text.
+    const bounded = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 2,
+      wordGoal: 3,
+      infinite: false,
+      vocabulary,
+    });
+    const streaming = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 2,
+      wordGoal: null,
+      infinite: true,
+      vocabulary,
+    });
+
+    expect(bounded.session.infinite).toBe(false);
+    expect(bounded.bank).toBeNull();
+    expect(streaming.session.infinite).toBe(true);
+    expect(streaming.bank).not.toBeNull();
+  });
+
   it("keeps the text id history for the next draw", () => {
     const run = createRun({
       pool: practiceTexts,

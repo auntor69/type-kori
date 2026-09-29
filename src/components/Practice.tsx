@@ -359,7 +359,46 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     }));
   };
 
+  /**
+   * Build a fresh run from the built-in library. Every mode switch funnels
+   * through here so no handler can inherit a stale pool: the closure of a
+   * render that still had a custom paste (or a weak drill) on screen would
+   * otherwise build the new run from the old target.
+   */
+  const startBuiltinRun = (options: { durationMs: number | null; wordGoal: number | null }) => {
+    if (lesson !== undefined) return;
+
+    const { durationMs, wordGoal: goal } = options;
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setFailReason(null);
+    setWeakDrill(null);
+    setCustomRun(null);
+    setCustomPanelOpen(false);
+    setWordGoal(goal);
+    setModel(
+      createRun({
+        pool: practiceTexts,
+        durationMs,
+        seed: Date.now() % 0x7fff_ffff,
+        history: [],
+        difficulty,
+        stopOnError: stopOnErrorWord || stopOnError,
+        wordGoal: goal,
+        // A bounded words run ends at its goal; timed and endless runs stream.
+        infinite: goal === null,
+        vocabulary,
+        funbox: activeFunbox,
+      }),
+    );
+  };
+
   const nextText = () => {
+    if (customRun !== null) {
+      // "Next" while a paste is on screen returns to the built-in library.
+      startBuiltinRun({ durationMs: model.durationMs, wordGoal: null });
+      return;
+    }
     engineRef.current.reset();
     setOsKeyboard(false);
     setWeakDrill(null);
@@ -372,7 +411,10 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         difficulty,
         stopOnError: stopOnErrorWord || stopOnError,
         wordGoal,
-        infinite,
+        // A bounded words run ends at its goal; timed and endless runs stream.
+        // Passing the render's `infinite` here would turn a words-mode goal
+        // into an unbounded stream that never ends at the goal.
+        infinite: wordGoal === null,
         vocabulary,
         funbox: activeFunbox,
       }),
@@ -380,24 +422,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   };
 
   const chooseDuration = (durationMs: number | null) => {
-    engineRef.current.reset();
-    setOsKeyboard(false);
-    setWordGoal(null);
-    setWeakDrill(null);
-    setModel((current) =>
-      createRun({
-        pool,
-        durationMs,
-        seed: Date.now() % 0x7fff_ffff,
-        history: current.history,
-        difficulty,
-        stopOnError: stopOnErrorWord || stopOnError,
-        wordGoal: null,
-        infinite,
-        vocabulary,
-        funbox: activeFunbox,
-      }),
-    );
+    startBuiltinRun({ durationMs, wordGoal: null });
   };
 
   /**
@@ -425,21 +450,16 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       setCustomPanelOpen(true);
       return;
     }
-    if (customRun !== null) {
-      setCustomRun(null);
-      setWeakDrill(null);
-    }
-    setWeakDrill(null);
 
     if (testMode === "time") {
-      chooseDuration(TIME_CHIPS[0] * 1000);
+      startBuiltinRun({ durationMs: TIME_CHIPS[0] * 1000, wordGoal: null });
       return;
     }
     if (testMode === "words") {
-      chooseWordGoal(WORD_GOALS[0]);
+      startBuiltinRun({ durationMs: null, wordGoal: WORD_GOALS[0] });
       return;
     }
-    chooseDuration(null);
+    startBuiltinRun({ durationMs: null, wordGoal: null });
   };
 
   /**
@@ -456,24 +476,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   /** Words mode: commit a fixed number of words, untimed. */
   const chooseWordGoal = (goal: number | null) => {
-    engineRef.current.reset();
-    setOsKeyboard(false);
-    setWeakDrill(null);
-    setWordGoal(goal);
-    setModel((current) =>
-      createRun({
-        pool,
-        durationMs: null,
-        seed: Date.now() % 0x7fff_ffff,
-        history: current.history,
-        difficulty,
-        stopOnError: stopOnErrorWord || stopOnError,
-        wordGoal: goal,
-        infinite: goal === null,
-        vocabulary,
-        funbox: activeFunbox,
-      }),
-    );
+    startBuiltinRun({ durationMs: null, wordGoal: goal });
   };
 
   /** One focused drill over the clusters this browser mistypes most. */
@@ -485,6 +488,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
     engineRef.current.reset();
     setOsKeyboard(false);
+    // The drill is its own fixed target: a words goal left over from the mode
+    // the user was in would linger in the toolbar state and the run record.
     setWordGoal(null);
     setWeakDrill(drill);
     setModel(
@@ -508,6 +513,10 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setCustomSaved({ text: item.text, savedAt: Date.now() });
     setCustomStorageOk(saveCustomText(text) !== null);
     setCustomPanelOpen(false);
+    // A custom run is its own test type: any words/time goal left over from the
+    // mode the user was in must go, or the results screen and the progress page
+    // would record the paste as `words 25` instead of `custom`.
+    setWordGoal(null);
     engineRef.current.reset();
     setOsKeyboard(false);
     setModel(
@@ -521,21 +530,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   };
 
   const useBuiltinTexts = () => {
-    setCustomRun(null);
-    engineRef.current.reset();
-    setOsKeyboard(false);
-    setModel(
-      createRun({
-        pool: practiceTexts,
-        durationMs: null,
-        seed: Date.now() % 0x7fff_ffff,
-        history: [],
-        difficulty,
-        infinite: true,
-        vocabulary,
-        funbox: activeFunbox,
-      }),
-    );
+    startBuiltinRun({ durationMs: model.durationMs, wordGoal: null });
   };
 
   // The test type recorded with a run, so personal bests can be grouped the way
@@ -903,13 +898,15 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           </>
         )}
 
-        {lesson === undefined && customRun === null && weakDrill === null && (
+        {lesson === undefined && (
           <div
             role="group"
             aria-label={t("practice.configBar")}
             class="flex flex-wrap items-center justify-center gap-2"
           >
-            {/* Stream twists: monkeytype's @ punctuation / # numbers. */}
+            {/* Stream twists: monkeytype's @ punctuation / # numbers. They only
+                shape a generated stream, so they sit out while a paste or a
+                drill — a fixed target — is on screen. */}
             <div
               role="group"
               aria-label={t("settings.funbox")}
@@ -918,10 +915,11 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
               <button
                 type="button"
                 aria-pressed={activeFunbox === "punctuation"}
+                disabled={!infinite}
                 onClick={() =>
                   toggleFunbox(activeFunbox === "punctuation" ? "none" : "punctuation")
                 }
-                class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
+                class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
                   activeFunbox === "punctuation"
                     ? "bg-accent text-on-accent"
                     : "text-muted hover:text-text"
@@ -932,8 +930,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
               <button
                 type="button"
                 aria-pressed={activeFunbox === "numbers"}
+                disabled={!infinite}
                 onClick={() => toggleFunbox(activeFunbox === "numbers" ? "none" : "numbers")}
-                class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out ${
+                class={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
                   activeFunbox === "numbers"
                     ? "bg-accent text-on-accent"
                     : "text-muted hover:text-text"
@@ -966,11 +965,15 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
               ))}
             </div>
 
-            {/* Durations for the active mode: seconds in time mode, word counts in words mode. */}
+            {/* Durations for the active mode: seconds in time mode, word
+                counts in words mode. Hidden while a paste or a drill — a fixed
+                target of its own — is on screen. */}
             <div
               role="group"
               aria-label={activeMode === "words" ? t("practice.words") : t("practice.time")}
-              class="inline-flex items-center rounded-pill border border-border bg-surface p-0.5"
+              class={`inline-flex items-center rounded-pill border border-border bg-surface p-0.5 ${
+                infinite ? "" : "hidden"
+              }`}
             >
               {activeMode === "words"
                 ? WORD_GOALS.map((goal) => (
