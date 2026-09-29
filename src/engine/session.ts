@@ -18,6 +18,15 @@ export interface SessionOptions {
   durationMs?: number | null;
   /** Beginner lessons: a word must be correct before it can be committed. */
   stopOnError?: boolean;
+  /** End the run once this many words have been committed (words mode). */
+  endAfterWords?: number;
+  /**
+   * No fixed end: the island keeps extending the target while the user types,
+   * so the run only stops on a timer, a word goal or an explicit end event.
+   * Off for fixed texts — a pasted passage or a lesson drill finishes at its
+   * own last word.
+   */
+  infinite?: boolean;
 }
 
 export interface SessionState {
@@ -34,6 +43,10 @@ export interface SessionState {
   readonly finishedAt: number | null;
   readonly durationMs: number | null;
   readonly stopOnError: boolean;
+  /** Words mode: finish once committed reaches this count. */
+  readonly endAfterWords: number | undefined;
+  /** Streaming run: the island appends words; nothing ends on its own. */
+  readonly infinite: boolean;
   /** Target cluster → how often it was mistyped in this run. */
   readonly errorMap: Readonly<Record<string, number>>;
   /** Set when Latin letters arrive where Bangla is expected. */
@@ -47,7 +60,11 @@ export type SessionEvent =
   | { type: "backspace"; at: number }
   | { type: "commit"; at: number }
   | { type: "tick"; at: number }
-  | { type: "restart"; at: number };
+  | { type: "restart"; at: number }
+  /** Infinite runs: append freshly generated words to the target. */
+  | { type: "extend"; words: readonly string[]; at: number }
+  /** Zen/infinite runs: stop here and show results for what was typed. */
+  | { type: "end"; at: number };
 
 export function createSession(options: SessionOptions): SessionState {
   return {
@@ -62,6 +79,8 @@ export function createSession(options: SessionOptions): SessionState {
     finishedAt: null,
     durationMs: options.durationMs ?? null,
     stopOnError: options.stopOnError ?? false,
+    endAfterWords: options.endAfterWords,
+    infinite: options.infinite ?? false,
     errorMap: {},
     warning: null,
   };
@@ -149,7 +168,17 @@ function afterWordChange(state: SessionState, at: number): SessionState {
 
   if (isLastWord && sameWord(state.target[index], state.active)) {
     const completed = commitActive(state);
+    // A streaming run never ends on the last target word: the island is
+    // expected to extend the target before the user gets there.
+    if (completed.infinite) {
+      return completed;
+    }
     return { ...completed, state: "finished", finishedAt: at };
+  }
+
+  // Words mode: the goal is a count, not the end of the target.
+  if (state.endAfterWords !== undefined && state.committed.length >= state.endAfterWords) {
+    return finish(state, at);
   }
 
   if (state.durationMs !== null && elapsedMs(state, at) >= state.durationMs) {
@@ -241,7 +270,12 @@ function handleCommit(state: SessionState, at: number): SessionState {
   next = commitActive(next);
 
   if (targetIndex(next) >= next.target.length) {
+    if (next.infinite) return next;
     return { ...next, state: "finished", finishedAt: at };
+  }
+
+  if (next.endAfterWords !== undefined && next.committed.length >= next.endAfterWords) {
+    return finish(next, at);
   }
 
   if (next.durationMs !== null && elapsedMs(next, at) >= next.durationMs) {
@@ -273,7 +307,17 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         targetWords: state.target,
         durationMs: state.durationMs,
         stopOnError: state.stopOnError,
+        endAfterWords: state.endAfterWords,
+        infinite: state.infinite,
       });
+    case "extend": {
+      if (state.state === "finished") return state;
+      if (event.words.length === 0) return state;
+      return { ...state, target: [...state.target, ...event.words] };
+    }
+    case "end":
+      if (state.state === "finished") return state;
+      return finish(state, event.at);
     default:
       return state;
   }

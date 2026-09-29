@@ -79,13 +79,50 @@ describe("committing words", () => {
     expect(state.state).toBe("finished");
   });
 
-  it("finishes as soon as the last word is typed in full", () => {
+  it("keeps an infinite run going after the last target word", () => {
+    const state = type(createSession({ targetWords: ["আমি"], infinite: true }), ["আ", "মি"], 1_000);
+
+    // The island extends the target as the user nears the end; the run itself
+    // only stops on a word goal, a timer, or an explicit end.
+    expect(state.state).toBe("running");
+    expect(state.committed).toHaveLength(1);
+    expect(sessionStats(state, 1_000).correctWords).toBe(1);
+  });
+
+  it("finishes a fixed text at its last word", () => {
     const state = type(createSession({ targetWords: ["আমি"] }), ["আ", "মি"], 1_000);
 
     expect(state.state).toBe("finished");
     expect(state.finishedAt).toBe(1_000);
-    expect(state.committed).toHaveLength(1);
-    expect(sessionStats(state, 1_000).correctWords).toBe(1);
+  });
+
+  it("finishes on the last word when a word goal is set", () => {
+    const state = type(
+      createSession({ targetWords: ["আমি"], endAfterWords: 1 }),
+      ["আ", "মি"],
+      1_000,
+    );
+
+    expect(state.state).toBe("finished");
+    expect(state.finishedAt).toBe(1_000);
+  });
+
+  it("finishes on an explicit end event", () => {
+    let state = type(createSession({ targetWords: ["আমি"], infinite: true }), ["আ", "মি"], 1_000);
+    state = reduce(state, { type: "end", at: 2_000 });
+
+    expect(state.state).toBe("finished");
+    expect(state.finishedAt).toBe(2_000);
+  });
+
+  it("appends extended words to the target", () => {
+    const state = reduce(createSession({ targetWords: ["আমি"] }), {
+      type: "extend",
+      words: ["ভালো", "আছি"],
+      at: 1_000,
+    });
+
+    expect(state.target).toEqual(["আমি", "ভালো", "আছি"]);
   });
 
   it("refuses a wrong commit in stop-on-error mode", () => {
@@ -104,7 +141,10 @@ describe("committing words", () => {
   });
 
   it("ignores input once the run is finished", () => {
-    const finished = type(createSession({ targetWords: ["আমি"] }), ["আ", "মি"], 1_000);
+    const finished = type(createSession({ targetWords: ["আমি"], endAfterWords: 1 }), [
+      "আ",
+      "মি",
+    ], 1_000);
     const after = type(finished, ["ক"], 2_000);
 
     expect(after).toBe(finished);
@@ -254,15 +294,20 @@ describe("built-in phonetic mode", () => {
     expect(state.correctedMistakes).toBe(0);
   });
 
-  it("finishes the run when the last word is complete", () => {
-    const state = compose(createSession({ targetWords: ["আমি"] }), "আমি", "ami", 1_000);
+  it("commits the last word and keeps an infinite run going", () => {
+    const state = compose(createSession({ targetWords: ["আমি"], infinite: true }), "আমি", "ami", 1_000);
 
-    expect(state.state).toBe("finished");
+    expect(state.state).toBe("running");
     expect(sessionStats(state, 1_000).correctWords).toBe(1);
   });
 
   it("ignores composition once the run is finished", () => {
-    const finished = compose(createSession({ targetWords: ["আমি"] }), "আমি", "ami", 1_000);
+    const finished = compose(
+      createSession({ targetWords: ["আমি"], endAfterWords: 1 }),
+      "আমি",
+      "ami",
+      1_000,
+    );
     expect(compose(finished, "ক", "k", 2_000)).toBe(finished);
   });
 
@@ -304,7 +349,7 @@ describe("restart", () => {
 
 describe("statistics over a whole run", () => {
   it("scores a complete run with a correction", () => {
-    let state = createSession({ targetWords: target });
+    let state = createSession({ targetWords: target, endAfterWords: target.length });
     state = type(state, ["আ", "মি"], 1_000);
     state = press(state, "commit", 2_000);
     state = type(state, ["ভা", "ল"], 3_000);

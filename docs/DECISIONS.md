@@ -307,3 +307,28 @@ with the reason. Newest last.
   `--muted` for the dim "to do" state. This is a deliberate deviation from the
   literal Section 6 dark hex values; the token names, `light-dark()` structure
   and light palette are unchanged.
+- 2026-09-29 — **The practice test is an endless word stream, like monkeytype's
+  default.** A fixed passage ends, which makes speed testing about the passage
+  rather than the typist. The default run now generates its target: an untimed run
+  on the built-in library starts with twelve words drawn from every curated text
+  and drill at the chosen difficulty, and the island appends twelve more whenever
+  the caret gets within twelve words of the end, so the words never run out. Tab
+  finishes the run and shows the results for everything typed.
+  - **Infinity is explicit, not inferred.** `SessionState` gained an `infinite`
+    flag (default false) alongside the new `extend` and `end` events. An early
+    draft inferred infinity from "no timer and no word goal", which silently broke
+    custom pastes, lesson drills and weak-key drills — all of them fixed targets
+    that must still finish at their last word (`src/lib/customText.test.ts` caught
+    it). Only `infinite: true` keeps a run going past its last target word.
+  - **The word bank is deterministic and never repeats back to back.**
+    `src/engine/wordbank.ts` weights each word by how often it occurs in the
+    curated corpus, draws with `mulberry32` from a seed, skips words in the recent
+    window where it can (the island passes the last eight target words; the bank
+    caps the set at forty), and refuses a word that would repeat the one
+    immediately before it. Extensions chain a monotone seed
+    (`seed * 1664525 + 1013904223 mod 2^31-1`) so a long run never redraws a line,
+    and starvation falls back to cycling rather than stalling.
+  - **The rendered window is bounded.** An endless target must not grow the DOM,
+    so only `activeIndex - 12 … activeIndex + 24` words render (1 and 12 when
+    "show all lines" is off). Committed words outside the window are still scored
+    — the session keeps the whole target — they are just not painted.
