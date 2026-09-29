@@ -460,3 +460,21 @@ with the reason. Newest last.
     12° of one of the flag's colours — and pins Argentina, Ukraine, Libya and Japan
     by name. The contrast floors are unchanged, and `accent === wrong` is asserted
     away, so no theme can mark a mistake with its own caret colour.
+- 2026-09-29 — **A difficulty or funbox change restarts the run on screen.** The
+  old behaviour was the reported bug: difficulty only reached "Next text", so
+  switching it looked like nothing happened, and a stored funbox never loaded
+  after a reload at all. A settings change that shapes the word stream must be
+  visible immediately, the way monkeytype restarts when the test type changes;
+  a custom paste, a lesson drill and a weak-key drill are still left alone,
+  because those are fixed targets by definition.
+- 2026-09-29 — **The test setup lives on the homepage, not only in the drawer.**
+  The toolbar above the typing area now carries monkeytype's config bar:
+  punctuation and numbers toggles (funbox modes), a time / words / zen / custom
+  mode row, and duration chips — seconds in time mode, word counts in words
+  mode, replacing the old minute labels (the command grammar already counts
+  bare `time` numbers in seconds). The drawer keeps every option; the bar is
+  the quick path.
+- 2026-09-29 — **The theme picker has a homepage shortcut.** A small palette
+  icon in the header opens the settings drawer straight onto its theme tab,
+  over one window event (`tk:open-theme-picker`) emitted by an inline script,
+  because sibling islands cannot pass props. The drawer itself is unchanged.

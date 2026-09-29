@@ -6,6 +6,7 @@ import {
   setOverlayOpen,
   updateSettings,
   watchSystemTheme,
+  THEME_PICKER_EVENT,
 } from "../lib/applySettings";
 import { funboxModes } from "../lib/funbox";
 import {
@@ -155,6 +156,19 @@ export default function SiteControls({ lang }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const firstRender = useRef(true);
+
+  // The header's small theme icon opens this drawer straight onto the theme
+  // tab (monkeytype keeps its picker behind the same kind of footer icon).
+  // A plain prop cannot reach a sibling island, so the request travels over
+  // one window event, emitted by a tiny inline script in the header.
+  useEffect(() => {
+    const onOpenTheme = () => {
+      setTab("theme");
+      setOpen(true);
+    };
+    window.addEventListener(THEME_PICKER_EVENT, onOpenTheme);
+    return () => window.removeEventListener(THEME_PICKER_EVENT, onOpenTheme);
+  }, []);
 
   useEffect(() => {
     setSettings(loadAndApplySettings());

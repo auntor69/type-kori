@@ -41,6 +41,21 @@ describe("buildVocabulary", () => {
       expect(buildVocabulary(difficulty).length, difficulty).toBeGreaterThan(0);
     }
   });
+
+  it("draws different vocabularies per difficulty, so a switch is visible", () => {
+    const easy = new Set(buildVocabulary("easy"));
+    const hard = new Set(buildVocabulary("hard"));
+    const all = new Set(buildVocabulary("all"));
+
+    // Every bucket keeps words the other buckets do not have — ordinary words
+    // like ভালো appear at several levels, so the buckets only need to differ,
+    // not to be disjoint — and the whole pool is strictly larger than either,
+    // otherwise changing the setting could not change the words on screen.
+    expect(all.size).toBeGreaterThan(easy.size);
+    expect(all.size).toBeGreaterThan(hard.size);
+    expect([...easy].some((word) => !hard.has(word))).toBe(true);
+    expect([...hard].some((word) => !easy.has(word))).toBe(true);
+  });
 });
 
 describe("createRun", () => {

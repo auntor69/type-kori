@@ -65,11 +65,18 @@ conf max           typos below    blind on       goto progress
 an explicit suffix says otherwise (`time 5m`, `time 45s`). `words` counts words,
 and a bare `words` or `time` alone starts an endless run.
 
-Settings go deep: quick restart key, confidence mode, minimum speed and accuracy,
-indicate typos, hide extra letters, words history, focus mode, sound volume, and
-funbox modes that twist the stream (Bengali numerals, punctuation, reversed
-words, or words you have to remember). A funbox mode applies to the runs started
-after it is chosen; the run on screen keeps the mode it began with.
+The toolbar above the words is monkeytype's config bar: **@ punctuation** and
+**# numbers** toggles, a **time / words / zen / custom** mode row, and duration
+chips — 15/30/60/120 seconds in time mode, 10/25/50/100 words in words mode.
+`zen` is the endless stream, `custom` opens **Your own text**.
+
+Settings go deep: difficulty, quick restart key, confidence mode, minimum speed
+and accuracy, indicate typos, hide extra letters, words history, focus mode,
+sound volume, and further funbox modes that twist the stream (Bengali numerals,
+punctuation, reversed words, or words you have to remember). A difficulty or
+funbox change restarts the run on screen, so the choice takes effect right away
+— a pasted text, a lesson drill and a weak-key drill are exempt, since they are
+fixed targets. A small palette icon in the header opens the theme picker.
 
 The theme gallery ships 261 palettes: the built-in ones, community classics, and
 one for every country flag (search "Bangladesh", or filter by *flags*). A flag
