@@ -180,3 +180,10 @@ judgement. Phase 4 follows, and Phase 3's sign-off can happen in parallel.
   milestone; docs said 21, code built 20). The command palette's duration rows
   are 15/30/60/120 s, and the personal-bests buckets now coincide with the
   duration buttons.
+- 2026-09-29 — flag palettes rebuilt after the owner rejected them: the missing
+  flag colours were added to the table (Azerbaijan, Comoros, Cyprus, Dominica),
+  two invented/wrong ones removed (Kazakhstan, Micronesia) and two fields
+  reordered to the widest band (Libya, Uruguay); the derivation now reads the
+  palette off the flag itself — page from the field's own hue and chroma, accent
+  from the flag's most vivid colour, text from the flag's white or darkest ink,
+  panel leaning toward the field.

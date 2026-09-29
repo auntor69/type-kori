@@ -56,6 +56,7 @@ export const THEME_VAR_NAMES = [
   "--accent",
   "--accent-soft",
   "--wrong",
+  "--on-accent",
   "--correct",
   "--focus-ring",
   "--accent-2",
