@@ -1,29 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { drillTexts } from "../content/drills";
 import { practiceTexts } from "../content/texts";
 import { collectMistakes, renderProgress, type ClusterState, type WordStatus } from "../engine/compare";
 import { createPhoneticEngine } from "../engine/input/phonetic";
 import { createSystemEngine } from "../engine/input/system";
 import type { EngineAction, InputEngine, InputEngineId } from "../engine/input/types";
 import { formatDuration } from "../engine/metrics";
-import {
-  createSession,
-  reduce,
-  sessionStats,
-  type SessionEvent,
-  type SessionState,
-} from "../engine/session";
-import { createWordBank, drawWords } from "../engine/wordbank";
-import {
-  createRng,
-  pickText,
-  wordsOf,
-  type Difficulty,
-  type PracticeText,
-} from "../engine/text/provider";
+import { reduce, sessionStats, type SessionEvent } from "../engine/session";
+import type { Difficulty, PracticeText } from "../engine/text/provider";
 import { useTranslations, type Lang } from "../i18n";
 import { loadAndApplySettings, onSettingsChange } from "../lib/applySettings";
+import { onRunCommand, type RunCommand } from "../lib/commands";
+import type { FunboxMode } from "../lib/funbox";
 import {
   clearCustomText,
   customPracticeText,
@@ -38,10 +26,28 @@ import {
   recordRun,
   type LessonProgress,
 } from "../lib/progress";
-import { defaultSettings, type CaretStyle } from "../lib/settings";
+import {
+  allowsBackspace,
+  defaultSettings,
+  type CaretStyle,
+  type ConfidenceMode,
+  type IndicateTypos,
+  type QuickRestart,
+  type WordHistory,
+} from "../lib/settings";
 import { formatNumeral } from "../lib/numerals";
 import { loadErrorMap } from "../lib/progress";
+import {
+  buildVocabulary,
+  createRun,
+  extendStream,
+  HISTORY_LIMIT,
+  STREAM_BUFFER,
+  testTypeFor,
+  type RunModel,
+} from "../lib/run";
 import { playSound } from "../lib/sound";
+import { minimumFailure } from "../lib/thresholds";
 import { buildWeakKeyText, topWeakKeys } from "../lib/weakKeys";
 import CustomText from "./CustomText";
 
@@ -61,104 +67,13 @@ interface Props {
   lesson?: LessonRun;
 }
 
-interface RunModel {
-  text: PracticeText;
-  durationMs: number | null;
-  session: SessionState;
-  history: readonly string[];
-  /** Words mode: end after this many committed words; null = text/timed mode. */
-  wordGoal: number | null;
-  /** Infinite streaming: the word bank backing this run, or null for fixed texts. */
-  bank: WordBankHandle | null;
-}
-
-/** Everything needed to keep feeding words into a running target. */
-interface WordBankHandle {
-  bank: ReturnType<typeof createWordBank>;
-  /** Seed lineage: every extension derives from the previous one. */
-  seed: number;
-}
-
 const DURATIONS: readonly (number | null)[] = [null, 60_000, 180_000, 300_000];
 const WORD_GOALS: readonly number[] = [10, 25, 50, 100];
-const HISTORY_LIMIT = 6;
-/** How far ahead of the caret the stream keeps drawing new words. */
-const STREAM_BUFFER = 12;
+/** How many typed words the results screen lists back. */
+const WORD_HISTORY_ROWS = 40;
 
 function createEngine(mode: InputEngineId): InputEngine {
   return mode === "avro-phonetic" ? createPhoneticEngine() : createSystemEngine();
-}
-
-/** The vocabulary the infinite stream draws from: every curated text and drill. */
-function buildVocabulary(difficulty: Difficulty | "all"): string[] {
-  const texts = difficulty === "all" ? practiceTexts : practiceTexts.filter((text) => text.difficulty === difficulty);
-  const drills = difficulty === "all" ? drillTexts : drillTexts.filter((text) => text.difficulty === difficulty);
-  const words: string[] = [];
-  for (const text of [...texts, ...drills]) words.push(...wordsOf(text));
-  // A difficulty bucket can never be empty (the content validator guarantees
-  // texts per level), but a guard costs nothing.
-  if (words.length === 0) {
-    for (const text of practiceTexts) words.push(...wordsOf(text));
-  }
-  return words;
-}
-
-function createRun(options: {
-  pool: readonly PracticeText[];
-  durationMs: number | null;
-  seed: number;
-  history?: readonly string[];
-  difficulty?: Difficulty | "all";
-  /** Letter/word strictness, applied for the whole run. */
-  stopOnError?: boolean;
-  /** Words mode target; null keeps the whole text. */
-  wordGoal?: number | null;
-  /** Infinite streaming mode; null keeps a fixed target text. */
-  infinite?: boolean;
-  vocabulary?: readonly string[];
-}): RunModel {
-  const {
-    pool,
-    durationMs,
-    seed,
-    history = [],
-    difficulty = "all",
-    stopOnError = false,
-    wordGoal = null,
-    infinite = false,
-    vocabulary,
-  } = options;
-  const text = pickText(pool, { difficulty, exclude: [...history], rng: createRng(seed) }) ?? pool[0];
-
-  // Infinite mode: the target starts as one generated line and the island keeps
-  // extending it while the user types. The `text` is then only the run's
-  // identity for progress records.
-  if (infinite && vocabulary !== undefined && vocabulary.length > 0) {
-    const bank = createWordBank(vocabulary);
-    const first = drawWords(bank, STREAM_BUFFER, seed);
-    return {
-      text,
-      durationMs,
-      session: createSession({ targetWords: first, durationMs, stopOnError, infinite: true }),
-      history: [...history, text.id].slice(-HISTORY_LIMIT),
-      wordGoal,
-      bank: { bank, seed },
-    };
-  }
-
-  // Words mode: exactly goal words. A longer text is truncated; a shorter pool
-  // text is used whole (a custom paste is never truncated).
-  const allWords = wordsOf(text);
-  const targetWords = wordGoal !== null ? allWords.slice(0, wordGoal) : allWords;
-
-  return {
-    text,
-    durationMs,
-    session: createSession({ targetWords, durationMs, stopOnError, infinite: false }),
-    history: [...history, text.id].slice(-HISTORY_LIMIT),
-    wordGoal,
-    bank: null,
-  };
 }
 
 function clusterClass(
@@ -234,6 +149,20 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const [sound, setSound] = useState<"off" | "click" | "error" | "both">("off");
   const [wordGoal, setWordGoal] = useState<number | null>(null);
   const [weakDrill, setWeakDrill] = useState<PracticeText | null>(null);
+  const [quickRestart, setQuickRestart] = useState<QuickRestart>("esc");
+  const [confidenceMode, setConfidenceMode] = useState<ConfidenceMode>("off");
+  const [indicateTypos, setIndicateTypos] = useState<IndicateTypos>("off");
+  const [hideExtraLetters, setHideExtraLetters] = useState(false);
+  const [minWpm, setMinWpm] = useState(0);
+  const [minAccuracy, setMinAccuracy] = useState(0);
+  const [wordHistory, setWordHistory] = useState<WordHistory>("off");
+  const [focusMode, setFocusMode] = useState(false);
+  const [capsLockWarning, setCapsLockWarning] = useState(true);
+  const [soundVolume, setSoundVolume] = useState(defaultSettings.soundVolume);
+  const [funbox, setFunbox] = useState<FunboxMode>("none");
+  const [capsOn, setCapsOn] = useState(false);
+  /** Why a run stopped early, if the minimum speed or accuracy cut it off. */
+  const [failReason, setFailReason] = useState<"wpm" | "accuracy" | null>(null);
 
   // A lesson drills a fixed set, untimed, and a custom run drills exactly the
   // text the user pasted. On the practice page the first text is deliberately an
@@ -245,6 +174,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   // paste are fixed texts by definition — the user chose those exact words.
   const infinite = lesson === undefined && customRun === null && weakDrill === null;
   const vocabulary = useMemo(() => buildVocabulary(difficulty), [difficulty]);
+  // Funbox only twists a generated stream: a pasted text or a lesson drill is the
+  // user's own target and is shown exactly as it was written.
+  const activeFunbox: FunboxMode = infinite ? funbox : "none";
 
   const [model, setModel] = useState<RunModel>(() =>
     createRun({
@@ -254,6 +186,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       difficulty: lesson === undefined ? "easy" : "all",
       infinite,
       vocabulary,
+      funbox: "none",
     }),
   );
   const [now, setNow] = useState(0);
@@ -268,7 +201,20 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const modelRef = useRef<RunModel | null>(null);
   modelRef.current = model;
 
+  // The key handler is bound once, so anything it reads must come through a ref:
+  // a value captured from the first render would never see a settings change.
+  const prefsRef = useRef({
+    sound,
+    soundVolume,
+    quickRestart,
+    confidenceMode,
+    capsLockWarning,
+  });
+  prefsRef.current = { sound, soundVolume, quickRestart, confidenceMode, capsLockWarning };
+
   // Apply the stored theme, text size and input mode as soon as the island is up.
+  // The run itself is not rebuilt with the stored funbox: pinning each run to the
+  // mode it started with keeps one target text and one recorded test type.
   useEffect(() => {
     const stored = loadAndApplySettings();
     setInputMode(stored.inputMode);
@@ -282,6 +228,17 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setShowAllLines(stored.showAllLines);
     setNumerals(stored.numerals);
     setSound(stored.sound);
+    setSoundVolume(stored.soundVolume);
+    setQuickRestart(stored.quickRestart);
+    setConfidenceMode(stored.confidenceMode);
+    setIndicateTypos(stored.indicateTypos);
+    setHideExtraLetters(stored.hideExtraLetters);
+    setMinWpm(stored.minWpm);
+    setMinAccuracy(stored.minAccuracy);
+    setWordHistory(stored.wordHistory);
+    setFocusMode(stored.focusMode);
+    setCapsLockWarning(stored.capsLockWarning);
+    // The stored funbox waits for the next run; the current one stays pinned.
   }, []);
 
   // The settings drawer can change the input mode while a run is on screen.
@@ -307,6 +264,23 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         setShowAllLines(settings.showAllLines);
         setNumerals(settings.numerals);
         setSound(settings.sound);
+        setSoundVolume(settings.soundVolume);
+        setQuickRestart(settings.quickRestart);
+        setConfidenceMode(settings.confidenceMode);
+        setIndicateTypos(settings.indicateTypos);
+        setHideExtraLetters(settings.hideExtraLetters);
+        setMinWpm(settings.minWpm);
+        setMinAccuracy(settings.minAccuracy);
+        setWordHistory(settings.wordHistory);
+        setFocusMode(settings.focusMode);
+        setCapsLockWarning(settings.capsLockWarning);
+        setFunbox((current) => {
+          if (current === settings.funbox) return current;
+          // A funbox change takes effect on the next run, not inside this one:
+          // half the words reversed would misrepresent both the target and the
+          // recorded test type.
+          return settings.funbox;
+        });
       }),
     [],
   );
@@ -318,11 +292,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   /** Feedback blips; computed from the event before the state lands. */
   const applyWithSound = (event: SessionEvent) => {
-    if (sound === "click" || sound === "both") playSound("click");
+    const { sound: soundMode, soundVolume: volume } = prefsRef.current;
+    if (soundMode === "click" || soundMode === "both") playSound("click", volume);
 
-    if ((sound === "error" || sound === "both") && event.type === "commit") {
+    if ((soundMode === "error" || soundMode === "both") && event.type === "commit") {
       const upcoming = reduce(model.session, event).committed.at(-1);
-      if (upcoming !== undefined && upcoming.correct === false) playSound("error");
+      if (upcoming !== undefined && upcoming.correct === false) playSound("error", volume);
     }
 
     apply(event);
@@ -331,6 +306,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const restart = () => {
     engineRef.current.reset();
     setOsKeyboard(false);
+    setFailReason(null);
     setModel((current) => ({
       ...current,
       session: reduce(current.session, { type: "restart", at: Date.now() }),
@@ -352,6 +328,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         wordGoal,
         infinite,
         vocabulary,
+        funbox: activeFunbox,
       }),
     );
   };
@@ -372,6 +349,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         wordGoal: null,
         infinite,
         vocabulary,
+        funbox: activeFunbox,
       }),
     );
   };
@@ -393,6 +371,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         wordGoal: goal,
         infinite: goal === null,
         vocabulary,
+        funbox: activeFunbox,
       }),
     );
   };
@@ -454,9 +433,62 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         difficulty,
         infinite: true,
         vocabulary,
+        funbox: activeFunbox,
       }),
     );
   };
+
+  // The test type recorded with a run, so personal bests can be grouped the way
+  // monkeytype groups them: `time 60`, `words 25`, `∞`, `lesson`, `custom`.
+  const testTypeOf = (run: RunModel): string =>
+    testTypeFor({
+      durationMs: run.durationMs,
+      wordGoal,
+      kind:
+        lesson !== undefined
+          ? "lesson"
+          : weakDrill !== null
+            ? "weak"
+            : customRun !== null
+              ? "custom"
+              : undefined,
+      funbox: run.funbox,
+    });
+
+  /**
+   * Commands from the command bar. Settings-level commands are written through
+   * `updateSettings` and arrive on the settings event; only the run-level ones
+   * land here. The handler is kept in a ref so it always sees the current state
+   * even though the subscription is mounted once.
+   */
+  const commandRef = useRef<(command: RunCommand) => void>(() => undefined);
+  commandRef.current = (command) => {
+    switch (command.name) {
+      case "time":
+        chooseDuration(command.durationMs);
+        break;
+      case "words":
+        chooseWordGoal(command.goal);
+        break;
+      case "restart":
+        restart();
+        break;
+      case "next":
+        nextText();
+        break;
+      case "end":
+        apply({ type: "end", at: Date.now() });
+        break;
+      case "weak":
+        startWeakDrill();
+        break;
+      case "custom":
+        setCustomPanelOpen(true);
+        break;
+    }
+  };
+
+  useEffect(() => onRunCommand((command) => commandRef.current(command)), []);
 
   /** Forget the stored paste, and stop practising it if it was on screen. */
   const dropCustomText = () => {
@@ -489,15 +521,31 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       if (target?.closest("input, select, button, a[href], [contenteditable='true']")) return;
       if (target?.matches("textarea:not([data-tk-input])")) return;
 
-      if (event.key === "Escape") {
+      const prefs = prefsRef.current;
+
+      // Caps lock is not inert here: the built-in phonetic engine reads shifted
+      // keys as different letters, so a locked keyboard every word wrong.
+      if (prefs.capsLockWarning && typeof event.getModifierState === "function") {
+        setCapsOn(event.getModifierState("CapsLock"));
+      }
+
+      // The restart key is a setting; `esc` is the default and the documented
+      // shortcut, and `off` lets the browser keep the key entirely.
+      const isRestartKey =
+        (prefs.quickRestart === "esc" && event.key === "Escape") ||
+        (prefs.quickRestart === "tab" && event.key === "Tab") ||
+        (prefs.quickRestart === "enter" && event.key === "Enter");
+
+      if (isRestartKey) {
         event.preventDefault();
         restart();
         return;
       }
 
-      // Tab completes an endless run (monkeytype zen convention): the results
-      // screen shows everything typed so far. A timed or word-goal run ends on
-      // its own, so Tab is left alone there.
+      // Tab completes an endless run (monkeytype's zen convention) when it is not
+      // busy being the restart key: the results screen then shows everything
+      // typed so far. A timed or word-goal run ends on its own, so Tab is left
+      // alone there.
       const current = modelRef.current;
       if (
         event.key === "Tab" &&
@@ -535,6 +583,16 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           break;
         case "backspace":
           event.preventDefault();
+          // Confidence mode: `on` refuses to walk back into a committed word,
+          // `max` refuses to delete at all.
+          if (
+            !allowsBackspace(
+              prefs.confidenceMode,
+              modelRef.current?.session.active.length ?? 0,
+            )
+          ) {
+            break;
+          }
           applyWithSound({ type: "backspace", at });
           break;
         case "commit":
@@ -556,18 +614,48 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // The tick drives the clock display and ends a timed run.
+  // The tick drives the clock display, ends a timed run, and applies the
+  // minimum speed and accuracy the user asked to be held to.
   useEffect(() => {
     if (model.session.state !== "running") return;
 
     const id = window.setInterval(() => {
       const at = Date.now();
       setNow(at);
+
+      const live = modelRef.current;
+      if (live !== null && (live.session.durationMs !== null || live.session.state === "running")) {
+        const stats = sessionStats(live.session, at);
+        const failure = minimumFailure(stats, { minWpm, minAccuracy });
+
+        if (failure !== null) {
+          setFailReason(failure);
+          if (prefsRef.current.sound === "error" || prefsRef.current.sound === "both") {
+            playSound("error", prefsRef.current.soundVolume);
+          }
+          setModel((current) => ({
+            ...current,
+            session: reduce(current.session, { type: "end", at }),
+          }));
+          return;
+        }
+      }
+
       setModel((current) => ({ ...current, session: reduce(current.session, { type: "tick", at }) }));
     }, 250);
 
     return () => window.clearInterval(id);
-  }, [model.session.state]);
+  }, [model.session.state, minWpm, minAccuracy]);
+
+  // Focus mode: while a run is on screen the surrounding chrome fades out. The
+  // attribute is on the root because the header is rendered by Astro, not here.
+  useEffect(() => {
+    const active = focusMode && model.session.state === "running";
+    if (active) document.documentElement.setAttribute("data-tk-focus", "on");
+    else document.documentElement.removeAttribute("data-tk-focus");
+
+    return () => document.documentElement.removeAttribute("data-tk-focus");
+  }, [focusMode, model.session.state]);
 
   // The stream: as the caret approaches the end of the generated target, extend
   // it with a fresh line of words. This is the whole trick behind an endless run.
@@ -577,20 +665,24 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     if (session.state === "finished") return;
     if (session.target.length - session.committed.length > STREAM_BUFFER) return;
 
-    // The next seed derives from the last one, so long runs never repeat a line.
-    const seed = (bank.seed * 1_664_525 + 1_013_904_223) % 0x7fff_ffff;
-    const words = drawWords(bank.bank, STREAM_BUFFER, seed, session.target.slice(-8));
+    setModel((current) => {
+      if (current.bank === null) return current;
 
-    setModel((current) =>
-      current.bank === null
-        ? current
-        : {
-            ...current,
-            bank: { ...current.bank, seed },
-            session: reduce(current.session, { type: "extend", words, at: Date.now() }),
-          },
-    );
-  }, [model.session.committed.length, model.session.target.length, model.session.state]);
+      // The extension inherits the run's pinned funbox, so a settings change
+      // mid-run cannot mix two modes into one stream.
+      const stream = extendStream(current.bank, current.session.target, current.funbox);
+      return {
+        ...current,
+        bank: stream.handle,
+        session: reduce(current.session, { type: "extend", words: stream.words, at: Date.now() }),
+      };
+    });
+  }, [
+    model.session.committed.length,
+    model.session.target.length,
+    model.session.state,
+    model.funbox,
+  ]);
 
   const { session } = model;
   const finished = session.state === "finished";
@@ -634,6 +726,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         accuracy: stats.accuracy,
         // Time actually spent typing, which is what the results screen shows.
         durationMs: Math.round(stats.elapsedMs),
+        testType: testTypeOf(model),
         errors: collectMistakes(session.committed, session.target).map((mistake) => ({
           expected: mistake.expected ?? "",
           typed: mistake.actual ?? "",
@@ -659,7 +752,15 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     model.text.id,
     mode,
     lesson,
+    wordGoal,
+    model.durationMs,
   ]);
+
+  // A fresh run clears the reason: the notice belongs to the run that failed,
+  // not to the next one.
+  useEffect(() => {
+    if (session.state === "idle") setFailReason(null);
+  }, [session.state]);
 
   const focusInput = () => inputRef.current?.focus();
 
@@ -674,8 +775,8 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   return (
     <div>
-      {/* Toolbar: quiet, centred, one row. */}
-      <div class="flex flex-wrap items-center justify-center gap-2">
+      {/* Toolbar: quiet, centred, one row. It fades out in focus mode. */}
+      <div data-tk-chrome class="flex flex-wrap items-center justify-center gap-2">
         <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
           <span class="size-1.5 rounded-full bg-accent" aria-hidden="true" />
           {mode === "avro-phonetic" ? t("practice.mode.builtin") : t("practice.mode.system")}
@@ -842,27 +943,62 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
             const nextCluster = word.status === "active"
               ? word.clusters.findIndex((cluster) => cluster.state !== "correct")
               : -1;
+            const absoluteIndex = windowStart + wordIndex;
+            // Memory mode: the word being typed and the one after it stay
+            // visible, everything further ahead has to be held in the head.
+            const hidden =
+              model.funbox === "memory" &&
+              word.status === "pending" &&
+              absoluteIndex > activeIndex + 1;
 
             return (
-              <span key={windowStart + wordIndex} class={`inline-flex ${wordClass(word.status)}`}>
-                {word.clusters.map((cluster, clusterIndex) => (
-                  <span
-                    key={clusterIndex}
-                    class={clusterClass(
-                      cluster.state,
-                      clusterIndex === nextCluster,
-                      blindMode,
-                      caretStyle,
-                    )}
-                  >
-                    {cluster.target}
-                  </span>
-                ))}
-                {word.extra.map((cluster, extraIndex) => (
-                  <span key={`extra-${extraIndex}`} class={clusterClass("extra", false, blindMode, caretStyle)}>
-                    {cluster}
-                  </span>
-                ))}
+              <span
+                key={absoluteIndex}
+                class={`inline-flex ${wordClass(word.status)}${hidden ? " invisible" : ""}`}
+              >
+                {word.clusters.map((cluster, clusterIndex) => {
+                  const typo =
+                    indicateTypos !== "off" && cluster.state === "wrong" ? cluster.typed : null;
+                  const classes = clusterClass(
+                    cluster.state,
+                    clusterIndex === nextCluster,
+                    blindMode,
+                    caretStyle,
+                  );
+
+                  // Replace mode shows what was typed in place of the letter;
+                  // below mode keeps the letter and prints the typo under it.
+                  if (typo !== null && indicateTypos === "replace") {
+                    return (
+                      <span key={clusterIndex} class={classes}>
+                        {typo}
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <span key={clusterIndex} class={typo === null ? classes : `relative ${classes}`}>
+                      {cluster.target}
+                      {typo !== null && (
+                        <span
+                          aria-hidden="true"
+                          class="absolute start-0 top-full text-[0.5em] leading-none text-wrong"
+                        >
+                          {typo}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+                {!hideExtraLetters &&
+                  word.extra.map((cluster, extraIndex) => (
+                    <span
+                      key={`extra-${extraIndex}`}
+                      class={clusterClass("extra", false, blindMode, caretStyle)}
+                    >
+                      {cluster}
+                    </span>
+                  ))}
               </span>
             );
           })}
@@ -895,6 +1031,15 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
       {session.state === "idle" && (
         <p class="mt-3 text-sm text-muted">{t("practice.startHint")}</p>
+      )}
+
+      {capsOn && capsLockWarning && session.state !== "finished" && (
+        <p
+          role="status"
+          class="mt-3 rounded-card border border-accent-2/40 bg-surface-2 px-4 py-2.5 text-sm text-text"
+        >
+          {t("practice.capsLock")}
+        </p>
       )}
 
       {session.warning === "latin" && (
@@ -944,6 +1089,20 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         />
       </div>
 
+      {/* Words history while typing, for the people who want it always on. */}
+      {wordHistory === "always" && !finished && session.committed.length > 0 && (
+        <p
+          lang="bn"
+          class="mt-3 flex flex-wrap gap-x-2 gap-y-1 font-bangla text-sm leading-relaxed"
+        >
+          {session.committed.slice(-WORD_HISTORY_ROWS).map((word, index) => (
+            <span key={index} class={word.correct ? "text-muted" : "text-wrong"}>
+              {word.target}
+            </span>
+          ))}
+        </p>
+      )}
+
       <p aria-live="polite" class="sr-only">
         {summary}
       </p>
@@ -957,6 +1116,15 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           <h3 id="results-heading" class="text-sm font-semibold uppercase tracking-wide text-muted">
             {t("results.heading")}
           </h3>
+
+          {failReason !== null && (
+            <p
+              role="status"
+              class="mt-3 rounded-card border border-wrong/40 bg-surface-2 px-4 py-2.5 text-sm font-medium text-text"
+            >
+              {failReason === "wpm" ? t("results.failedWpm") : t("results.failedAccuracy")}
+            </p>
+          )}
 
           {lesson !== undefined && (
             <p
@@ -1029,6 +1197,24 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
             )}
           </div>
 
+          {wordHistory !== "off" && session.committed.length > 0 && (
+            <div class="mt-5 border-t border-border pt-4">
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
+                {t("results.history")}
+              </h4>
+              <p
+                lang="bn"
+                class="mt-2 flex flex-wrap gap-x-2 gap-y-1 font-bangla text-sm leading-relaxed"
+              >
+                {session.committed.slice(-WORD_HISTORY_ROWS).map((word, index) => (
+                  <span key={index} class={word.correct ? "text-muted" : "text-wrong"}>
+                    {word.target}
+                  </span>
+                ))}
+              </p>
+            </div>
+          )}
+
           <p class="mt-4 text-xs leading-relaxed text-muted">
             {t("results.definitionWpm")} {t("results.definitionAccuracy")}
           </p>
@@ -1062,11 +1248,19 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         </section>
       )}
 
-      <p class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-        <span>
-          <kbd class="keycap">Esc</kbd> {t("practice.restart")}
-        </span>
-        {model.bank !== null && !timed && wordGoal === null && (
+      <p
+        data-tk-chrome
+        class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted"
+      >
+        {quickRestart !== "off" && (
+          <span>
+            <kbd class="keycap">
+              {quickRestart === "esc" ? "Esc" : quickRestart === "tab" ? "Tab" : "Enter"}
+            </kbd>{" "}
+            {t("practice.restart")}
+          </span>
+        )}
+        {model.bank !== null && !timed && wordGoal === null && quickRestart !== "tab" && (
           <span>
             <kbd class="keycap">Tab</kbd> {t("practice.endTest")}
           </span>

@@ -31,6 +31,10 @@
 
   --radius-card: var(--radius-card);
   --radius-control: var(--radius-control);
+  /* Without this line the `rounded-pill` utility is never generated: the token
+     lives in tokens.css, and Tailwind only emits a utility for a token it knows
+     about. Every pill in the interface was silently square. */
+  --radius-pill: var(--radius-pill);
 
   --ease-out: var(--ease-out);
 }
@@ -105,6 +109,25 @@
     border-radius: var(--radius-pill);
     background-color: var(--accent);
     margin-bottom: 0.875rem;
+  }
+
+  /* Focus mode: while a test is running the surrounding chrome — the header and
+     the practice toolbar — fades away. Anything focusable still comes back on
+     keyboard focus, so the navigation never becomes unreachable. */
+  [data-tk-chrome] {
+    transition: opacity 200ms var(--ease-out);
+  }
+
+  /* While a dialog is open the fade stands down: the overlays are rendered
+     inside the chrome, so hiding it would hide them too. */
+  html[data-tk-focus="on"]:not([data-tk-overlay="open"]) [data-tk-chrome] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  html[data-tk-focus="on"] [data-tk-chrome]:focus-within {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .keycap {

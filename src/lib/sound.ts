@@ -30,9 +30,13 @@ function audioContext(): AudioContext | null {
   return context;
 }
 
-function blip(kind: SoundKind): void {
+function blip(kind: SoundKind, volume: number): void {
   const ctx = audioContext();
   if (ctx === null) return;
+
+  // 0–100 from the settings, scaled onto the base gains below.
+  const level = Math.max(0, Math.min(100, volume)) / 100;
+  if (level === 0) return;
 
   const now = ctx.currentTime;
   const osc = ctx.createOscillator();
@@ -40,7 +44,7 @@ function blip(kind: SoundKind): void {
 
   osc.type = "square";
   osc.frequency.value = kind === "click" ? 620 : 190;
-  gain.gain.setValueAtTime(kind === "click" ? 0.015 : 0.03, now);
+  gain.gain.setValueAtTime((kind === "click" ? 0.015 : 0.03) * level, now);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + (kind === "click" ? 0.03 : 0.08));
 
   osc.connect(gain).connect(ctx.destination);
@@ -48,9 +52,9 @@ function blip(kind: SoundKind): void {
   osc.stop(now + 0.1);
 }
 
-export function playSound(kind: SoundKind): void {
+export function playSound(kind: SoundKind, volume = 60): void {
   try {
-    blip(kind);
+    blip(kind, volume);
   } catch {
     // Sound is cosmetic; never let it break typing.
   }

@@ -47,6 +47,37 @@ characters in 3–200 words), it becomes the target of one untimed run. The text
 kept in `localStorage` (never uploaded), it travels with the export/import file,
 and "reset all data" on the progress page removes it too.
 
+## Beyond the basics
+
+The practice test streams words endlessly, like monkeytype: untimed runs on the
+built-in library never run out, because the island appends a fresh line whenever
+the caret gets near the end. `Tab` ends the run and shows the results.
+
+`Ctrl+K` (or the terminal icon in the header) opens the **command palette**, and
+`Ctrl+/` opens the **command line** — the same grammar either way:
+
+```
+theme dracula      time 60        words 25       funbox numbers
+conf max           typos below    blind on       goto progress
+```
+
+`time` counts bare numbers in **seconds** (`time 90` is a minute and a half);
+an explicit suffix says otherwise (`time 5m`, `time 45s`). `words` counts words,
+and a bare `words` or `time` alone starts an endless run.
+
+Settings go deep: quick restart key, confidence mode, minimum speed and accuracy,
+indicate typos, hide extra letters, words history, focus mode, sound volume, and
+funbox modes that twist the stream (Bengali numerals, punctuation, reversed
+words, or words you have to remember). A funbox mode applies to the runs started
+after it is chosen; the run on screen keeps the mode it began with.
+
+The theme gallery ships ~250 palettes: the built-in ones, community classics, and
+one derived from every country flag (search "Bangladesh", or filter by *flags*).
+Themes can be starred and exported as JSON.
+
+The progress page keeps personal bests per test type, streaks, 21 badges, a
+miss-rate heat grid and the speed trend.
+
 ## Requirements
 
 - [Bun](https://bun.sh) ≥ 1.4 for development and scripts.

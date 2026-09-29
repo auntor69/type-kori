@@ -42,8 +42,13 @@ export function applySettings(settings: Settings, root: HTMLElement = document.d
   root.dataset.inputMode = settings.inputMode;
 }
 
-/** The custom properties a concrete theme sets, so "system" can clear them. */
-const THEME_VAR_NAMES = [
+/**
+ * The custom properties a concrete theme sets, so "system" can clear them.
+ * Exported so a test can prove it still matches `themeStyleVars`: a theme that
+ * set a property this list does not clear would survive the switch back to
+ * "system" and tint the default palette with the last theme's colour.
+ */
+export const THEME_VAR_NAMES = [
   "--bg",
   "--surface",
   "--text",
@@ -116,7 +121,28 @@ export function watchSystemTheme(getSettings: () => Settings): () => void {
   return () => query.removeEventListener("change", handler);
 }
 
-export function setDrawerOpen(open: boolean): void {
-  if (open) document.documentElement.setAttribute(DRAWER_ATTRIBUTE, "open");
-  else document.documentElement.removeAttribute(DRAWER_ATTRIBUTE);
+/**
+ * Overlays that are open, by name. The typing island stops reading keystrokes
+ * while the attribute is set, and two overlays closing in either order must not
+ * cancel each other out — hence a set rather than a boolean.
+ */
+const openOverlays = new Set<string>();
+
+export function setOverlayOpen(name: string, open: boolean): void {
+  if (open) openOverlays.add(name);
+  else openOverlays.delete(name);
+
+  const root = document.documentElement;
+  if (openOverlays.size > 0) {
+    root.setAttribute(DRAWER_ATTRIBUTE, "open");
+    // Focus mode fades the chrome out; the overlays live inside that chrome, so
+    // the fade has to stand down while one of them is open or the dialog would
+    // be invisible and unclickable.
+    root.setAttribute(OVERLAY_ATTRIBUTE, "open");
+  } else {
+    root.removeAttribute(DRAWER_ATTRIBUTE);
+    root.removeAttribute(OVERLAY_ATTRIBUTE);
+  }
 }
+
+export const OVERLAY_ATTRIBUTE = "data-tk-overlay";

@@ -3,29 +3,47 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { localizePath, useTranslations, type Lang } from "../i18n";
 import {
   loadAndApplySettings,
-  setDrawerOpen,
+  setOverlayOpen,
   updateSettings,
   watchSystemTheme,
 } from "../lib/applySettings";
+import { funboxModes } from "../lib/funbox";
 import {
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
+  MIN_ACCURACY_CHOICES,
+  MIN_WPM_CHOICES,
+  SOUND_VOLUME_MAX,
+  SOUND_VOLUME_MIN,
   clampFontSize,
   defaultSettings,
   type CaretStyle,
   type Settings,
   type StopOnError,
 } from "../lib/settings";
-import { themes } from "../lib/themes";
+import {
+  exportTheme,
+  getTheme,
+  searchThemes,
+  themeCategories,
+  themeLabel,
+  allThemes,
+  type ThemeCategory,
+} from "../lib/themes";
 
 interface Props {
   lang: Lang;
 }
 
-type Tab = "behavior" | "appearance" | "theme" | "danger";
+type Tab = "behavior" | "appearance" | "theme" | "data";
 
 const STOP_ON_ERROR_OPTIONS: readonly StopOnError[] = ["off", "letter", "word"];
 const CARET_STYLES: readonly CaretStyle[] = ["bar", "underline", "off"];
+const CONFIDENCE_OPTIONS = ["off", "on", "max"] as const;
+const QUICK_RESTART_OPTIONS = ["off", "esc", "tab", "enter"] as const;
+const INDICATE_OPTIONS = ["off", "below", "replace"] as const;
+const HISTORY_OPTIONS = ["off", "recent", "always"] as const;
+const SOUND_OPTIONS = ["off", "click", "error", "both"] as const;
 
 /** One labelled row: explanation on the left, control on the right. */
 function Row({
@@ -49,7 +67,7 @@ function Row({
 }
 
 /** A segmented control, monkeytype-style: the active segment is filled. */
-function Segmented<T extends string>({
+function Segmented<T extends string | number>({
   value,
   options,
   labels,
@@ -64,7 +82,7 @@ function Segmented<T extends string>({
     <div role="radiogroup" class="flex flex-wrap gap-1">
       {options.map((option) => (
         <button
-          key={option}
+          key={String(option)}
           type="button"
           role="radio"
           aria-checked={value === option}
@@ -82,14 +100,18 @@ function Segmented<T extends string>({
   );
 }
 
-/** A plain on/off switch. */
+/** A plain on/off switch. Its labels are translated, like every other control. */
 function Switch({
   value,
   label,
+  offLabel,
+  onLabel,
   onChange,
 }: {
   value: boolean;
   label: string;
+  offLabel: string;
+  onLabel: string;
   onChange: (next: boolean) => void;
 }) {
   return (
@@ -103,7 +125,7 @@ function Switch({
           value === false ? "bg-accent text-on-accent" : "bg-surface-2 text-muted hover:text-text"
         }`}
       >
-        off
+        {offLabel}
       </button>
       <button
         type="button"
@@ -114,7 +136,7 @@ function Switch({
           value === true ? "bg-accent text-on-accent" : "bg-surface-2 text-muted hover:text-text"
         }`}
       >
-        on
+        {onLabel}
       </button>
     </div>
   );
@@ -126,6 +148,7 @@ export default function SiteControls({ lang }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("behavior");
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<ThemeCategory>("all");
   const [storageAvailable, setStorageAvailable] = useState(true);
 
   const settingsRef = useRef(settings);
@@ -144,8 +167,8 @@ export default function SiteControls({ lang }: Props) {
   useEffect(() => watchSystemTheme(() => settingsRef.current), []);
 
   useEffect(() => {
-    setDrawerOpen(open);
-    return () => setDrawerOpen(false);
+    setOverlayOpen("settings", open);
+    return () => setOverlayOpen("settings", false);
   }, [open]);
 
   useEffect(() => {
@@ -177,17 +200,41 @@ export default function SiteControls({ lang }: Props) {
     setStorageAvailable(updateSettings(next));
   };
 
-  const filteredThemes = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (q.length === 0) return themes;
-    return themes.filter((theme) => theme.id.includes(q));
-  }, [query]);
+  const toggleFavourite = (id: string) => {
+    const favourites = settings.themeFavourites;
+    commit({
+      themeFavourites: favourites.includes(id)
+        ? favourites.filter((entry) => entry !== id)
+        : [...favourites, id],
+    });
+  };
+
+  const filteredThemes = useMemo(
+    () => searchThemes(query, category, settings.themeFavourites),
+    [query, category, settings.themeFavourites],
+  );
+
+  const notOff = (value: number) => (value === 0 ? t("settings.disabled") : String(value));
+
+  const exportCurrentTheme = () => {
+    if (settings.theme === "system") return;
+
+    const blob = new Blob([exportTheme(getTheme(settings.theme))], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `type-kori-theme-${settings.theme}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
 
   const themeTabs: readonly { id: Tab; label: string }[] = [
     { id: "behavior", label: t("settings.tab.behavior") },
     { id: "appearance", label: t("settings.tab.appearance") },
     { id: "theme", label: t("settings.tab.theme") },
-    { id: "danger", label: t("settings.tab.danger") },
+    { id: "data", label: t("settings.tab.danger") },
   ];
 
   return (
@@ -282,6 +329,15 @@ export default function SiteControls({ lang }: Props) {
                   />
                 </Row>
 
+                <Row label={t("settings.funbox")} hint={t("settings.funboxHint")}>
+                  <Segmented
+                    value={settings.funbox}
+                    options={funboxModes}
+                    labels={(option) => t(`command.funbox.${option}`)}
+                    onChange={(funbox) => commit({ funbox })}
+                  />
+                </Row>
+
                 <Row label={t("settings.stopOnError")} hint={t("settings.stopOnErrorHint")}>
                   <Segmented
                     value={settings.stopOnError}
@@ -291,10 +347,48 @@ export default function SiteControls({ lang }: Props) {
                   />
                 </Row>
 
+                <Row label={t("settings.confidence")} hint={t("settings.confidenceHint")}>
+                  <Segmented
+                    value={settings.confidenceMode}
+                    options={CONFIDENCE_OPTIONS}
+                    labels={(option) => t(`settings.confidence.${option}`)}
+                    onChange={(confidenceMode) => commit({ confidenceMode })}
+                  />
+                </Row>
+
+                <Row label={t("settings.quickRestart")} hint={t("settings.quickRestartHint")}>
+                  <Segmented
+                    value={settings.quickRestart}
+                    options={QUICK_RESTART_OPTIONS}
+                    labels={(option) => t(`settings.quickRestart.${option}`)}
+                    onChange={(quickRestart) => commit({ quickRestart })}
+                  />
+                </Row>
+
+                <Row label={t("settings.minWpm")} hint={t("settings.minWpmHint")}>
+                  <Segmented
+                    value={settings.minWpm}
+                    options={MIN_WPM_CHOICES}
+                    labels={notOff}
+                    onChange={(minWpm) => commit({ minWpm })}
+                  />
+                </Row>
+
+                <Row label={t("settings.minAccuracy")} hint={t("settings.minAccuracyHint")}>
+                  <Segmented
+                    value={settings.minAccuracy}
+                    options={MIN_ACCURACY_CHOICES}
+                    labels={notOff}
+                    onChange={(minAccuracy) => commit({ minAccuracy })}
+                  />
+                </Row>
+
                 <Row label={t("settings.blindMode")} hint={t("settings.blindModeHint")}>
                   <Switch
                     value={settings.blindMode}
                     label={t("settings.blindMode")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(blindMode) => commit({ blindMode })}
                   />
                 </Row>
@@ -303,17 +397,49 @@ export default function SiteControls({ lang }: Props) {
                   <Switch
                     value={settings.liveWpm}
                     label={t("settings.liveWpm")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(liveWpm) => commit({ liveWpm })}
+                  />
+                </Row>
+
+                <Row label={t("settings.capsLockWarning")} hint={t("settings.capsLockWarningHint")}>
+                  <Switch
+                    value={settings.capsLockWarning}
+                    label={t("settings.capsLockWarning")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
+                    onChange={(capsLockWarning) => commit({ capsLockWarning })}
                   />
                 </Row>
 
                 <Row label={t("settings.sound")} hint={t("settings.soundHint")}>
                   <Segmented
                     value={settings.sound}
-                    options={["off", "click", "error", "both"] as const}
+                    options={SOUND_OPTIONS}
                     labels={(option) => t(`settings.sound.${option}`)}
                     onChange={(sound) => commit({ sound })}
                   />
+                </Row>
+
+                <Row label={t("settings.soundVolume")} hint={t("settings.soundVolumeHint")}>
+                  <div class="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={SOUND_VOLUME_MIN}
+                      max={SOUND_VOLUME_MAX}
+                      step={5}
+                      value={settings.soundVolume}
+                      aria-label={t("settings.soundVolume")}
+                      onInput={(event) =>
+                        commit({ soundVolume: Number(event.currentTarget.value) })
+                      }
+                      class="w-40 accent-accent"
+                    />
+                    <span class="w-10 text-right text-xs tabular-nums text-muted">
+                      {settings.soundVolume}
+                    </span>
+                  </div>
                 </Row>
 
                 <Row label={t("settings.inputMode")} hint={t("settings.inputModeHint")}>
@@ -372,7 +498,50 @@ export default function SiteControls({ lang }: Props) {
                   <Switch
                     value={settings.showAllLines}
                     label={t("settings.showAllLines")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
                     onChange={(showAllLines) => commit({ showAllLines })}
+                  />
+                </Row>
+
+                <Row label={t("settings.indicateTypos")} hint={t("settings.indicateTyposHint")}>
+                  <Segmented
+                    value={settings.indicateTypos}
+                    options={INDICATE_OPTIONS}
+                    labels={(option) => t(`settings.indicateTypos.${option}`)}
+                    onChange={(indicateTypos) => commit({ indicateTypos })}
+                  />
+                </Row>
+
+                <Row
+                  label={t("settings.hideExtraLetters")}
+                  hint={t("settings.hideExtraLettersHint")}
+                >
+                  <Switch
+                    value={settings.hideExtraLetters}
+                    label={t("settings.hideExtraLetters")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
+                    onChange={(hideExtraLetters) => commit({ hideExtraLetters })}
+                  />
+                </Row>
+
+                <Row label={t("settings.wordHistory")} hint={t("settings.wordHistoryHint")}>
+                  <Segmented
+                    value={settings.wordHistory}
+                    options={HISTORY_OPTIONS}
+                    labels={(option) => t(`settings.wordHistory.${option}`)}
+                    onChange={(wordHistory) => commit({ wordHistory })}
+                  />
+                </Row>
+
+                <Row label={t("settings.focusMode")} hint={t("settings.focusModeHint")}>
+                  <Switch
+                    value={settings.focusMode}
+                    label={t("settings.focusMode")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
+                    onChange={(focusMode) => commit({ focusMode })}
                   />
                 </Row>
 
@@ -398,13 +567,35 @@ export default function SiteControls({ lang }: Props) {
                   aria-label={t("settings.themeSearch")}
                 />
 
+                <div class="mt-2 flex flex-wrap items-center gap-1">
+                  {themeCategories.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      aria-pressed={category === item}
+                      onClick={() => setCategory(item)}
+                      class={`rounded-pill px-2.5 py-1 text-[0.7rem] font-medium transition-colors duration-150 ease-out ${
+                        category === item
+                          ? "bg-accent-soft text-text"
+                          : "bg-surface-2 text-muted hover:text-text"
+                      }`}
+                    >
+                      {t(`settings.themeCategory.${item}`)}
+                    </button>
+                  ))}
+
+                  <span class="ms-auto text-[0.7rem] tabular-nums text-muted">
+                    {filteredThemes.length}/{allThemes.length}
+                  </span>
+                </div>
+
                 <ul class="mt-3 grid gap-1">
-                  <li>
+                  <li class="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => commit({ theme: "system" })}
                       aria-pressed={settings.theme === "system"}
-                      class={`flex w-full items-center justify-between rounded-control px-3 py-2 text-left text-sm transition-colors duration-150 ease-out ${
+                      class={`flex flex-1 items-center justify-between rounded-control px-3 py-2 text-left text-sm transition-colors duration-150 ease-out ${
                         settings.theme === "system"
                           ? "bg-accent-soft text-text"
                           : "text-muted hover:bg-surface-2 hover:text-text"
@@ -416,34 +607,68 @@ export default function SiteControls({ lang }: Props) {
                         <span class="size-3.5 rounded-full border border-border" style="background:#2c2e31" />
                       </span>
                     </button>
+                    <span class="size-8" aria-hidden="true" />
                   </li>
 
-                  {filteredThemes.map((theme) => (
-                    <li key={theme.id}>
-                      <button
-                        type="button"
-                        onClick={() => commit({ theme: theme.id })}
-                        aria-pressed={settings.theme === theme.id}
-                        class={`flex w-full items-center justify-between rounded-control px-3 py-2 text-left text-sm transition-colors duration-150 ease-out ${
-                          settings.theme === theme.id
-                            ? "bg-accent-soft text-text"
-                            : "text-muted hover:bg-surface-2 hover:text-text"
-                        }`}
-                      >
-                        {theme.id}
-                        <span class="flex gap-1">
-                          <span class="size-3.5 rounded-full border border-border" style={`background:${theme.bg}`} />
-                          <span class="size-3.5 rounded-full border border-border" style={`background:${theme.text}`} />
-                          <span class="size-3.5 rounded-full border border-border" style={`background:${theme.accent}`} />
-                        </span>
-                      </button>
-                    </li>
-                  ))}
+                  {filteredThemes.map((theme) => {
+                    const favourite = settings.themeFavourites.includes(theme.id);
+
+                    return (
+                      <li key={theme.id} class="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => commit({ theme: theme.id })}
+                          aria-pressed={settings.theme === theme.id}
+                          class={`flex flex-1 items-center justify-between gap-3 rounded-control px-3 py-2 text-left text-sm transition-colors duration-150 ease-out ${
+                            settings.theme === theme.id
+                              ? "bg-accent-soft text-text"
+                              : "text-muted hover:bg-surface-2 hover:text-text"
+                          }`}
+                        >
+                          <span class="truncate">{themeLabel(theme)}</span>
+                          <span class="flex shrink-0 gap-1">
+                            <span class="size-3.5 rounded-full border border-border" style={`background:${theme.bg}`} />
+                            <span class="size-3.5 rounded-full border border-border" style={`background:${theme.text}`} />
+                            <span class="size-3.5 rounded-full border border-border" style={`background:${theme.accent}`} />
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleFavourite(theme.id)}
+                          aria-pressed={favourite}
+                          aria-label={
+                            favourite ? t("settings.themeUnfavourite") : t("settings.themeFavourite")
+                          }
+                          title={
+                            favourite ? t("settings.themeUnfavourite") : t("settings.themeFavourite")
+                          }
+                          class={`inline-flex size-8 shrink-0 items-center justify-center rounded-control text-sm transition-colors duration-150 ease-out hover:bg-surface-2 ${
+                            favourite ? "text-accent" : "text-muted/60 hover:text-text"
+                          }`}
+                        >
+                          {favourite ? "★" : "☆"}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
+
+                <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                  <button
+                    type="button"
+                    onClick={exportCurrentTheme}
+                    disabled={settings.theme === "system"}
+                    class="rounded-control bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors duration-150 ease-out hover:bg-accent hover:text-on-accent disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {t("settings.themeExport")}
+                  </button>
+                  <span class="text-xs text-muted">{t("settings.themeNote")}</span>
+                </div>
               </div>
             )}
 
-            {tab === "danger" && (
+            {tab === "data" && (
               <div class="mt-2">
                 <Row label={t("settings.data")} hint={t("settings.dataNote")}>
                   <a
@@ -452,6 +677,10 @@ export default function SiteControls({ lang }: Props) {
                   >
                     {t("settings.openProgress")}
                   </a>
+                </Row>
+
+                <Row label={t("settings.commandHint")} hint={t("settings.commandHintBody")}>
+                  <kbd class="keycap">Ctrl</kbd>
                 </Row>
               </div>
             )}
