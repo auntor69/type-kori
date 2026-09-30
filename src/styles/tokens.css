@@ -42,9 +42,10 @@
   --stack-bangla: "Noto Sans Bengali Variable", "Inter Variable", ui-sans-serif, system-ui,
     sans-serif;
 
-  /* The typing area size is driven by the font-size setting (20–48px). */
+  /* The typing area size is driven by the font-size setting (20–48px).
+     The generous leading and word gap belong to the fluid layout. */
   --typing-size: 28px;
-  --typing-leading: 1.9;
+  --typing-leading: 2.1;
 
   /* Shape scale */
   --radius-card: 12px;

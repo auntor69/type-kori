@@ -1092,7 +1092,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           lang="bn"
           role="group"
           aria-label={t("practice.typingArea")}
-          class="typing-text flex select-none flex-wrap content-start gap-x-[0.55em] gap-y-2 px-5 py-6 sm:px-7 sm:py-8"
+          class="typing-text flex select-none flex-wrap content-start gap-x-[0.7em] gap-y-3 px-5 py-6 sm:px-7 sm:py-8"
         >
           {view.words.map((word, wordIndex) => {
             const nextCluster = word.status === "active"
