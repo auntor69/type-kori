@@ -201,7 +201,15 @@ export function createRun(options: RunOptions): RunModel {
     return {
       text,
       durationMs,
-      session: createSession({ targetWords: first, durationMs, stopOnError, infinite: true }),
+      session: createSession({
+        targetWords: first,
+        durationMs,
+        stopOnError,
+        infinite: true,
+        // Words mode: the run ends the moment the goal is reached, even
+        // though the target keeps streaming ahead of the caret.
+        endAfterWords: wordGoal ?? undefined,
+      }),
       history: nextHistory,
       wordGoal,
       bank: { bank, seed },
@@ -209,15 +217,23 @@ export function createRun(options: RunOptions): RunModel {
     };
   }
 
-  // Words mode: exactly goal words. A longer text is truncated; a shorter pool
-  // text is used whole (a custom paste is never truncated).
+  // Fixed text: a lesson drill, a pasted passage or a single sentence. A words
+  // goal only ever trims such a text when no vocabulary is available (the
+  // caller chose `infinite: false`); with a goal and a bank the run streams
+  // above instead, so any goal from 10 to 100 always has words to type.
   const allWords = wordsOf(text);
   const targetWords = wordGoal !== null ? allWords.slice(0, wordGoal) : allWords;
 
   return {
     text,
     durationMs,
-    session: createSession({ targetWords, durationMs, stopOnError, infinite: false }),
+    session: createSession({
+      targetWords,
+      durationMs,
+      stopOnError,
+      infinite: false,
+      endAfterWords: wordGoal ?? undefined,
+    }),
     history: nextHistory,
     wordGoal,
     bank: null,

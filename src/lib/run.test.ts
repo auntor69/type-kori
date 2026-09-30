@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { practiceTexts } from "../content/texts";
 import { clustersOf } from "../engine/compare";
 import type { PracticeText } from "../engine/text/provider";
+import { reduce } from "../engine/session";
 import {
   buildVocabulary,
   createRun,
@@ -140,28 +141,53 @@ describe("createRun", () => {
     }
   });
 
-  it("truncates to a word goal and keeps the rest of the text out", () => {
+  it("truncates to a word goal when no vocabulary backs the run", () => {
     const run = createRun({
       pool: [fixedText()],
       durationMs: null,
       seed: 1,
       wordGoal: 3,
+      infinite: false,
     });
 
     expect(run.session.target.length).toBe(3);
     expect(run.wordGoal).toBe(3);
-    expect(run.session.endAfterWords).toBeUndefined();
+    // Even a trimmed fixed run ends at the goal, never at the text's end.
+    expect(run.session.endAfterWords).toBe(3);
+  });
+
+  it("streams a words-goal run from the vocabulary and ends exactly at the goal", () => {
+    // Every curated practice sentence is a handful of words, so a goal of 25
+    // cannot be a truncated single text: the run streams and the session cuts
+    // it off the moment 25 words are committed.
+    const goal = 25;
+    const run = createRun({
+      pool: practiceTexts,
+      durationMs: null,
+      seed: 3,
+      wordGoal: goal,
+      infinite: true,
+      vocabulary,
+    });
+
+    expect(run.wordGoal).toBe(goal);
+    expect(run.bank).not.toBeNull();
+    expect(run.session.infinite).toBe(true);
+    expect(run.session.endAfterWords).toBe(goal);
+    // The island extends the stream while the caret is within three lines of
+    // the end, so the first paint only carries the initial buffer — the goal
+    // is guaranteed reachable by the extension, not by the first line.
+    expect(run.session.target.length).toBeGreaterThan(0);
   });
 
   it("keeps a words run bounded while a words-goal run streams forever without one", () => {
-    // The mode handlers must pass `infinite: goal === null`, not a flag read
-    // from the render: an unbounded run behind a words goal never ends at the
-    // goal, and a bounded run without a goal stops at the end of one text.
-    const bounded = createRun({
+    // A words-mode goal streams, so its words come from the bank; a fixed text
+    // with no goal never streams at all.
+    const fixed = createRun({
       pool: [fixedText()],
       durationMs: null,
       seed: 2,
-      wordGoal: 3,
+      wordGoal: null,
       infinite: false,
       vocabulary,
     });
@@ -174,8 +200,8 @@ describe("createRun", () => {
       vocabulary,
     });
 
-    expect(bounded.session.infinite).toBe(false);
-    expect(bounded.bank).toBeNull();
+    expect(fixed.session.infinite).toBe(false);
+    expect(fixed.bank).toBeNull();
     expect(streaming.session.infinite).toBe(true);
     expect(streaming.bank).not.toBeNull();
   });
@@ -213,6 +239,39 @@ describe("createRun", () => {
 
     expect(run.bank).toBeNull();
     expect(run.session.infinite).toBe(false);
+  });
+
+  it("finishes a words-goal run exactly at the goal, even with a bank behind it", () => {
+    // The full words-mode path: a streaming target with an endAfterWords cut.
+    // Typing past the goal must not commit a single extra word.
+    const goal = 5;
+    const run = createRun({
+      pool: practiceTexts,
+      durationMs: null,
+      seed: 7,
+      wordGoal: goal,
+      infinite: true,
+      vocabulary,
+    });
+
+    let session = run.session;
+    let at = 1_000;
+    for (const word of session.target) {
+      if (session.state === "finished") break;
+      session = reduce(session, { type: "input", text: word, at });
+      at += 10;
+      session = reduce(session, { type: "commit", at });
+      at += 10;
+      if (session.state === "finished") break;
+      // Keep the target fed the way the island does.
+      if (session.target.length - session.committed.length < STREAM_BUFFER) {
+        const stream = extendStream(run.bank!, session.target, "none");
+        session = reduce(session, { type: "extend", words: stream.words, at });
+      }
+    }
+
+    expect(session.state).toBe("finished");
+    expect(session.committed.length).toBe(goal);
   });
 });
 
