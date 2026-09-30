@@ -764,11 +764,14 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   // The stream: as the caret approaches the end of the generated target, extend
   // it with a fresh line of words. This is the whole trick behind an endless run.
+  // The trigger keeps three lines' worth of words ahead of the caret (about 36
+  // words at full width), so the screen always shows a full block of text the
+  // way monkeytype does instead of running dry after two lines.
   useEffect(() => {
     const { bank, session } = model;
     if (bank === null) return;
     if (session.state === "finished") return;
-    if (session.target.length - session.committed.length > STREAM_BUFFER) return;
+    if (session.target.length - session.committed.length > 3 * STREAM_BUFFER) return;
 
     setModel((current) => {
       if (current.bank === null) return current;
@@ -796,11 +799,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const weakAvailable =
     lesson === undefined && customRun === null && topWeakKeyCount(loadErrorMap()) > 0;
   const stats = sessionStats(session, now);
-  // The rendered window: enough committed context to read back, enough pending
-  // words that the stream never catches the caret. Rendering the whole target
-  // would grow without bound in an infinite run.
+  // The rendered window: enough committed context to read back, and about
+  // three lines of pending words at the fluid page width so the block looks
+  // filled out. Rendering the whole target would grow without bound in an
+  // infinite run.
   const windowStart = Math.max(0, activeIndex - (showAllLines ? 12 : 1));
-  const windowEnd = Math.min(session.target.length, activeIndex + (showAllLines ? 24 : 12));
+  const windowEnd = Math.min(session.target.length, activeIndex + (showAllLines ? 36 : 12));
   const view = renderProgress(
     session.target.slice(windowStart, windowEnd),
     session.committed.slice(windowStart, windowEnd),
