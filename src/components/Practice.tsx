@@ -365,10 +365,16 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
    * render that still had a custom paste (or a weak drill) on screen would
    * otherwise build the new run from the old target.
    */
-  const startBuiltinRun = (options: { durationMs: number | null; wordGoal: number | null }) => {
+  const startBuiltinRun = (
+    options: { durationMs: number | null; wordGoal: number | null } & {
+      /** Override for words mode: a goal streams so the goal is always reachable. */
+      infinite?: boolean;
+    },
+  ) => {
     if (lesson !== undefined) return;
 
-    const { durationMs, wordGoal: goal } = options;
+    const { durationMs, wordGoal: goal, infinite: infiniteOverride } = options;
+    const infinite = infiniteOverride ?? goal === null;
     engineRef.current.reset();
     setOsKeyboard(false);
     setFailReason(null);
@@ -386,7 +392,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         stopOnError: stopOnErrorWord || stopOnError,
         wordGoal: goal,
         // A bounded words run ends at its goal; timed and endless runs stream.
-        infinite: goal === null,
+        infinite,
         vocabulary,
         funbox: activeFunbox,
       }),
@@ -411,10 +417,11 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         difficulty,
         stopOnError: stopOnErrorWord || stopOnError,
         wordGoal,
-        // A bounded words run ends at its goal; timed and endless runs stream.
-        // Passing the render's `infinite` here would turn a words-mode goal
-        // into an unbounded stream that never ends at the goal.
-        infinite: wordGoal === null,
+        // Every built-in mode streams now: timed and endless runs keep drawing
+        // ahead, and a words-goal run streams too while the session ends it
+        // exactly at the goal. A fixed run only happens when no vocabulary is
+        // available, which createRun falls back to on its own.
+        infinite: true,
         vocabulary,
         funbox: activeFunbox,
       }),
@@ -466,7 +473,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       return;
     }
     if (testMode === "words") {
-      startBuiltinRun({ durationMs: null, wordGoal: WORD_GOALS[0] });
+      startBuiltinRun({ durationMs: null, wordGoal: WORD_GOALS[0], infinite: true });
       return;
     }
     startBuiltinRun({ durationMs: null, wordGoal: null });
@@ -484,9 +491,14 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     updateSettings(snapshot);
   };
 
-  /** Words mode: commit a fixed number of words, untimed. */
+  /**
+   * Words mode: commit a fixed number of words, untimed. The run streams from
+   * the vocabulary and ends exactly at the goal, so every chip from 10 to 100
+   * has enough words to type no matter how short the practice sentences are.
+   * A null goal is the endless stream, which never ends on its own.
+   */
   const chooseWordGoal = (goal: number | null) => {
-    startBuiltinRun({ durationMs: null, wordGoal: goal });
+    startBuiltinRun({ durationMs: null, wordGoal: goal, infinite: goal !== null });
   };
 
   /** One focused drill over the clusters this browser mistypes most. */
