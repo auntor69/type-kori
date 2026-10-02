@@ -1,0 +1,61 @@
+name: Bug report
+description: Something does not work the way it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you type, what did you expect, what did you see instead?
+      placeholder: "I chose words 25, typed 25 words, and the results screen said…"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps from a fresh page load, so someone else can see it too.
+      placeholder: |
+        1. Open /
+        2. Click …
+        3. Type …
+    validations:
+      required: true
+  - type: dropdown
+    id: page
+    attributes:
+      label: Where did it happen?
+      options:
+        - Practice (/)
+        - Lessons (/lessons)
+        - Progress (/progress)
+        - Settings drawer
+        - Command bar
+        - Somewhere else
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and OS
+      placeholder: "Firefox 141, Windows 11, Avro Keyboard 5.6"
+    validations:
+      required: true
+  - type: textarea
+    id: input-mode
+    attributes:
+      label: Input mode
+      description: System keyboard (which layout?) or built-in phonetic preview?
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: A screenshot of the practice area usually says more than a paragraph.
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output
+      description: Anything red in the browser devtools console (F12).
+      render: shell
