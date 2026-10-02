@@ -21,6 +21,16 @@ import { applyFunbox, isFunboxMode, type FunboxMode } from "./funbox";
 
 /** How far ahead of the caret the stream keeps drawing new words. */
 export const STREAM_BUFFER = 12;
+/**
+ * How many words one extension adds: three lines' worth at the fluid page
+ * width. The island re-extends the moment the surplus drops to
+ * `3 * STREAM_BUFFER`, so at 100+ WPM (1.7 words a second) a fresh batch
+ * lands every ~20 seconds — and the batch lands beyond the 36-word render
+ * window, so the visible block never moves when it arrives. A big batch also
+ * buys headroom: the caret would need over twenty seconds of blocked main
+ * thread to catch the stream.
+ */
+export const STREAM_EXTENSION = 3 * STREAM_BUFFER;
 /** How many recent text ids are excluded when drawing the next fixed text. */
 export const HISTORY_LIMIT = 6;
 
@@ -54,7 +64,7 @@ export interface RunOptions {
   history?: readonly string[];
   difficulty?: Difficulty | "all";
   /** Letter/word strictness, applied for the whole run. */
-  stopOnError?: boolean;
+  stopOnError?: "off" | "letter" | "word";
   /** Words mode target; null keeps the whole text. */
   wordGoal?: number | null;
   /** Infinite streaming mode; false keeps a fixed target text. */
@@ -103,7 +113,7 @@ export function extendStream(
   handle: WordBankHandle,
   target: readonly string[],
   funbox: FunboxMode,
-  count = STREAM_BUFFER,
+  count = STREAM_EXTENSION,
 ): { handle: WordBankHandle; words: string[] } {
   const seed = nextStreamSeed(handle.seed);
   const words = applyFunbox(
@@ -184,7 +194,7 @@ export function createRun(options: RunOptions): RunModel {
     seed,
     history = [],
     difficulty = "all",
-    stopOnError = false,
+    stopOnError = "off",
     wordGoal = null,
     infinite = false,
     vocabulary,
@@ -204,7 +214,8 @@ export function createRun(options: RunOptions): RunModel {
       session: createSession({
         targetWords: first,
         durationMs,
-        stopOnError,
+        stopOnError: stopOnError === "word",
+        stopOnLetter: stopOnError === "letter",
         infinite: true,
         // Words mode: the run ends the moment the goal is reached, even
         // though the target keeps streaming ahead of the caret.
@@ -230,7 +241,8 @@ export function createRun(options: RunOptions): RunModel {
     session: createSession({
       targetWords,
       durationMs,
-      stopOnError,
+      stopOnError: stopOnError === "word",
+      stopOnLetter: stopOnError === "letter",
       infinite: false,
       endAfterWords: wordGoal ?? undefined,
     }),

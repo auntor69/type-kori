@@ -490,3 +490,19 @@ with the reason. Newest last.
   was on screen trapped the user in `custom` mode. The twist toggles and the
   duration chips are disabled or hidden there instead — they only shape a
   generated stream, which a paste is not.
+- 2026-10-02 — **`stopOnError: "letter"` now refuses the wrong character
+  itself.** The two modes used to collapse into one boolean: letter and word
+  both set the session's word-level refusal, so "letter" behaved exactly like
+  "word" and the drawer's promise ("letter mode refuses a wrong character")
+  was never kept. The session now carries a separate `stopOnLetter` flag,
+  checked on `input` events cluster by cluster (overshooting the word counts
+  as wrong too). The built-in phonetic engine is exempt on purpose: its
+  intermediate transliterations legitimately pass through shapes that are not
+  prefixes of the target, and gating `compose` would stall the conversion.
+- 2026-10-02 — **The stream extends in batches of three lines, not one.**
+  `extendStream` used to add 12 words each time the surplus dropped to 36; at
+  100+ WPM that meant a rebuild every ~7 seconds for no visual gain, because
+  a batch lands beyond the 36-word render window either way. The extension
+  size is now `STREAM_EXTENSION = 3 * STREAM_BUFFER` (36), which keeps the
+  caret over twenty seconds of main-thread blockage away from the end of the
+  target and cuts the number of stream rebuilds to roughly one per batch.

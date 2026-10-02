@@ -16,8 +16,16 @@ export interface SessionOptions {
   targetWords: readonly string[];
   /** null = untimed: the run ends with the last word. */
   durationMs?: number | null;
-  /** Beginner lessons: a word must be correct before it can be committed. */
+  /** Word mode: a wrong word cannot be committed (Section 7.4.5). */
   stopOnError?: boolean;
+  /**
+   * Letter mode: a wrong character never lands on the screen at all. Checked
+   * on `input` events — the system keyboard's direct path. The built-in
+   * phonetic engine is exempt: its intermediate transliterations legitimately
+   * pass through shapes that are not prefixes of the target, so gating them
+   * would stall the conversion.
+   */
+  stopOnLetter?: boolean;
   /** End the run once this many words have been committed (words mode). */
   endAfterWords?: number;
   /**
@@ -43,6 +51,8 @@ export interface SessionState {
   readonly finishedAt: number | null;
   readonly durationMs: number | null;
   readonly stopOnError: boolean;
+  /** Letter mode: refuse a wrong character as it is typed. */
+  readonly stopOnLetter: boolean;
   /** Words mode: finish once committed reaches this count. */
   readonly endAfterWords: number | undefined;
   /** Streaming run: the island appends words; nothing ends on its own. */
@@ -79,6 +89,7 @@ export function createSession(options: SessionOptions): SessionState {
     finishedAt: null,
     durationMs: options.durationMs ?? null,
     stopOnError: options.stopOnError ?? false,
+    stopOnLetter: options.stopOnLetter ?? false,
     endAfterWords: options.endAfterWords,
     infinite: options.infinite ?? false,
     errorMap: {},
@@ -188,14 +199,44 @@ function afterWordChange(state: SessionState, at: number): SessionState {
   return state;
 }
 
+/**
+ * Letter mode's test: does everything typed so far still sit on the target
+ * word, cluster by cluster? Overshooting the word counts as wrong too — in
+ * this mode extra letters simply never appear (that is `hideExtraLetters`'s
+ * job in the free modes).
+ */
+function lettersMatchTarget(target: string, active: string): boolean {
+  const targetClusters = clustersOf(target);
+  const activeClusters = splitClusters(active);
+
+  if (activeClusters.length > targetClusters.length) return false;
+  for (let index = 0; index < activeClusters.length; index += 1) {
+    if (activeClusters[index] !== targetClusters[index]) return false;
+  }
+  return true;
+}
+
 function handleInput(state: SessionState, text: string, at: number): SessionState {
   const normalized = normalizeText(text);
   if (normalized.length === 0) return state;
 
   const started = startClock(state, at);
+  const active = started.active + normalized;
+  const target = started.target[targetIndex(started)] ?? "";
+
+  // Letter mode: a wrong character is refused before it reaches the screen.
+  // The clock still starts (the keystroke happened) but the text, the
+  // keystroke count and the error map are untouched — nothing was typed.
+  if (started.stopOnLetter && !lettersMatchTarget(target, active)) {
+    return {
+      ...started,
+      warning: hasLatinLetters(normalized) ? "latin" : started.warning,
+    };
+  }
+
   const next: SessionState = {
     ...started,
-    active: started.active + normalized,
+    active,
     // One input event is one keystroke, whatever it produces: in system mode a
     // single key press can deliver a whole conjunct.
     keystrokes: started.keystrokes + 1,
@@ -307,6 +348,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         targetWords: state.target,
         durationMs: state.durationMs,
         stopOnError: state.stopOnError,
+        stopOnLetter: state.stopOnLetter,
         endAfterWords: state.endAfterWords,
         infinite: state.infinite,
       });

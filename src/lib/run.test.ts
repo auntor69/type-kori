@@ -11,6 +11,7 @@ import {
   nextStreamSeed,
   parseTestType,
   STREAM_BUFFER,
+  STREAM_EXTENSION,
   testTypeFor,
   type WordBankHandle,
 } from "./run";
@@ -219,6 +220,20 @@ describe("createRun", () => {
     expect(run.durationMs).toBe(60_000);
   });
 
+  it("wires the letter/word strictness into the session it builds", () => {
+    const letter = createRun({ pool: [fixedText()], durationMs: null, seed: 3, stopOnError: "letter" });
+    expect(letter.session.stopOnLetter).toBe(true);
+    expect(letter.session.stopOnError).toBe(false);
+
+    const word = createRun({ pool: [fixedText()], durationMs: null, seed: 3, stopOnError: "word" });
+    expect(word.session.stopOnError).toBe(true);
+    expect(word.session.stopOnLetter).toBe(false);
+
+    const off = createRun({ pool: [fixedText()], durationMs: null, seed: 3 });
+    expect(off.session.stopOnError).toBe(false);
+    expect(off.session.stopOnLetter).toBe(false);
+  });
+
   it("is deterministic for a seed and varies with it", () => {
     const build = (seed: number) =>
       createRun({ pool: practiceTexts, durationMs: null, seed, infinite: true, vocabulary })
@@ -370,8 +385,8 @@ describe("the endless stream", () => {
     for (let step = 0; step < 40; step += 1) {
       const stream = extendStream(handle, target, "none");
       // The line that was on screen must not reappear.
-      expect(stream.words.length).toBe(STREAM_BUFFER);
-      expect(stream.words.join(" ")).not.toBe(target.slice(-STREAM_BUFFER).join(" "));
+      expect(stream.words.length).toBe(STREAM_EXTENSION);
+      expect(stream.words.join(" ")).not.toBe(target.slice(-STREAM_EXTENSION).join(" "));
 
       const previous = target[target.length - 1];
       expect(stream.words[0]).not.toBe(previous);
@@ -384,7 +399,7 @@ describe("the endless stream", () => {
       target = [...target, ...stream.words];
     }
 
-    expect(target.length).toBe(STREAM_BUFFER * 41);
+    expect(target.length).toBe(STREAM_BUFFER + STREAM_EXTENSION * 40);
     expect(target.every((word) => vocabulary.includes(word))).toBe(true);
   });
 
@@ -430,5 +445,119 @@ describe("the endless stream", () => {
     expect(replay(run.bank as WordBankHandle, run.session.target)).toBe(
       replay(run.bank as WordBankHandle, run.session.target),
     );
+  });
+});
+
+describe("stream capacity at high speed", () => {
+  /**
+   * A keystroke-level replay of the practice island's streaming loop, pushed
+   * harder than any real typist: 150 words a minute (a word every 400 ms),
+   * with the island's exact trigger — after every commit, extend when the
+   * surplus has dropped to `3 * STREAM_BUFFER`. The run must never let the
+   * caret near the end of the target, the render window must stay bounded,
+   * and the visible block must not move when a batch lands.
+   */
+  it("feeds a 150+ WPM typist without the caret ever catching the stream", () => {
+    const run = createRun({
+      pool: [fixedText()],
+      durationMs: null,
+      seed: 11,
+      infinite: true,
+      vocabulary,
+    });
+
+    let session = run.session;
+    let handle = run.bank as WordBankHandle;
+    let extensions = 0;
+    let minimumSurplus = Number.POSITIVE_INFINITY;
+    let maximumWindow = 0;
+
+    // The island's effect fires on mount too: the 12-word opening line is
+    // extended to a full three-line block before the first keystroke.
+    {
+      const opening = extendStream(handle, session.target, "none");
+      handle = opening.handle;
+      session = reduce(session, { type: "extend", words: opening.words, at: 999 });
+      extensions += 1;
+    }
+
+    const words = 300;
+    for (let index = 0; index < words; index += 1) {
+      const at = 1_000 + index * 400;
+      const word = session.target[session.committed.length];
+      if (word === undefined) break;
+
+      session = reduce(session, { type: "input", text: word, at });
+      session = reduce(session, { type: "commit", at: at + 10 });
+
+      // The island's effect, verbatim: extend while the surplus is at or
+      // under three lines' worth.
+      if (session.target.length - session.committed.length <= 3 * STREAM_BUFFER) {
+        const stream = extendStream(handle, session.target, "none");
+        handle = stream.handle;
+        session = reduce(session, { type: "extend", words: stream.words, at: at + 11 });
+        extensions += 1;
+
+        // A batch lands beyond the visible window (the caret index plus 36
+        // pending words), so the on-screen block never moves when it arrives.
+        expect(session.committed.length + 3 * STREAM_BUFFER).toBeLessThanOrEqual(
+          session.target.length,
+        );
+      }
+
+      const surplus = session.target.length - session.committed.length;
+      minimumSurplus = Math.min(minimumSurplus, surplus);
+
+      // The island's render window: 12 committed words back, 36 pending ahead.
+      const windowStart = Math.max(0, session.committed.length - 12);
+      const windowEnd = Math.min(session.target.length, session.committed.length + 36);
+      maximumWindow = Math.max(maximumWindow, windowEnd - windowStart);
+
+      expect(session.state).toBe("running");
+    }
+
+    expect(session.committed.length).toBe(words);
+    // The caret never came within a line of the end of the target.
+    expect(minimumSurplus).toBeGreaterThanOrEqual(STREAM_BUFFER);
+    // The DOM stays small no matter how long the run goes on.
+    expect(maximumWindow).toBeLessThanOrEqual(12 + 36);
+    // A big batch means few rebuilds: roughly one extension per batch of 36
+    // words, not one per second.
+    expect(extensions).toBeLessThanOrEqual(Math.ceil(words / STREAM_EXTENSION) + 2);
+  });
+
+  it("keeps a words-goal run exact while streaming at high speed", () => {
+    const goal = 100;
+    const run = createRun({
+      pool: practiceTexts,
+      durationMs: null,
+      seed: 13,
+      wordGoal: goal,
+      infinite: true,
+      vocabulary,
+    });
+
+    let session = run.session;
+    let handle = run.bank as WordBankHandle;
+
+    for (let index = 0; session.state !== "finished"; index += 1) {
+      const at = 1_000 + index * 300; // 200 WPM, faster than the goal above.
+      const word = session.target[session.committed.length];
+      if (word === undefined) break;
+
+      session = reduce(session, { type: "input", text: word, at });
+      session = reduce(session, { type: "commit", at: at + 10 });
+
+      if (session.target.length - session.committed.length <= 3 * STREAM_BUFFER) {
+        const stream = extendStream(handle, session.target, "none");
+        handle = stream.handle;
+        session = reduce(session, { type: "extend", words: stream.words, at: at + 11 });
+      }
+
+      expect(index).toBeLessThan(goal + 10);
+    }
+
+    expect(session.state).toBe("finished");
+    expect(session.committed.length).toBe(goal);
   });
 });
