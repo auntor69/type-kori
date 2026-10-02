@@ -102,7 +102,13 @@ const themeBootstrap = `(function(){
     <script is:inline set:html={themeBootstrap} />
   </head>
 
-  <body class="min-h-dvh antialiased">
+  <!--
+    One full-height column: header, flexible main, studio line at the bottom
+    edge. The homepage then fits the viewport exactly — no scrollbar when the
+    content fits — and longer pages (results, lessons, progress) still grow
+    and scroll as they must.
+  -->
+  <body class="flex min-h-dvh flex-col antialiased">
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-accent"
@@ -112,7 +118,7 @@ const themeBootstrap = `(function(){
 
     <SiteHeader lang={lang} />
 
-    <main id="main">
+    <main id="main" class="flex flex-1 flex-col">
       <slot />
     </main>
 
