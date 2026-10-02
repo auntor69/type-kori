@@ -152,3 +152,42 @@
   font-size: var(--typing-size);
   line-height: var(--typing-leading);
 }
+
+/* The gliding bar caret: one absolutely positioned bar that slides between
+   clusters (transform transition, 90 ms) instead of a border that teleports.
+   The practice island measures the anchor cluster and moves it; it sits
+   behind the letters the way monkeytype's does, and blinks gently while the
+   run waits. Display is toggled by the island — hidden until it first
+   measures an anchor. */
+.tk-caret {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  width: 2px;
+  border-radius: 1px;
+  background-color: var(--accent);
+  z-index: -1;
+  transition: transform 90ms linear;
+  animation: tk-caret-blink 1.1s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes tk-caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* A reader who asked the OS for less motion gets a caret that jumps and
+   holds still — the position updates, the glide and the blink do not. */
+@media (prefers-reduced-motion: reduce) {
+  .tk-caret {
+    transition: none;
+    animation: none;
+  }
+}
