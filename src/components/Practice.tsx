@@ -320,7 +320,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         seed: Date.now() % 0x7fff_ffff,
         history: current.history,
         difficulty,
-        stopOnError: stopOnErrorWord || stopOnError,
+        stopOnError: stopOnErrorWord ? "word" : stopOnError ? "letter" : "off",
         wordGoal,
         infinite,
         vocabulary,
@@ -389,7 +389,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         seed: Date.now() % 0x7fff_ffff,
         history: [],
         difficulty,
-        stopOnError: stopOnErrorWord || stopOnError,
+        stopOnError: stopOnErrorWord ? "word" : stopOnError ? "letter" : "off",
         wordGoal: goal,
         // A bounded words run ends at its goal; timed and endless runs stream.
         infinite,
@@ -415,7 +415,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         seed: Date.now() % 0x7fff_ffff,
         history: current.history,
         difficulty,
-        stopOnError: stopOnErrorWord || stopOnError,
+        stopOnError: stopOnErrorWord ? "word" : stopOnError ? "letter" : "off",
         wordGoal,
         // Every built-in mode streams now: timed and endless runs keep drawing
         // ahead, and a words-goal run streams too while the session ends it
@@ -516,10 +516,10 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setWeakDrill(drill);
     setModel(
       createRun({
-        pool: [drill],
-        durationMs: null,
-        seed: Date.now() % 0x7fff_ffff,
-        stopOnError: stopOnErrorWord || stopOnError,
+      pool: [drill],
+      durationMs: null,
+      seed: Date.now() % 0x7fff_ffff,
+      stopOnError: stopOnErrorWord ? "word" : stopOnError ? "letter" : "off",
       }),
     );
   };

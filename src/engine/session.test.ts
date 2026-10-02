@@ -140,6 +140,51 @@ describe("committing words", () => {
     expect(state.committed[0].correct).toBe(true);
   });
 
+  it("refuses a wrong character in letter mode before it reaches the screen", () => {
+    let state = type(createSession({ targetWords: target, stopOnLetter: true }), ["ক"], 1_000);
+
+    // Nothing landed: the word is still empty and the keystroke was not counted.
+    expect(state.active).toBe("");
+    expect(state.keystrokes).toBe(0);
+
+    state = type(state, ["আ", "মি"], 2_000);
+    expect(state.active).toBe("আমি");
+
+    state = press(state, "commit", 3_000);
+    expect(state.committed).toHaveLength(1);
+    expect(state.committed[0].correct).toBe(true);
+  });
+
+  it("refuses an overshoot in letter mode: extra letters never appear", () => {
+    let state = type(createSession({ targetWords: target, stopOnLetter: true }), [
+      "আ",
+      "মি",
+      "ক",
+    ], 1_000);
+
+    expect(state.active).toBe("আমি");
+    expect(state.keystrokes).toBe(2);
+  });
+
+  it("does not gate the phonetic engine's compose events in letter mode", () => {
+    // Intermediate transliterations legitimately pass through shapes that are
+    // not prefixes of the target, so compose is exempt by design.
+    let state = createSession({ targetWords: target, stopOnLetter: true });
+    state = reduce(state, { type: "compose", text: "কশ", composing: "ksh", at: 1_000 });
+
+    expect(state.active).toBe("কশ");
+  });
+
+  it("keeps letter mode across a restart", () => {
+    const started = type(createSession({ targetWords: target, stopOnLetter: true }), ["আ"], 1_000);
+    const restarted = reduce(started, { type: "restart", at: 2_000 });
+
+    expect(restarted.stopOnLetter).toBe(true);
+
+    const state = type(restarted, ["ক"], 3_000);
+    expect(state.active).toBe("");
+  });
+
   it("ignores input once the run is finished", () => {
     const finished = type(createSession({ targetWords: ["আমি"], endAfterWords: 1 }), [
       "আ",
