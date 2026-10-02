@@ -1,0 +1,25 @@
+{
+  "name": "Type Kori",
+  "short_name": "Type Kori",
+  "description": "বাংলা টাইপিং অনুশীলন — Bangla typing practice, offline and ad-free.",
+  "lang": "bn",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#2c2e31",
+  "theme_color": "#2c2e31",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

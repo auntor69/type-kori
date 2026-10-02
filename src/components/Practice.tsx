@@ -86,12 +86,11 @@ function clusterClass(
   blindMode: boolean,
   caretStyle: CaretStyle,
 ): string {
-  const caret =
-    isNext && caretStyle === "bar"
-      ? " border-s-2 border-s-accent ps-0.5"
-      : isNext && caretStyle === "underline"
-        ? " border-b-2 border-accent"
-        : "";
+  // The bar caret is a separate gliding element (`.tk-caret`) that the island
+  // measures and slides between clusters; a border here would teleport in
+  // steps of one cluster. The underline caret stays a border — it belongs to
+  // the letter it marks.
+  const caret = isNext && caretStyle === "underline" ? " border-b-2 border-accent" : "";
 
   // Blind mode: correctness is never coloured — raw speed only.
   if (blindMode) return `text-text${caret}`;
@@ -199,6 +198,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const [lessonRecord, setLessonRecord] = useState<LessonProgress | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  // The gliding bar caret: the words container it is measured inside, the bar
+  // element itself, and the run it last snapped for (a fresh run must jump to
+  // its start, not slide there from the previous run's last position).
+  const wordsRef = useRef<HTMLDivElement | null>(null);
+  const caretRef = useRef<HTMLSpanElement | null>(null);
+  const caretRunRef = useRef<string | null>(null);
   const engineRef = useRef<InputEngine>(createEngine(defaultSettings.inputMode));
   // The document-level key handler is mounted once, so it reads the run through
   // this ref instead of a stale closure.
@@ -826,6 +831,48 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const timed = model.durationMs !== null;
   const countdown = timed ? Math.max(0, (model.durationMs ?? 0) - stats.elapsedMs) : 0;
 
+  // The gliding caret: after every render that moves the typing position,
+  // measure the cluster the next keystroke lands on and slide the bar there.
+  // A new run snaps instead of sliding — the bar belongs to the old text.
+  useEffect(() => {
+    const container = wordsRef.current;
+    const caret = caretRef.current;
+    if (container === null || caret === null) return;
+
+    const anchor =
+      caretStyle === "bar" && session.state !== "finished"
+        ? container.querySelector<HTMLElement>("[data-tk-caret-anchor]")
+        : null;
+
+    if (anchor === null) {
+      caret.style.display = "none";
+      return;
+    }
+
+    const runKey = `${session.startedAt ?? 0}:${model.text.id}`;
+    const snap = caretRunRef.current !== runKey;
+    caretRunRef.current = runKey;
+
+    caret.style.display = "block";
+    caret.style.height = `${anchor.offsetHeight}px`;
+    if (snap) caret.style.transitionDuration = "0ms";
+    caret.style.transform = `translate(${anchor.offsetLeft}px, ${anchor.offsetTop}px)`;
+    if (snap) {
+      // Flush the snap before the transition duration comes back, so the
+      // first real move after a restart animates from the right place.
+      void caret.offsetWidth;
+      caret.style.transitionDuration = "";
+    }
+  }, [
+    caretStyle,
+    session.state,
+    session.startedAt,
+    session.active,
+    activeIndex,
+    windowStart,
+    model.text.id,
+  ]);
+
   // A finished run is recorded exactly once: the key is the run's own identity, so
   // later re-renders (a resize, a settings broadcast) cannot double-count it.
   const recordedRef = useRef<string | null>(null);
@@ -1105,11 +1152,18 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         onClick={focusInput}
       >
         <div
+          ref={wordsRef}
           lang="bn"
           role="group"
           aria-label={t("practice.typingArea")}
-          class="typing-text flex select-none flex-wrap content-start gap-x-[0.7em] gap-y-3 px-5 py-6 sm:px-7 sm:py-8"
+          class="typing-text relative flex select-none flex-wrap content-start gap-x-[0.7em] gap-y-3 px-5 py-6 sm:px-7 sm:py-8"
         >
+          {/* The gliding bar caret: one element that slides between clusters
+              (measured and moved by the effect below) instead of teleporting.
+              The underline style keeps its own border on the letter. */}
+          {caretStyle === "bar" && (
+            <span ref={caretRef} class="tk-caret" aria-hidden="true" />
+ )}
           {view.words.map((word, wordIndex) => {
             const nextCluster = word.status === "active"
               ? word.clusters.findIndex((cluster) => cluster.state !== "correct")
@@ -1130,25 +1184,31 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
                 {word.clusters.map((cluster, clusterIndex) => {
                   const typo =
                     indicateTypos !== "off" && cluster.state === "wrong" ? cluster.typed : null;
-                  const classes = clusterClass(
-                    cluster.state,
-                    clusterIndex === nextCluster,
-                    blindMode,
-                    caretStyle,
-                  );
+                  const isNext = clusterIndex === nextCluster;
+                  const classes = clusterClass(cluster.state, isNext, blindMode, caretStyle);
+                  // The gliding caret anchors to this cluster.
+                  const caretAnchor = isNext && caretStyle === "bar";
 
                   // Replace mode shows what was typed in place of the letter;
                   // below mode keeps the letter and prints the typo under it.
                   if (typo !== null && indicateTypos === "replace") {
                     return (
-                      <span key={clusterIndex} class={classes}>
+                      <span
+                        key={clusterIndex}
+                        class={classes}
+                        data-tk-caret-anchor={caretAnchor ? "" : undefined}
+                      >
                         {typo}
                       </span>
                     );
                   }
 
                   return (
-                    <span key={clusterIndex} class={typo === null ? classes : `relative ${classes}`}>
+                    <span
+                      key={clusterIndex}
+                      class={typo === null ? classes : `relative ${classes}`}
+                      data-tk-caret-anchor={caretAnchor ? "" : undefined}
+                    >
                       {cluster.target}
                       {typo !== null && (
                         <span

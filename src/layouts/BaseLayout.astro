@@ -82,6 +82,7 @@ const themeBootstrap = `(function(){
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="preload" as="font" type="font/woff2" crossorigin href={bengaliFont} />
 
     <script is:inline set:html={themeBootstrap} />
@@ -100,5 +101,20 @@ const themeBootstrap = `(function(){
     <main id="main">
       <slot />
     </main>
+
+    <!--
+      Offline support: register the service worker in production builds only.
+      The dev server transforms modules on the fly, so caching them would
+      serve stale code after every edit — the worker stays out of development.
+    -->
+    <script>
+      if (import.meta.env.PROD && "serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => {
+            // Offline support is a bonus: a failed registration changes nothing.
+          });
+        });
+      }
+    </script>
   </body>
 </html>

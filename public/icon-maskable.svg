@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Type Kori">
+  <!-- Maskable icon: every visible mark stays inside the inner 80% safe zone,
+       so Android's circle crop can never clip the letter. -->
+  <rect width="512" height="512" fill="#0E7C5A" />
+  <rect x="144" y="184" width="224" height="38" rx="19" fill="#FFFFFF" />
+  <text
+    x="256"
+    y="394"
+    text-anchor="middle"
+    font-size="240"
+    font-weight="600"
+    fill="#FFFFFF"
+    font-family="'Noto Sans Bengali', 'Nirmala UI', 'Bangla MN', 'Vrinda', sans-serif"
+  >ট</text>
+</svg>

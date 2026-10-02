@@ -506,3 +506,18 @@ with the reason. Newest last.
   size is now `STREAM_EXTENSION = 3 * STREAM_BUFFER` (36), which keeps the
   caret over twenty seconds of main-thread blockage away from the end of the
   target and cuts the number of stream rebuilds to roughly one per batch.
+- 2026-10-02 — **Offline support is a hand-written service worker,
+  production-only.** The site is static, so `public/sw.js` caches it with
+  network-first navigations and stale-while-revalidate assets — no PWA plugin,
+  no build-time precache manifest to keep in sync. The worker registers only
+  when `import.meta.env.PROD`: the dev server transforms modules on the fly,
+  and caching those would serve stale code after every edit, so the preview
+  stays honest while the deployed site installs and works offline.
+- 2026-10-02 — **The bar caret glides instead of teleporting.** A border on
+  the next cluster moved in steps of one letter and never crossed a word gap
+  smoothly. Now one absolutely positioned bar (`.tk-caret`, behind the
+  letters, gently blinking) is measured against the anchor cluster after
+  every render and slides there in 90 ms; a fresh run snaps instead of
+  sliding in from the previous run's last position, and
+  `prefers-reduced-motion` gets a caret that jumps and holds still. The
+  underline caret stays a border on the letter it marks.
