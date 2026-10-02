@@ -1,19 +1,28 @@
-# Type Kori
+<div align="center">
 
-**টাইপ করি** — _Bangla Typing Trainer_
+# টাইপ করি · Type Kori
+
+### The Bangla typing trainer.
+
+Learn and practice typing Bangla on a PC keyboard — structured lessons, endless
+speed tests and honest progress tracking, **free, no sign-up, no ads**, and no
+data leaves your device.
+
+*structured lessons · endless stream · 12 lessons · 261 themes · 21 badges ·
+custom text · weak-key drills — instantly, in the browser, in English or বাংলা*
 
 [![CI](https://github.com/auntor69/type-kori/actions/workflows/ci.yml/badge.svg)](https://github.com/auntor69/type-kori/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](package.json)
 [![Live](https://img.shields.io/badge/live-typekori.vercel.app-2c2e31.svg)](https://typekori.vercel.app)
 
-Learn and practice typing Bangla on a PC keyboard: structured lessons, speed
-tests and honest progress tracking. Free, no sign-up, no ads, and no data leaves
-your device.
+**[Live app](https://typekori.vercel.app)** · [Report a bug](https://github.com/auntor69/type-kori/issues/new?template=bug_report.yml) · [Feature idea](https://github.com/auntor69/type-kori/issues/new?template=feature_request.yml) · [Security policy](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
-**[Try it now → typekori.vercel.app](https://typekori.vercel.app)** — it works
-offline once installed (PWA), and everything stays on your device.
+<img src="docs/assets/practice.png" alt="The Type Kori practice page: a block of Bangla words with the gliding caret, the config bar above and live stats below" width="100%" />
 
-> ব্রাউজারেই বিনামূল্যে বাংলা টাইপিং শিখুন। সাইন-আপ নেই, বিজ্ঞাপন নেই, ডেটা আপনার ডিভাইসেই থাকে।
+</div>
+
+---
 
 ## What it is
 
@@ -38,6 +47,21 @@ Finished runs, the error map, lesson results and the settings all live in
 `localStorage`. The progress page summarises them and can export, import or reset
 them as one JSON file.
 
+## Features
+
+| | |
+|---|---|
+| **Endless stream** | Untimed runs never run out — a fresh line of words is generated whenever the caret gets near the end, keeping up with 100+ WPM typists without a single visual jump. |
+| **Time / words / zen** | 15/30/60/120-second runs, 10/25/50/100-word goals that end exactly at the goal, or the endless zen stream (`Tab` ends it). |
+| **12 lessons** | A path from the vowels to conjuncts, numbers and real-world text — fixed drills, untimed, passed at 90% accuracy. |
+| **Your own text** | Paste an exam question or book paragraph (Bangla only, 12–1200 characters) and practise exactly that — stored on your device, never uploaded. |
+| **Funboxes** | Twist the stream: Bengali numerals, punctuation, reversed words, or a memory mode that hides the words ahead. |
+| **261 themes** | Built-ins, community classics, and one palette for every country flag — every one contrast checked. Star them, export them. |
+| **Command bar** | `Ctrl+K` palette and `Ctrl+/` command line share one grammar: `theme dracula · time 60 · words 25 · funbox numbers · goto progress`. |
+| **Honest progress** | Personal bests per test type, streaks, 21 badges, a miss-rate heat grid and the speed trend. |
+| **Weak-key drills** | One focused drill over the clusters you mistype most. |
+| **Offline PWA** | Install it and it works with no network at all. Nothing is fetched from a third-party server at runtime. |
+
 ## Lessons
 
 `/lessons` is a path of twelve short lessons, from the vowels to conjuncts, numbers
@@ -45,6 +69,10 @@ and real-world text. Each lesson is a fixed drill set with no timer, passed at 9
 accuracy. The curriculum and its copy are in `src/content/lessons.ts`, the drill
 texts in `content/lessons/drills.json`, and every drill carries the same
 `reviewed` flag as a practice text.
+
+<p align="center">
+  <img src="docs/assets/lessons.png" alt="The lesson path: twelve lessons from vowels to real-world text" width="100%" />
+</p>
 
 ## Your own text
 
@@ -203,4 +231,8 @@ licence analysis is in `docs/DECISIONS.md`.
 
 ---
 
-Built with care by **Afterclass Studio** — © 2026 Afterclass Studio.
+<div align="center">
+
+Built with care by **Afterclass Studio** — © 2026 Afterclass Studio
+
+</div>
