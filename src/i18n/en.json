@@ -18,6 +18,10 @@
   "nav.language": "Language",
   "nav.home": "Home",
 
+  "notFound.title": "Page not found | Type Kori",
+  "notFound.body": "There is no page at this address. The link may be old, or the address may have a small typo in it.",
+  "notFound.back": "Back to practice",
+
   "theme.light": "Light",
   "theme.dark": "Dark",
   "theme.system": "System",

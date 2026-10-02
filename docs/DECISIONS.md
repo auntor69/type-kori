@@ -521,3 +521,20 @@ with the reason. Newest last.
   sliding in from the previous run's last position, and
   `prefers-reduced-motion` gets a caret that jumps and holds still. The
   underline caret stays a border on the letter it marks.
+- 2026-10-02 — **The old footer comes back as one studio line.** The footer
+  was deleted outright on 2026-09-28; the owner has since moved the project
+  under Afterclass Studio and asked for the attribution back. It is one
+  quiet, unlinked `© 2026 Afterclass Studio` line carrying
+  `data-tk-chrome`, so focus mode fades it with everything else.
+- 2026-10-02 — **The social card is generated geometry, not a screenshot.**
+  The sandbox has no Bengali fonts (and no browser), so `public/og.png` is
+  built by `scripts/generate-og.cjs` from pure shapes — word blocks, the
+  gliding caret, the matra rule — on the serika-dark palette. sharp is
+  deliberately not a dependency: the card is committed and the script only
+  runs when the design changes.
+- 2026-10-02 — **SEO lives in one layout and one contract test.** The
+  WebApplication JSON-LD, og/twitter cards, robots meta and the studio
+  attribution all come from `BaseLayout.astro` (every page inherits them;
+  per-page titles/descriptions/canonicals/hreflang were already there), the
+  404 pages exist for both locales, and `src/lib/seo.test.ts` pins the facts
+  crawlers must always find.

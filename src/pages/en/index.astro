@@ -17,6 +17,9 @@ const appSchema = {
   inLanguage: ["bn", "en"],
   isAccessibleForFree: true,
   description: t("meta.description"),
+  image: new URL("/og.png", Astro.site).href,
+  author: { "@type": "Organization", name: "Afterclass Studio", url: Astro.site?.href },
+  publisher: { "@type": "Organization", name: "Afterclass Studio" },
   offers: { "@type": "Offer", price: "0", priceCurrency: "BDT" },
 };
 ---

@@ -18,6 +18,10 @@
   "nav.language": "ভাষা",
   "nav.home": "হোম",
 
+  "notFound.title": "পাতা পাওয়া যায়নি | Type Kori",
+  "notFound.body": "এই ঠিকানায় কোনো পাতা নেই। হয়তো লিঙ্কটা পুরোনো, নয়তো বানানে একটু গড়বড় হয়েছে।",
+  "notFound.back": "প্র্যাকটিসে ফিরে যান",
+
   "theme.light": "লাইট",
   "theme.dark": "ডার্ক",
   "theme.system": "সিস্টেম",
