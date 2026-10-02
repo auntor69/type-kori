@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/auntor69/type-kori/tree/main/docs
+    about: The masterplan, decisions log and the list of items awaiting a native-speaker review.

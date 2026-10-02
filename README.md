@@ -2,11 +2,18 @@
 
 **টাইপ করি** — _Bangla Typing Trainer_
 
+[![CI](https://github.com/auntor69/type-kori/actions/workflows/ci.yml/badge.svg)](https://github.com/auntor69/type-kori/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Live](https://img.shields.io/badge/live-typekori.vercel.app-2c2e31.svg)](https://typekori.vercel.app)
+
 Learn and practice typing Bangla on a PC keyboard: structured lessons, speed
 tests and honest progress tracking. Free, no sign-up, no ads, and no data leaves
 your device.
 
-Learn Bangla typing. Free, fast, no sign-up.
+**[Try it now → typekori.vercel.app](https://typekori.vercel.app)** — it works
+offline once installed (PWA), and everything stays on your device.
+
+> ব্রাউজারেই বিনামূল্যে বাংলা টাইপিং শিখুন। সাইন-আপ নেই, বিজ্ঞাপন নেই, ডেটা আপনার ডিভাইসেই থাকে।
 
 ## What it is
 
@@ -168,8 +175,13 @@ script itself are the only files excluded from the file scan.
 
 Contributions of reviewed practice texts, translations and test cases for the
 typing engine are welcome. Every text needs a native-speaker review before it
-ships, and every rule of pure logic needs a test. See `docs/MASTERPLAN.md`
-Sections 8, 13 and 15.
+ships, and every rule of pure logic needs a test. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md) — it walks through the setup, the gates and
+the house rules. Bug reports and feature ideas go through the issue templates.
+
+By participating you agree to the
+[Code of Conduct](CODE_OF_CONDUCT.md). Security issues go through
+[SECURITY.md](SECURITY.md)'s private channel, never a public issue.
 
 ## The phonetic grammar
 
@@ -188,3 +200,7 @@ licence analysis is in `docs/DECISIONS.md`.
 - Lesson and practice text: original content of this project, released under CC0
   (`content/`), unless a file states otherwise.
 - The phonetic grammar: original to this project, MIT, like the rest of the code.
+
+---
+
+Built with care by **Afterclass Studio** — © 2026 Afterclass Studio.

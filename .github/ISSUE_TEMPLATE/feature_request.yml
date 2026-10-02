@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest an improvement. Problem first, proposal second.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can a Bangla typist not do today, or what is awkward? Describe the problem, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: What should happen instead? Be concrete about the typing flow.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Scope check
+      description: The project is a static site with no backend, no accounts and no trackers.
+      options:
+        - label: This feature can work fully client-side / offline
+          required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Links, screenshots, or a sketch of the typing flow.

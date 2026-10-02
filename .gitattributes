@@ -1,0 +1,15 @@
+# Normalize line endings: everything text is LF in the repo and the working tree.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Mark the binaries so they are never diffed or mangled.
+*.png binary
+*.woff2 binary
+*.woff binary
+*.ico binary
+
+# Linguist: the lessons' drill data is data, not generated boilerplate.
+content/lessons/*.json linguist-language=JSON
