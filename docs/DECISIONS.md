@@ -538,3 +538,9 @@ with the reason. Newest last.
   per-page titles/descriptions/canonicals/hreflang were already there), the
   404 pages exist for both locales, and `src/lib/seo.test.ts` pins the facts
   crawlers must always find.
+- 2026-10-02 — **The canonical site is `https://typekori.vercel.app`.** The
+  owner's Vercel deployment is where the site actually lives, so `site` in
+  `astro.config.mjs` (which feeds every canonical URL, hreflang pair, the
+  og:image and the sitemap) and the sitemap line in `public/robots.txt` both
+  point there; the old `type-kori.pages.dev` URL is gone. The SEO contract
+  test keeps robots.txt and the config from drifting apart.
