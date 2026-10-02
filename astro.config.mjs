@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 // The preview host injects PORT and requires the dev server to listen on all
 // interfaces. HMR stays disabled in this environment.
 export default defineConfig({
-  site: "https://type-kori.pages.dev",
+  site: "https://typekori.vercel.app",
   output: "static",
   trailingSlash: "ignore",
   integrations: [
