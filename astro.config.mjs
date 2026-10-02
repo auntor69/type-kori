@@ -9,7 +9,14 @@ export default defineConfig({
   site: "https://type-kori.pages.dev",
   output: "static",
   trailingSlash: "ignore",
-  integrations: [preact(), sitemap()],
+  integrations: [
+    preact(),
+    sitemap({
+      // An error page is crawlable, not recommendable: keep every 404 route
+      // out of the sitemap (the localised one builds to /en/404/).
+      filter: (page) => !page.includes("/404"),
+    }),
+  ],
   server: {
     host: true,
     port: Number(process.env.PORT ?? 4321),
