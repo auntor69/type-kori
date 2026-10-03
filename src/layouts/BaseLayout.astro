@@ -73,6 +73,12 @@ const themeBootstrap = `(function(){
     <meta name="description" content={description} />
     <meta name="author" content={STUDIO} />
     <meta name="robots" content={noindex ? "noindex, follow" : "index, follow"} />
+    <!-- Search Console ownership. The token is public by design: it is meant to
+         be readable in the page source, and on its own it grants nothing. -->
+    <meta
+      name="google-site-verification"
+      content="JD-kaOLLoHJwchnc3UB7ykINOTfywIJcgVri6H-CR-Q"
+    />
     <link rel="canonical" href={canonical} />
 
     <link rel="alternate" hreflang="bn" href={banglaUrl} />
