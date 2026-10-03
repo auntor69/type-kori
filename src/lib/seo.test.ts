@@ -168,3 +168,12 @@ describe("the page landmarks", () => {
     expect(header).toContain("</nav>");
   });
 });
+
+describe("the Search Console ownership token", () => {
+  it("sits in the shared layout, so every page carries it", () => {
+    // Google reads the token from the live page source; if it only reached one
+    // route the property would fail to verify.
+    expect(layout).toContain('name="google-site-verification"');
+    expect(layout).toContain("JD-kaOLLoHJwchnc3UB7ykINOTfywIJcgVri6H-CR-Q");
+  });
+});
