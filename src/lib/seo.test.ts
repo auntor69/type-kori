@@ -90,3 +90,81 @@ describe("the studio line", () => {
     expect(layout).toMatch(/<footer data-tk-chrome[^>]*>\s*© 2026 \{STUDIO\}/);
   });
 });
+
+describe("the sitemap URLs", () => {
+  it("lists the same address the page's canonical tag names", () => {
+    // A sitemap entry and a canonical tag that disagree give one page two
+    // addresses, which is exactly what canonicalisation exists to prevent.
+    expect(astroConfig).toContain("serialize(item)");
+    expect(astroConfig).toContain("canonicalPath(url.pathname)");
+  });
+
+  it("pairs the two editions with xhtml:link alternates", () => {
+    expect(astroConfig).toContain('lang: "bn"');
+    expect(astroConfig).toContain('lang: "en"');
+    // Bangla is the default language, so x-default points at the Bangla URL.
+    expect(astroConfig).toContain('lang: "x-default"');
+    expect(astroConfig).toMatch(/links:\s*\[/);
+  });
+});
+
+describe("the bilingual social card", () => {
+  it("offers the reader's other language", () => {
+    expect(layout).toContain('property="og:locale:alternate"');
+    expect(layout).toContain('const otherLocale = lang === "bn" ? "en_US" : "bn_BD"');
+  });
+
+  it("says what the card image is, and describes it", () => {
+    expect(layout).toContain('property="og:image:type" content="image/png"');
+    expect(layout).toContain('name="twitter:image:alt"');
+  });
+});
+
+describe("the site identity", () => {
+  it("declares the site and its publisher, joined to the app by @id", () => {
+    for (const page of ["src/pages/index.astro", "src/pages/en/index.astro"]) {
+      const source = read(page);
+      expect(source, page).toContain('"@type": "WebSite"');
+      expect(source, page).toContain('"@type": "Organization"');
+      // One graph, not three loose records: the entities reference each other.
+      expect(source, page).toContain('"@graph"');
+      expect(source, page).toContain("#organization");
+      expect(source, page).toContain("#website");
+      expect(source, page).toContain('"@type": "WebApplication"');
+    }
+  });
+});
+
+describe("the lessons as learning material", () => {
+  it("marks each lesson as a LearningResource inside its course", () => {
+    for (const page of ["src/pages/lessons/[slug].astro", "src/pages/en/lessons/[slug].astro"]) {
+      const source = read(page);
+      expect(source, page).toContain('"@type": "LearningResource"');
+      expect(source, page).toContain('"@type": "Course"');
+      // A lesson is free and unrated; claiming a rating would be invented.
+      expect(source, page).toContain("isAccessibleForFree: true");
+      expect(source, page).not.toContain("aggregateRating");
+    }
+  });
+});
+
+describe("the way back", () => {
+  it("states the breadcrumb trail on the pages that show one", () => {
+    for (const page of [
+      "src/pages/progress.astro",
+      "src/pages/en/progress.astro",
+      "src/pages/privacy.astro",
+      "src/pages/en/privacy.astro",
+    ]) {
+      expect(read(page), page).toContain('"@type": "BreadcrumbList"');
+    }
+  });
+});
+
+describe("the page landmarks", () => {
+  it("wraps the header links in a nav landmark", () => {
+    const header = read("src/components/SiteHeader.astro");
+    expect(header).toContain("<nav aria-label={t(\"nav.primary\")}");
+    expect(header).toContain("</nav>");
+  });
+});

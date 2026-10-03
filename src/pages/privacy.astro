@@ -1,9 +1,24 @@
 ---
 import { privacyCopy } from "../content/privacy";
+import { localizePath, useTranslations } from "../i18n";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 const lang = "bn" as const;
 const copy = privacyCopy[lang];
+const t = useTranslations(lang);
+
+const absolute = (path: string) => new URL(localizePath(path, lang), Astro.site).href;
+
+// The page sits one level under the home page, so the trail is short. Stating
+// it lets a search engine show the same path the breadcrumb nav shows.
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: t("nav.home"), item: absolute("/") },
+    { "@type": "ListItem", position: 2, name: copy.title.split("|")[0].trim(), item: absolute("/privacy") },
+  ],
+};
 ---
 
 <BaseLayout lang={lang} title={copy.title} description={copy.description} path="/privacy">
@@ -22,4 +37,6 @@ const copy = privacyCopy[lang];
       }
     </div>
   </article>
+
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
 </BaseLayout>

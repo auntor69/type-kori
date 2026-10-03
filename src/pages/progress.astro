@@ -1,10 +1,25 @@
 ---
 import Progress from "../components/Progress.tsx";
 import { progressCopy } from "../content/progress";
+import { localizePath, useTranslations } from "../i18n";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 const lang = "bn" as const;
 const copy = progressCopy[lang];
+const t = useTranslations(lang);
+
+const absolute = (path: string) => new URL(localizePath(path, lang), Astro.site).href;
+
+// The page sits one level under the home page, so the trail is short. Stating
+// it lets a search engine show the same path the breadcrumb nav shows.
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: t("nav.home"), item: absolute("/") },
+    { "@type": "ListItem", position: 2, name: copy.h1, item: absolute("/progress") },
+  ],
+};
 ---
 
 <BaseLayout lang={lang} title={copy.title} description={copy.description} path="/progress">
@@ -43,4 +58,6 @@ const copy = progressCopy[lang];
       </dl>
     </section>
   </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
 </BaseLayout>
