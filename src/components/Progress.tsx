@@ -113,6 +113,10 @@ export default function Progress({ lang }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
 
+  const goHome = () => {
+    window.location.assign(localizePath("/", lang));
+  };
+
   // The stored data only exists in the browser, so it is read after mount: the
   // prerendered page and the first client render then agree.
   useEffect(() => {
@@ -243,6 +247,19 @@ export default function Progress({ lang }: Props) {
         </div>
       ) : (
         <>
+          <p class="mt-6 text-sm text-muted">
+            <a
+              href={`${localizePath("/", lang)}`}
+              class="font-medium text-accent transition-opacity duration-150 ease-out hover:opacity-80"
+              onClick={(event) => {
+                event.preventDefault();
+                goHome();
+              }}
+            >
+              {t("lesson.goHome")}
+            </a>
+          </p>
+
           <section
             aria-labelledby="progress-trend"
             class="rounded-card border border-border bg-surface p-5"
