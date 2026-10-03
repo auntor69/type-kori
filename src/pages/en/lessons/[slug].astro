@@ -41,6 +41,27 @@ const breadcrumbSchema = {
     },
   ],
 };
+
+// A lesson is a piece of educational material, not just a web page: this is
+// what lets a search engine treat it as something to learn from rather than
+// something to read. It carries no dates or ratings, because the project has
+// none to declare truthfully.
+const lessonSchema = {
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  name: lesson.title[lang],
+  description: lesson.summary[lang],
+  inLanguage: lang === "bn" ? "bn-BD" : "en-GB",
+  learningResourceType: "lesson",
+  educationalLevel: "beginner",
+  isAccessibleForFree: true,
+  url: absolute(`/lessons/${lesson.slug}`),
+  image: absolute("/og.png"),
+  timeRequired: "PT10M",
+  teaches: lesson.keys[lang],
+  isPartOf: { "@type": "Course", name: copy.h1, url: absolute("/lessons") },
+  publisher: { "@type": "Organization", name: "Afterclass Studio", url: Astro.site?.href },
+};
 ---
 
 <BaseLayout
@@ -124,4 +145,5 @@ const breadcrumbSchema = {
   </article>
 
   <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(lessonSchema)} />
 </BaseLayout>

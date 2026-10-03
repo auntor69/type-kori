@@ -25,6 +25,9 @@ const canonical = absolute(localizePath(path, lang));
 const banglaUrl = absolute(localizePath(path, "bn"));
 const englishUrl = absolute(localizePath(path, "en"));
 
+// The other edition, so a social card can offer the reader their language.
+const otherLocale = lang === "bn" ? "en_US" : "bn_BD";
+
 // The studio behind the app: the author meta here, and the publisher in the
 // homepage's WebApplication JSON-LD (structured data stays per-page — see
 // src/pages/index.astro — so no page carries two records for one thing).
@@ -79,10 +82,12 @@ const themeBootstrap = `(function(){
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Type Kori" />
     <meta property="og:locale" content={lang === "bn" ? "bn_BD" : "en_US"} />
+    <meta property="og:locale:alternate" content={otherLocale} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={absolute("/og.png")} />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Type Kori — a line of Bangla words with the gliding caret" />
@@ -90,6 +95,10 @@ const themeBootstrap = `(function(){
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={absolute("/og.png")} />
+    <meta
+      name="twitter:image:alt"
+      content="Type Kori — a line of Bangla words with the gliding caret"
+    />
 
     <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#2c2e31" media="(prefers-color-scheme: dark)" />

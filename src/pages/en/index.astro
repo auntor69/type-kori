@@ -1,26 +1,58 @@
 ---
 import HomeBody from "../../components/HomeBody.astro";
-import { useTranslations } from "../../i18n";
+import { localizePath, useTranslations } from "../../i18n";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 
 const lang = "en" as const;
 const t = useTranslations(lang);
 
+const site = Astro.site?.href ?? "/";
+
+// One graph, three entities, joined by @id: the studio that publishes the app,
+// the site it lives on, and the app itself. Splitting them lets a search engine
+// attach the publisher and the site to the app record instead of reading three
+// unrelated blobs on the same page.
 const appSchema = {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: "Type Kori",
-  alternateName: "টাইপ করি",
-  applicationCategory: "EducationalApplication",
-  operatingSystem: "Any",
-  browserRequirements: "Requires JavaScript",
-  inLanguage: ["bn", "en"],
-  isAccessibleForFree: true,
-  description: t("meta.description"),
-  image: new URL("/og.png", Astro.site).href,
-  author: { "@type": "Organization", name: "Afterclass Studio", url: Astro.site?.href },
-  publisher: { "@type": "Organization", name: "Afterclass Studio" },
-  offers: { "@type": "Offer", price: "0", priceCurrency: "BDT" },
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${site}#organization`,
+      name: "Afterclass Studio",
+      url: site,
+      logo: {
+        "@type": "ImageObject",
+        url: new URL("/favicon.svg", Astro.site).href,
+      },
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${site}#website`,
+      url: site,
+      name: "Type Kori",
+      alternateName: "টাইপ করি",
+      inLanguage: ["bn", "en"],
+      publisher: { "@id": `${site}#organization` },
+    },
+    {
+      "@type": "WebApplication",
+      "@id": `${site}#app`,
+      name: "Type Kori",
+      alternateName: "টাইপ করি",
+      url: new URL(localizePath("/", lang), Astro.site).href,
+      applicationCategory: "EducationalApplication",
+      operatingSystem: "Any",
+      browserRequirements: "Requires JavaScript",
+      inLanguage: ["bn", "en"],
+      isAccessibleForFree: true,
+      description: t("meta.description"),
+      image: new URL("/og.png", Astro.site).href,
+      author: { "@id": `${site}#organization` },
+      publisher: { "@id": `${site}#organization` },
+      isPartOf: { "@id": `${site}#website` },
+      offers: { "@type": "Offer", price: "0", priceCurrency: "BDT" },
+    },
+  ],
 };
 ---
 

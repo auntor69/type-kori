@@ -40,6 +40,7 @@ const themePickerGlue = `
     </a>
 
     <div class="ms-auto flex items-center gap-0.5">
+      <nav aria-label={t("nav.primary")} class="flex items-center gap-0.5">
       <a
         href={lessonsPath}
         class={iconClass}
@@ -141,6 +142,7 @@ const themePickerGlue = `
 
       <CommandBar client:load lang={lang} />
       <SiteControls client:load lang={lang} />
+      </nav>
     </div>
   </div>
 </header>
