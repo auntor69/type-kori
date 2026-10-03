@@ -77,6 +77,15 @@ const breadcrumbSchema = {
 
     <p class="mt-4 max-w-2xl text-base leading-relaxed text-muted">{lesson.intro[lang]}</p>
 
+    <p class="mt-6 text-sm text-muted">
+      <a
+        href={absolute("/")}
+        class="font-medium text-accent transition-opacity duration-150 ease-out hover:opacity-80"
+      >
+        {t("lesson.goHome")}
+      </a>
+    </p>
+
     <dl class="mt-6 grid gap-3 sm:grid-cols-2">
       <div class="rounded-card border border-border bg-surface p-4">
         <dt class="text-xs font-medium uppercase tracking-wide text-muted">{copy.keysLabel}</dt>

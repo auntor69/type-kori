@@ -1,9 +1,13 @@
 ---
 import { lessons, lessonHref, lessonsCopy, localizedDigits } from "../content/lessons";
+import { localizePath, useTranslations } from "../i18n";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 const lang = "bn" as const;
+const t = useTranslations(lang);
 const copy = lessonsCopy[lang];
+
+const absolute = (path: string) => new URL(localizePath(path, lang), Astro.site).href;
 
 const listSchema = {
   "@context": "https://schema.org",
@@ -25,6 +29,15 @@ const listSchema = {
     <p class="font-bangla mt-4 max-w-2xl text-base leading-relaxed text-muted">{copy.lead}</p>
 
     <p class="mt-4 text-sm text-muted">{copy.criterion}</p>
+
+    <p class="mt-6 text-sm text-muted">
+      <a
+        href={absolute("/")}
+        class="font-medium text-accent transition-opacity duration-150 ease-out hover:opacity-80"
+      >
+        {t("lesson.goHome")}
+      </a>
+    </p>
 
     <ol class="mt-10 grid gap-4 sm:grid-cols-2">
       {
