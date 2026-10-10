@@ -6,6 +6,7 @@
  * finished run in one call and the progress page reads validated data or nothing.
  */
 
+import { consistency } from "../engine/metrics";
 import { clustersOf, type WordResult } from "../engine/compare";
 import type { InputEngineId } from "../engine/input/types";
 import {
@@ -31,9 +32,20 @@ export const ERROR_MAP_KEY = `${STORAGE_PREFIX}errorMap`;
 /** Section 9 caps the history at the most recent 500 runs. */
 export const RUN_LIMIT = 500;
 
+/**
+ * How many per-second speed samples one run keeps. A 10-minute run is 600, and
+ * the history holds 500 runs, so this is the only thing standing between the
+ * store and a runaway `localStorage` entry.
+ */
+export const SAMPLE_LIMIT = 300;
+
 /** One mistake, as the run summary prints it. */
 export interface RunError {
+  /** The target word that came out wrong, for the mistake notebook. */
+  word?: string;
+  /** The cluster the target had where the word first diverged. */
   expected: string;
+  /** What was typed in its place. */
   typed: string;
 }
 
@@ -49,6 +61,12 @@ export interface RunRecord {
   /** Time actually spent typing, not the timer the run was started with. */
   durationMs: number;
   errors: RunError[];
+  /**
+   * Per-second WPM sampled during the run, oldest first, so consistency and the
+   * shape of the run can be recomputed later. Optional: runs recorded before
+   * sampling existed carry none.
+   */
+  samples?: number[];
   /**
    * Which test produced the run, e.g. `time 60`, `words 25`, `∞` or `lesson`.
    * Optional because history recorded before personal bests existed has none.
@@ -74,11 +92,29 @@ function parseRunErrors(raw: unknown): RunError[] {
   const errors: RunError[] = [];
   for (const entry of raw) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { expected, typed } = entry as Partial<RunError>;
+    const { word, expected, typed } = entry as Partial<RunError>;
     if (typeof expected !== "string" || typeof typed !== "string") continue;
-    errors.push({ expected, typed });
+    errors.push({
+      // Records written before the notebook existed carry no word.
+      word: typeof word === "string" && word.length > 0 ? word : undefined,
+      expected,
+      typed,
+    });
   }
   return errors;
+}
+
+function parseSamples(raw: unknown): number[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+
+  const samples: number[] = [];
+  for (const entry of raw) {
+    if (!isCount(entry) || entry < 0) continue;
+    samples.push(Math.round(entry));
+    if (samples.length >= SAMPLE_LIMIT) break;
+  }
+
+  return samples.length > 0 ? samples : undefined;
 }
 
 /** Validate one stored run. Anything incomplete means the record is dropped. */
@@ -103,6 +139,7 @@ export function parseRun(raw: unknown): RunRecord | null {
     accuracy: run.accuracy,
     durationMs: run.durationMs,
     errors: parseRunErrors(run.errors),
+    samples: parseSamples(run.samples),
     testType:
       typeof run.testType === "string" && run.testType.length > 0 && run.testType.length <= 32
         ? run.testType
@@ -248,6 +285,21 @@ export function averageAccuracy(runs: readonly RunRecord[]): number {
 
 export function totalTypingMs(runs: readonly RunRecord[]): number {
   return runs.reduce((sum, run) => sum + run.durationMs, 0);
+}
+
+/**
+ * The mean consistency of every run that carries per-second samples, one
+ * decimal. Runs recorded before sampling existed are skipped rather than
+ * counted as 0, so the figure means the same thing before and after.
+ */
+export function averageConsistency(runs: readonly RunRecord[]): number {
+  const scored = runs
+    .map((run) => run.samples)
+    .filter((samples): samples is number[] => samples !== undefined && samples.length >= 2);
+  if (scored.length === 0) return 0;
+
+  const total = scored.reduce((sum, samples) => sum + consistency(samples), 0);
+  return Math.round((total / scored.length) * 10) / 10;
 }
 
 /**

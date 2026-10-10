@@ -5,7 +5,7 @@ import { collectMistakes, renderProgress, type ClusterState, type WordStatus } f
 import { createPhoneticEngine } from "../engine/input/phonetic";
 import { createSystemEngine } from "../engine/input/system";
 import type { EngineAction, InputEngine, InputEngineId } from "../engine/input/types";
-import { formatDuration } from "../engine/metrics";
+import { appendSpeedSample, consistency, formatDuration } from "../engine/metrics";
 import { reduce, sessionStats, type SessionEvent } from "../engine/session";
 import type { Difficulty, PracticeText } from "../engine/text/provider";
 import { useTranslations, type Lang } from "../i18n";
@@ -24,6 +24,7 @@ import {
   newRunId,
   recordLessonResult,
   recordRun,
+  SAMPLE_LIMIT,
   type LessonProgress,
 } from "../lib/progress";
 import {
@@ -37,7 +38,9 @@ import {
   type WordHistory,
 } from "../lib/settings";
 import { formatNumeral } from "../lib/numerals";
-import { loadErrorMap } from "../lib/progress";
+import { loadErrorMap, loadRuns, personalBests } from "../lib/progress";
+import { dayKey, isDayKey, seedFromKey } from "../lib/daily";
+import { buildMistakeText, mistakeWords } from "../lib/mistakes";
 import {
   buildVocabulary,
   createRun,
@@ -152,6 +155,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const [sound, setSound] = useState<"off" | "click" | "error" | "both">("off");
   const [wordGoal, setWordGoal] = useState<number | null>(null);
   const [weakDrill, setWeakDrill] = useState<PracticeText | null>(null);
+  /** The day whose challenge is on screen, or null for an ordinary run. */
+  const [dailyKey, setDailyKey] = useState<string | null>(null);
+  /** The best speed for this run's test type before the run started. */
+  const [previousBest, setPreviousBest] = useState<number | null>(null);
+  /** The finished run's per-second speed, for the consistency score. */
+  const [finalSamples, setFinalSamples] = useState<number[]>([]);
   const [quickRestart, setQuickRestart] = useState<QuickRestart>("esc");
   const [confidenceMode, setConfidenceMode] = useState<ConfidenceMode>("off");
   const [indicateTypos, setIndicateTypos] = useState<IndicateTypos>("off");
@@ -205,6 +214,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const caretRef = useRef<HTMLSpanElement | null>(null);
   const caretRunRef = useRef<string | null>(null);
   const engineRef = useRef<InputEngine>(createEngine(defaultSettings.inputMode));
+  // Per-second speed for the run on screen, keyed by run identity so a restart
+  // or a new text starts a fresh series instead of extending the old one.
+  const samplesRef = useRef<{ key: string; values: number[] }>({ key: "", values: [] });
   // The document-level key handler is mounted once, so it reads the run through
   // this ref instead of a stale closure.
   const modelRef = useRef<RunModel | null>(null);
@@ -385,6 +397,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setFailReason(null);
     setWeakDrill(null);
     setCustomRun(null);
+    setDailyKey(null);
     setCustomPanelOpen(false);
     setWordGoal(goal);
     setModel(
@@ -413,6 +426,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     engineRef.current.reset();
     setOsKeyboard(false);
     setWeakDrill(null);
+    setDailyKey(null);
     setModel((current) =>
       createRun({
         pool,
@@ -519,12 +533,61 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     // the user was in would linger in the toolbar state and the run record.
     setWordGoal(null);
     setWeakDrill(drill);
+    setDailyKey(null);
     setModel(
       createRun({
       pool: [drill],
       durationMs: null,
       seed: Date.now() % 0x7fff_ffff,
       stopOnError: stopOnErrorWord ? "word" : stopOnError ? "letter" : "off",
+      }),
+    );
+  };
+
+  /**
+   * The daily challenge: an endless stream drawn from the day's seed, so every
+   * device that opens this date sees the exact same words. Nothing is fetched —
+   * the date is the whole state, which is also what makes the link shareable.
+   */
+  const startDaily = (key: string) => {
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setFailReason(null);
+    setCustomRun(null);
+    setCustomPanelOpen(false);
+    setWeakDrill(null);
+    setWordGoal(null);
+    setDailyKey(key);
+    setModel(
+      createRun({
+        pool: practiceTexts,
+        durationMs: null,
+        seed: seedFromKey(key),
+        difficulty,
+        infinite: true,
+        vocabulary,
+        funbox,
+      }),
+    );
+  };
+
+  /** One drill over the words the notebook says this browser keeps missing. */
+  const startMistakeDrill = () => {
+    const drill = buildMistakeText(loadRuns());
+    if (drill === null) return;
+
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setFailReason(null);
+    setWordGoal(null);
+    setDailyKey(null);
+    setWeakDrill(drill);
+    setModel(
+      createRun({
+        pool: [drill],
+        durationMs: null,
+        seed: Date.now() % 0x7fff_ffff,
+        stopOnError: stopOnErrorWord ? "word" : stopOnError ? "letter" : "off",
       }),
     );
   };
@@ -544,6 +607,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     // mode the user was in must go, or the results screen and the progress page
     // would record the paste as `words 25` instead of `custom`.
     setWordGoal(null);
+    setDailyKey(null);
     engineRef.current.reset();
     setOsKeyboard(false);
     setModel(
@@ -573,7 +637,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
             ? "weak"
             : customRun !== null
               ? "custom"
-              : undefined,
+              : dailyKey !== null
+                ? "daily"
+                : undefined,
       funbox: run.funbox,
     });
 
@@ -631,6 +697,31 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   useEffect(() => {
     setCustomSaved(loadCustomText());
   }, []);
+
+  // The query string can ask for a specific run: `?daily=YYYY-MM-DD` opens that
+  // day's challenge (which makes a shared link real — the seed comes from the
+  // date, so both devices draw the same words), and `?mistakes=1` opens the drill
+  // the progress page links to. Anything unrecognised is ignored.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("daily");
+    if (isDayKey(requested)) {
+      startDaily(requested);
+      return;
+    }
+    if (params.get("mistakes") !== null) startMistakeDrill();
+    // Mount-only: the query string does not change under a running island.
+  }, []);
+
+  // Keep the address bar in step with the run: while a daily challenge is on
+  // screen its day sits in the URL, so the address bar *is* the share link and a
+  // reload reopens the same words. Leaving the challenge removes it again.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (dailyKey === null) url.searchParams.delete("daily");
+    else url.searchParams.set("daily", dailyKey);
+    window.history.replaceState(null, "", url);
+  }, [dailyKey]);
 
   // One listener for the whole document: the first keystroke anywhere starts the
   // run, so there is nothing to click before the first word.
@@ -748,6 +839,17 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       const live = modelRef.current;
       if (live !== null && (live.session.durationMs !== null || live.session.state === "running")) {
         const stats = sessionStats(live.session, at);
+
+        // One speed sample per whole second elapsed: the basis of the
+        // consistency score. Keyed by run, so a restart starts a fresh series.
+        const runKey = `${live.session.startedAt ?? 0}:${live.text.id}`;
+        if (samplesRef.current.key !== runKey) samplesRef.current = { key: runKey, values: [] };
+        samplesRef.current.values = appendSpeedSample(
+          samplesRef.current.values,
+          stats.elapsedMs,
+          stats.wpm,
+        );
+
         const failure = minimumFailure(stats, { minWpm, minAccuracy });
 
         if (failure !== null) {
@@ -815,7 +917,17 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   // The weak drill is only meaningful once at least one mistake was recorded.
   const weakAvailable =
     lesson === undefined && customRun === null && topWeakKeyCount(loadErrorMap()) > 0;
+  // The notebook is only drillable once at least one word has been missed.
+  const mistakeAvailable =
+    lesson === undefined && customRun === null && mistakeWords(loadRuns()).length > 0;
   const stats = sessionStats(session, now);
+
+  // Words typed correctly with no break, counting back from the caret.
+  let combo = 0;
+  for (let index = session.committed.length - 1; index >= 0; index -= 1) {
+    if (!session.committed[index].correct) break;
+    combo += 1;
+  }
   // The rendered window: enough committed context to read back, and about
   // three lines of pending words at the fluid page width so the block looks
   // filled out. Rendering the whole target would grow without bound in an
@@ -883,6 +995,14 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     if (recordedRef.current === key) return;
     recordedRef.current = key;
 
+    // The test type and the previous best are read before this run is written,
+    // so the comparison is against the record it is about to replace.
+    const testType = testTypeOf(model);
+    setPreviousBest(
+      personalBests(loadRuns()).find((best) => best.testType === testType)?.bestWpm ?? null,
+    );
+    setFinalSamples(samplesRef.current.values.slice());
+
     recordRun(
       {
         id: newRunId(),
@@ -894,8 +1014,10 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         accuracy: stats.accuracy,
         // Time actually spent typing, which is what the results screen shows.
         durationMs: Math.round(stats.elapsedMs),
-        testType: testTypeOf(model),
+        testType,
+        samples: samplesRef.current.values.slice(0, SAMPLE_LIMIT),
         errors: collectMistakes(session.committed, session.target).map((mistake) => ({
+          word: mistake.target,
           expected: mistake.expected ?? "",
           typed: mistake.actual ?? "",
         })),
@@ -1084,15 +1206,44 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         )}
 
         {lesson === undefined && customRun === null && (
+          <>
+            <button
+              type="button"
+              onClick={startWeakDrill}
+              disabled={weakAvailable === false}
+              title={t("practice.weakDrill")}
+              aria-label={t("practice.weakDrill")}
+              class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t("practice.weakDrill")}
+            </button>
+
+            <button
+              type="button"
+              onClick={startMistakeDrill}
+              disabled={!mistakeAvailable}
+              title={t("progress.notebookDrill")}
+              aria-label={t("progress.notebookDrill")}
+              class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t("progress.notebookDrill")}
+            </button>
+          </>
+        )}
+
+        {lesson === undefined && (
           <button
             type="button"
-            onClick={startWeakDrill}
-            disabled={weakAvailable === false}
-            title={t("practice.weakDrill")}
-            aria-label={t("practice.weakDrill")}
-            class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => startDaily(dayKey())}
+            aria-pressed={dailyKey !== null}
+            title={t("practice.dailyHint")}
+            class={`rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors duration-150 ease-out ${
+              dailyKey !== null
+                ? "border-accent bg-accent text-on-accent"
+                : "border-border bg-surface text-muted hover:text-text"
+            }`}
           >
-            {t("practice.weakDrill")}
+            {t("practice.daily")}
           </button>
         )}
 
@@ -1311,6 +1462,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           value={formatNumeral(formatDuration(timed ? countdown : stats.elapsedMs), numerals)}
         />
         <Stat label={t("practice.kpm")} value={formatNumeral(stats.kpm, numerals)} />
+        <Stat label={t("practice.combo")} value={formatNumeral(combo, numerals)} />
         <Stat
           label={t("results.correct")}
           value={formatNumeral(
@@ -1370,6 +1522,18 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
             </p>
           )}
 
+          {previousBest !== null && stats.wpm > previousBest && (
+            <p
+              role="status"
+              class="mt-3 rounded-card border border-accent/40 bg-accent-soft px-4 py-2.5 text-sm font-medium text-text"
+            >
+              {t("results.newBest")}{" "}
+              <span class="font-semibold tabular-nums">
+                {formatNumeral(previousBest, numerals)} WPM
+              </span>
+            </p>
+          )}
+
           <div class="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
             <div>
               <div class="text-5xl font-semibold tabular-nums leading-none text-accent">
@@ -1392,6 +1556,10 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
               ).toLowerCase()}`}
             />
             <Stat label={t("results.corrected")} value={String(stats.correctedMistakes)} />
+            <Stat
+              label={t("results.consistency")}
+              value={`${formatNumeral(consistency(finalSamples), numerals)}%`}
+            />
           </div>
 
           <div class="mt-5 border-t border-border pt-4">

@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { formatDuration } from "../engine/metrics";
 import { localizePath, useTranslations, type Lang } from "../i18n";
 import { earnedCount, evaluateBadges, currentStreak, longestStreak } from "../lib/badges";
+import { mistakeWords } from "../lib/mistakes";
 import { parseTestType } from "../lib/run";
 import {
   applyBackup,
   averageAccuracy,
+  averageConsistency,
   backupFileName,
   bestWpm,
   clusterHeat,
@@ -130,6 +132,8 @@ export default function Progress({ lang }: Props) {
   const heat = useMemo(() => clusterHeat(errorMap), [errorMap]);
   const points = useMemo(() => wpmSeries(runs), [runs]);
   const bests = useMemo(() => personalBests(runs), [runs]);
+  const notebook = useMemo(() => mistakeWords(runs), [runs]);
+  const hasSamples = useMemo(() => runs.some((run) => run.samples !== undefined), [runs]);
   const badges = useMemo(() => evaluateBadges({ runs, lessons }), [runs, lessons]);
   const streak = useMemo(() => currentStreak(runs), [runs]);
   const bestStreak = useMemo(() => longestStreak(runs), [runs]);
@@ -227,6 +231,10 @@ export default function Progress({ lang }: Props) {
           label={t("progress.avgAccuracy")}
           value={runs.length > 0 ? `${averageAccuracy(runs)}%` : "—"}
         />
+        <StatTile
+          label={t("progress.consistency")}
+          value={hasSamples ? `${averageConsistency(runs)}%` : "—"}
+        />
         <StatTile label={t("progress.totalTime")} value={formatTotal(totalTypingMs(runs))} />
         <StatTile
           label={t("progress.streak")}
@@ -237,6 +245,37 @@ export default function Progress({ lang }: Props) {
           value={`${earnedCount(badges)}/${badges.length}`}
         />
       </div>
+
+      {notebook.length > 0 && (
+        <section
+          aria-labelledby="progress-notebook"
+          class="rounded-card border border-border bg-surface p-5"
+        >
+          <h2 id="progress-notebook" class="text-sm font-semibold text-text">
+            {t("progress.notebook")}
+          </h2>
+          <p class="mt-1 text-xs leading-relaxed text-muted">{t("progress.notebookNote")}</p>
+          <ul class="mt-3 flex flex-wrap gap-2">
+            {notebook.map((entry) => (
+              <li
+                key={entry.word}
+                class="inline-flex items-center gap-2 rounded-pill border border-border bg-surface-2 px-3 py-1"
+              >
+                <span lang="bn" class="font-bangla text-sm text-text">
+                  {entry.word}
+                </span>
+                <span class="text-xs tabular-nums text-wrong">×{entry.count}</span>
+              </li>
+            ))}
+          </ul>
+          <a
+            href={`${localizePath("/", lang)}?mistakes=1`}
+            class={`mt-4 inline-block ${PRIMARY_BUTTON}`}
+          >
+            {t("progress.notebookDrill")}
+          </a>
+        </section>
+      )}
 
       {runs.length === 0 ? (
         <div class="rounded-card border border-border bg-surface p-6 text-center">
