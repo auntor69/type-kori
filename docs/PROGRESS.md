@@ -187,3 +187,11 @@ judgement. Phase 4 follows, and Phase 3's sign-off can happen in parallel.
   palette off the flag itself — page from the field's own hue and chroma, accent
   from the flag's most vivid colour, text from the flag's white or darkest ink,
   panel leaning toward the field.
+- 2026-10-10 — first five from the owner's feature shortlist: a **consistency**
+  score (each run now stores the per-second speed it was sampled from), a
+  **mistake notebook** of the words actually mistyped plus a drill built from
+  them (`?mistakes=1` on the practice page), the **daily challenge** seeded from
+  the date so every device draws the same words (`?daily=YYYY-MM-DD`, no server),
+  a **new personal best** moment on the results screen, and a live clean-word
+  **combo** counter. `RunRecord.errors` now also carries the target word, which
+  is what makes the notebook about words rather than clusters.

@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { WordResult } from "./compare";
 import {
   accuracyPercent,
+  appendSpeedSample,
   computeStats,
+  consistency,
   countCorrectClusters,
   countTargetClusters,
   formatDuration,
@@ -120,5 +122,67 @@ describe("formatDuration", () => {
     expect(formatDuration(65_000)).toBe("1:05");
     expect(formatDuration(720_000)).toBe("12:00");
     expect(formatDuration(-10)).toBe("0:00");
+  });
+});
+
+describe("appendSpeedSample", () => {
+  it("adds nothing before the first whole second", () => {
+    expect(appendSpeedSample([], 0, 50)).toEqual([]);
+    expect(appendSpeedSample([], 250, 50)).toEqual([]);
+    expect(appendSpeedSample([], 999, 50)).toEqual([]);
+  });
+
+  it("adds exactly one value per second, however often it is called", () => {
+    let samples = appendSpeedSample([], 1_000, 40);
+    samples = appendSpeedSample(samples, 1_100, 99);
+    samples = appendSpeedSample(samples, 1_900, 99);
+    expect(samples).toEqual([40]);
+
+    samples = appendSpeedSample(samples, 2_000, 60);
+    expect(samples).toEqual([40, 60]);
+  });
+
+  it("records one value, never an invented one, across a skipped second", () => {
+    const samples = appendSpeedSample([], 3_500, 45);
+    expect(samples).toEqual([45]);
+  });
+
+  it("keeps the series in the order the samples arrived", () => {
+    let samples: number[] = [];
+    for (let second = 1; second <= 5; second += 1) {
+      samples = appendSpeedSample(samples, second * 1_000, second * 10);
+    }
+    expect(samples).toEqual([10, 20, 30, 40, 50]);
+    expect(consistency(samples)).toBeGreaterThan(0);
+  });
+});
+
+describe("consistency", () => {
+  it("is 100 for a perfectly steady run", () => {
+    expect(consistency([60, 60, 60, 60])).toBe(100);
+  });
+
+  it("drops as the per-second speed varies", () => {
+    // Mean 50, standard deviation 10, so 1 − 10/50 = 0.8.
+    expect(consistency([40, 60])).toBe(80);
+  });
+
+  it("is 0 when there is nothing to compare", () => {
+    expect(consistency([])).toBe(0);
+    expect(consistency([50])).toBe(0);
+  });
+
+  it("is 0 when the mean is 0", () => {
+    expect(consistency([0, 0, 0])).toBe(0);
+  });
+
+  it("never goes below 0 or above 100", () => {
+    // Mean 50, deviation 50: the raw score would be 0, and a wilder run negative.
+    expect(consistency([0, 100])).toBe(0);
+    expect(consistency([0, 0, 100])).toBe(0);
+  });
+
+  it("ignores values that are not finite", () => {
+    expect(consistency([60, Number.NaN, 60])).toBe(100);
   });
 });

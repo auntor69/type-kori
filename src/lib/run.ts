@@ -125,7 +125,15 @@ export function extendStream(
 }
 
 /** What kind of test produced a run, as stored on the run record. */
-export type TestTypeKind = "time" | "words" | "endless" | "lesson" | "custom" | "weak" | "unknown";
+export type TestTypeKind =
+  | "time"
+  | "words"
+  | "endless"
+  | "lesson"
+  | "custom"
+  | "weak"
+  | "daily"
+  | "unknown";
 
 export interface ParsedTestType {
   kind: TestTypeKind;
@@ -143,7 +151,7 @@ export interface ParsedTestType {
 export function testTypeFor(options: {
   durationMs: number | null;
   wordGoal: number | null;
-  kind?: "lesson" | "custom" | "weak";
+  kind?: "lesson" | "custom" | "weak" | "daily";
   funbox?: FunboxMode;
 }): string {
   const { durationMs, wordGoal, kind, funbox = "none" } = options;
@@ -175,7 +183,7 @@ export function parseTestType(testType: string | undefined): ParsedTestType {
   if (words !== null) return { kind: "words", value: Number(words[1]), funbox };
 
   if (base === "∞") return { kind: "endless", value: null, funbox };
-  if (base === "lesson" || base === "custom" || base === "weak") {
+  if (base === "lesson" || base === "custom" || base === "weak" || base === "daily") {
     return { kind: base, value: null, funbox };
   }
 
