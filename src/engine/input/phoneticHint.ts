@@ -53,6 +53,12 @@ export function nextRomanLetters(
 ): string[] {
   const grammar = options.grammar ?? loadGrammar();
 
+  // The word is already spelled: say nothing rather than offer letters that
+  // happen to leave the spelling alone. Since a lowercase `o` is the inherent
+  // vowel, it produces no new character in many positions, so without this the
+  // hint would suggest `o` forever on a finished word.
+  if (transliterate(buffer, options) === targetWord) return [];
+
   return ALPHABET.filter((letter) => {
     const roman = buffer + letter;
     if (isCompatiblePrefix(transliterate(roman, options), targetWord)) return true;

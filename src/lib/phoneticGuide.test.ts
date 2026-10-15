@@ -60,7 +60,8 @@ describe("the sheet covers the grammar", () => {
     ];
     expect(ids).toEqual(expected.filter((id) => ids.includes(id)));
     // Vowels run from অ to ঔ, not alphabetically.
-    expect(groups[0].rows[0].latin).toBe("a");
+    expect(groups[0].rows[0].latin).toBe("o");
+    expect(groups[0].rows[0].bangla).toBe("অ");
     expect(groups[0].rows.at(-1)?.bangla).toBe("ঔ");
   });
 
@@ -87,13 +88,21 @@ describe("every row is usable Bangla", () => {
 
   it("offers a sign form for every vowel, and for nothing else", () => {
     // Each vowel has both its independent form (after a vowel or a space) and
-    // its sign (after a consonant), which is the rule the sheet has to teach.
+    // its sign (after a consonant) — except the inherent vowel, whose sign is
+    // deliberately empty: `o` after a consonant writes nothing, which is what
+    // makes কর `kor` and সকালে `sokale`.
+    const silent: string[] = [];
     for (const group of groups) {
       for (const row of group.rows) {
-        if (group.id === "vowels") expect(row.sign, row.latin).toBeTruthy();
-        else expect(row.sign, row.latin).toBeUndefined();
+        if (group.id !== "vowels") {
+          expect(row.sign, row.latin).toBeUndefined();
+          continue;
+        }
+        expect(typeof row.sign, row.latin).toBe("string");
+        if (row.sign === "") silent.push(row.latin);
       }
     }
+    expect(silent).toEqual(["o"]);
   });
 
   it("keeps the dictionary to whole words", () => {
@@ -115,11 +124,14 @@ describe("the sheet agrees with the engine", () => {
   });
 
   it("keeps the dictionary ahead of the rules, so its exceptions still win", () => {
-    // `kemon` is the case the dictionary exists for: the rules alone give
-    // কেমোন, and the sheet must show the dictionary's কেমন.
-    const row = rows.find((candidate) => candidate.latin === "kemon");
-    expect(row?.bangla).toBe("কেমন");
-    expect(transliterate("kemon")).toBe("কেমন");
+    // `bhalo` is the case the dictionary exists for now: the rules alone read
+    // the final `o` as the inherent vowel and give ভাল, and the sheet must show
+    // the dictionary's ভালো. The reference spelling `bhalO` needs no entry.
+    const row = rows.find((candidate) => candidate.latin === "bhalo");
+    expect(row?.bangla).toBe("ভালো");
+    expect(transliterate("bhalo")).toBe("ভালো");
+    expect(transliterate("bhalO")).toBe("ভালো");
+    expect(transliterate("bhal", { grammar: { ...grammar, dictionary: [] } })).toBe("ভাল");
   });
 });
 

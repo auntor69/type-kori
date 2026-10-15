@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import drills from "../../../content/lessons/drills.json";
+import easyTexts from "../../../content/texts/easy.json";
+import hardTexts from "../../../content/texts/hard.json";
+import mediumTexts from "../../../content/texts/medium.json";
+import { classifyCodePoint } from "../unicode";
 import {
   allRuleRows,
   compileRules,
@@ -67,19 +72,22 @@ describe("the word dictionary", () => {
     },
   );
 
-  it("resolves the reference's word-final kemon case", () => {
-    // The rules alone spell this কেমোন; the dictionary entry is what makes it
-    // match the reference spelling. See docs/VERIFY.md item 13.
-    expect(transliterate("kemon", { grammar, compiled })).toBe("কেমন");
+  it("spells the reference's word-final case with no dictionary at all", () => {
+    // কেমন used to need an exception because the rules read every `o` as an
+    // o-kar and produced কেমোন. With `o` as the inherent vowel the rule itself
+    // is right, which is what docs/VERIFY.md item 13 asked for.
+    const withoutDictionary = { ...grammar, dictionary: [] };
+    const bare = compileRules(withoutDictionary);
+    expect(transliterate("kemon", { grammar: withoutDictionary, compiled: bare })).toBe("কেমন");
   });
 
   it("only overrides a whole word, never a half-typed one", () => {
-    // kemo is not an entry, so the provisional rule output stands while typing.
-    expect(transliterate("kemo", { grammar, compiled })).toBe("কেমো");
+    // gel is not an entry, so the provisional rule output stands while typing.
+    expect(transliterate("gel", { grammar, compiled })).toBe("গেল");
   });
 
   it("is case-insensitive, because shift should not change which word it is", () => {
-    expect(transliterate("Kemon", { grammar, compiled })).toBe("কেমন");
+    expect(transliterate("Gelo", { grammar, compiled })).toBe("গেলো");
   });
 
   it("keeps the exception list short enough to be honest about", () => {
@@ -341,5 +349,133 @@ describe("the engine as a keystroke consumer", () => {
   it("declares that it needs no installed keyboard, unlike system mode", () => {
     expect(createPhoneticEngine().requiresInstalledKeyboard).toBe(false);
     expect(createPhoneticEngine().id).toBe("avro-phonetic");
+  });
+});
+
+describe("the reference scheme's key table", () => {
+  // The rows the mode was missing or had wrong. docs/VERIFY.md item 11 still
+  // asks for a row-by-row sign-off, but these are the cases the shipped texts
+  // depend on, so they are pinned here.
+  it.each([
+    ["o", "অ"],
+    ["O", "ও"],
+    ["kO", "কো"],
+    ["kor", "কর"],
+    ["no", "ন"],
+    ["goru", "গরু"],
+    ["kemon", "কেমন"],
+    ["boi", "বই"],
+    ["bhalO", "ভালো"],
+    ["achO", "আছো"],
+    ["sokale", "সকালে"],
+    ["protidin", "প্রতিদিন"],
+    ["I", "ঈ"],
+    ["U", "ঊ"],
+    ["OI", "ঐ"],
+    ["OU", "ঔ"],
+    ["rri", "ঋ"],
+    ["ng", "ং"],
+    ["NG", "ঞ"],
+    ["Ng", "ঙ"],
+    ["S", "শ"],
+    ["Sh", "ষ"],
+    ["s", "স"],
+    ["t``", "ৎ"],
+    ["Y", "য়"],
+    ["R", "ড়"],
+    ["Rh", "ঢ়"],
+  ])("converts %s to %s", (roman, bangla) => {
+    expect(transliterate(roman, { grammar, compiled })).toBe(bangla);
+  });
+});
+
+/**
+ * The reference scheme's spelling for each Bangla character, so a shipped text
+ * can be typed the way a real Avro typist types it.
+ */
+const REFERENCE_KEYS: Record<string, string> = {
+  অ: "o", আ: "a", ই: "i", ঈ: "I", উ: "u", ঊ: "U", ঋ: "rri",
+  এ: "e", ঐ: "OI", ও: "O", ঔ: "OU",
+  "া": "a", "ি": "i", "ী": "I", "ু": "u", "ূ": "U", "ৃ": "rri",
+  "ে": "e", "ৈ": "OI", "ো": "O", "ৌ": "OU",
+  ক: "k", খ: "kh", গ: "g", ঘ: "gh", ঙ: "Ng", চ: "c", ছ: "ch",
+  জ: "j", ঝ: "jh", ঞ: "NG", ট: "T", ঠ: "Th", ড: "D", ঢ: "Dh",
+  ণ: "N", ত: "t", থ: "th", দ: "d", ধ: "dh", ন: "n", প: "p",
+  ফ: "ph", ব: "b", ভ: "bh", ম: "m", য: "z", য়: "Y", র: "r",
+  ল: "l", শ: "sh", ষ: "Sh", স: "s", হ: "h", ড়: "R", ঢ়: "Rh",
+  "ৎ": "t``", "ং": "ng", "ঁ": "^", "ঃ": ":", "।": ".",
+  "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4", "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9",
+};
+
+const CONSONANT_LETTERS = new Set(
+  "ক খ গ ঘ ঙ চ ছ জ ঝ ঞ ট ঠ ড ঢ ণ ত থ দ ধ ন প ফ ব ভ ম য য় র ল শ ষ স হ ড় ঢ় ৎ".split(" "),
+);
+const VOWEL_SIGN_LETTERS = new Set(["া", "ি", "ী", "ু", "ূ", "ৃ", "ে", "ৈ", "ো", "ৌ"]);
+
+/**
+ * The keystrokes a real Avro typist would press for one Bangla word.
+ *
+ * An unmarked consonant carries the inherent vowel, and the Roman input has to
+ * spell it with `o` whenever another consonant follows — that is how কর is `kor`
+ * and সকালে is `sokale`. A hasanta is not spelled: two consonant letters next to
+ * each other form the conjunct themselves.
+ */
+function referenceSpelling(word: string): string {
+  const characters = Array.from(word.normalize("NFC"));
+  let roman = "";
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index] as string;
+    let next = characters[index + 1];
+    const kind = classifyCodePoint(character.codePointAt(0) as number);
+    if (kind === "hasanta" || kind === "joiner") continue;
+
+    // A consonant written as base + nukta is a different letter: ড়, ঢ়, য়.
+    let letter = character;
+    if (next === "\u09BC" && kind === "consonant") {
+      letter = (character + next).normalize("NFC");
+      next = characters[index + 2];
+      index += 1;
+    }
+
+    const keys = REFERENCE_KEYS[letter];
+    if (keys === undefined) {
+      roman += letter;
+      continue;
+    }
+    roman += keys;
+
+    if (CONSONANT_LETTERS.has(letter) && next !== "\u09CD") {
+      const followedBySign = next !== undefined && VOWEL_SIGN_LETTERS.has(next);
+      if (!followedBySign) roman += "o";
+    }
+  }
+  return roman;
+}
+
+describe("every word the app ships can be typed in built-in mode", () => {
+  const shipped = [...easyTexts, ...mediumTexts, ...hardTexts, ...drills] as {
+    id: string;
+    text: string;
+  }[];
+
+  it("covers the practice texts and the lesson drills", () => {
+    expect(shipped).toHaveLength(55);
+  });
+
+  it("produces every shipped word from its reference spelling", () => {
+    // The guard that was missing. A word the rules cannot spell is a run that
+    // cannot be finished in built-in mode, and nothing used to notice: the
+    // shipped texts were 66% wrong when this was written, with অ, ঋ, ঞ and ৎ
+    // not typeable at all.
+    const wrong: string[] = [];
+    for (const entry of shipped) {
+      for (const word of entry.text.normalize("NFC").split(/\s+/)) {
+        if (word.length === 0) continue;
+        const roman = referenceSpelling(word);
+        const produced = transliterate(roman, { grammar, compiled }).normalize("NFC");
+        if (produced !== word) wrong.push(`${entry.id} ${word} <-${roman}-> ${produced}`);
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 });

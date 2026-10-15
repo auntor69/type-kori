@@ -734,3 +734,36 @@ with the reason. Newest last.
   given up on purpose: on a cold load the first keystroke is handled a
   chunk-latency later, which is exactly why the fallback is a replay rather than
   a "please wait".
+- 2026-10-15 — **The phonetic grammar was rebuilt on the reference scheme's own
+  key table, because it could not type the texts the app ships.** A report that
+  the built-in mode was unusable turned out to be exact rather than a matter of
+  taste. Spelling every word of all 55 shipped texts the way the reference
+  scheme spells them, the engine got **76 of 115 words wrong**, and four Bangla
+  letters (অ, ৃ, ঞ, ৎ) had no key at all — so easy-05, easy-10, hard-03 and
+  hard-04 could not be finished in built-in mode by any sequence of keystrokes.
+  The cause was a single row. `o` had been mapped to ও/ো, which is what made the
+  masterplan's `bhalo` → ভালো work; it also meant the commonest Bangla vowel,
+  the inherent vowel that is simply not written, had no keystroke. So কর came
+  out কোর, সকালে came out সোকালে, and কেমন came out কেমোন — the divergence
+  `docs/VERIFY.md` item 13 had recorded as a limitation to live with rather than
+  a defect. The reference scheme's rule is the opposite: a lowercase `o` is the
+  inherent vowel, it writes nothing after a consonant and only keeps two
+  consonants apart (`kor` is কর, `sokale` is সকালে, `kemon` is কেমন), and a
+  capital `O` is what produces the o-kar (`kO` is কো). Adopting it fixes কর,
+  সকালে, কেমন, এখন, কথা, অনেক, হবে and করে at once, which is why the six curated
+  dictionary entries that existed only to paper over the old rule are gone and
+  the list is down to two real exceptions. Eleven vowels and forty consonants
+  moved onto the reference's published keys and `S`, `Sh`, `NG`, `I`, `U`, `OI`,
+  `OU`, `rri` and `ৎ` were added. The whole shipped corpus now round-trips: 0 of
+  115 words wrong. The `bhalo` entry survives deliberately — the masterplan's
+  section 7.6 starter cases ask for `bhalo` → ভালো while the reference spelling
+  is `bhalO`, and a dictionary is the mechanism for exactly that disagreement,
+  so both spellings reach ভালো. The rows follow the reference implementations'
+  published behaviour (their documented key table and their own test vectors)
+  as a specification; no code was taken from them, and the licence analysis at
+  the top of this file is unchanged. `src/engine/input/phonetic.test.ts` gained
+  the guard that was missing: it spells every word of every shipped text and
+  drill from the reference key table and fails if the engine gives anything back
+  but that word. `docs/VERIFY.md` item 13 is answered; item 11 still stands, and
+  the rows stay `nativeReviewed: false` until a native speaker checks them
+  against a real keyboard — which is now more worth doing, not less.
