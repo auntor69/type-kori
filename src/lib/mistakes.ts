@@ -64,7 +64,7 @@ export function mistakeWords(
  * the others, as one very bad word and one rare one does — the repeat is
  * unavoidable and the least-bad choice is the same word again.
  */
-function spread(weighted: readonly { word: string; remaining: number }[]): string[] {
+export function spread(weighted: readonly { word: string; remaining: number }[]): string[] {
   const counts = weighted.map((entry) => ({ ...entry }));
   const total = counts.reduce((sum, entry) => sum + entry.remaining, 0);
   const out: string[] = [];

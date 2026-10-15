@@ -3,21 +3,30 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { practiceTexts } from "../content/texts";
 import { collectMistakes, renderProgress, type ClusterState, type WordStatus } from "../engine/compare";
 import { createPhoneticEngine } from "../engine/input/phonetic";
+import { romanKeyHint } from "../engine/input/phoneticHint";
 import { createSystemEngine } from "../engine/input/system";
 import type { EngineAction, InputEngine, InputEngineId } from "../engine/input/types";
+import { keyHeat, layoutById, nextKeyHint, peakHeat, type LayoutId } from "../engine/layouts";
 import { appendSpeedSample, consistency, formatDuration } from "../engine/metrics";
-import { reduce, sessionStats, type SessionEvent } from "../engine/session";
+import { currentTargetWord, reduce, sessionStats, type SessionEvent } from "../engine/session";
 import type { Difficulty, PracticeText } from "../engine/text/provider";
-import { useTranslations, type Lang } from "../i18n";
+import { localizePath, useTranslations, type Lang } from "../i18n";
 import { loadAndApplySettings, onSettingsChange, updateSettings } from "../lib/applySettings";
 import { onRunCommand, type RunCommand } from "../lib/commands";
+import { PRACTICE_READY_EVENT } from "../lib/deferredHydration";
 import type { FunboxMode } from "../lib/funbox";
 import {
-  clearCustomText,
+  addCustomItem,
+  clearCustomLibrary,
   customPracticeText,
+  customRunOptions,
+  emptyLibrary,
+  loadCustomLibrary,
   loadCustomText,
-  saveCustomText,
-  type StoredCustomText,
+  removeCustomItem,
+  saveCustomLibrary,
+  type CustomLibrary,
+  type CustomRunOptions,
 } from "../lib/customText";
 import {
   loadLessonProgress,
@@ -38,6 +47,7 @@ import {
   type WordHistory,
 } from "../lib/settings";
 import { formatNumeral } from "../lib/numerals";
+import { decodePreset, presetUrl, type Preset } from "../lib/presets";
 import { loadErrorMap, loadRuns, personalBests } from "../lib/progress";
 import { dayKey, isDayKey, seedFromKey } from "../lib/daily";
 import { buildMistakeText, mistakeWords } from "../lib/mistakes";
@@ -50,10 +60,13 @@ import {
   testTypeFor,
   type RunModel,
 } from "../lib/run";
+import { buildAdaptiveText } from "../lib/adaptive";
 import { playSound } from "../lib/sound";
 import { minimumFailure } from "../lib/thresholds";
 import { buildWeakKeyText, topWeakKeys } from "../lib/weakKeys";
 import CustomText from "./CustomText";
+import OnScreenKeyboard from "./OnScreenKeyboard";
+import ShareResult from "./ShareResult";
 
 /** Everything the runner needs for one lesson, resolved at build time. */
 export interface LessonRun {
@@ -140,7 +153,7 @@ function topWeakKeyCount(errorMap: Readonly<Record<string, { missed: number; see
 export default function Practice({ lang, seed = 1, lesson }: Props) {
   const t = useTranslations(lang);
 
-  const [customSaved, setCustomSaved] = useState<StoredCustomText | null>(null);
+  const [library, setLibrary] = useState<CustomLibrary>(() => emptyLibrary());
   const [customRun, setCustomRun] = useState<PracticeText | null>(null);
   const [customPanelOpen, setCustomPanelOpen] = useState(false);
   const [customStorageOk, setCustomStorageOk] = useState(true);
@@ -173,6 +186,10 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const [soundVolume, setSoundVolume] = useState(defaultSettings.soundVolume);
   const [funbox, setFunbox] = useState<FunboxMode>("none");
   const [capsOn, setCapsOn] = useState(false);
+  const [linkState, setLinkState] = useState<"idle" | "copied" | "address">("idle");
+  const [keyboard, setKeyboard] = useState(defaultSettings.keyboard);
+  const [keyboardLayout, setKeyboardLayout] = useState<LayoutId>(defaultSettings.keyboardLayout);
+  const [fingerColors, setFingerColors] = useState(defaultSettings.fingerColors);
   /** Why a run stopped early, if the minimum speed or accuracy cut it off. */
   const [failReason, setFailReason] = useState<"wpm" | "accuracy" | null>(null);
 
@@ -186,6 +203,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   // paste are fixed texts by definition — the user chose those exact words.
   const infinite = lesson === undefined && customRun === null && weakDrill === null;
   const vocabulary = useMemo(() => buildVocabulary(difficulty), [difficulty]);
+  // The adaptive drill draws from the whole library, not the difficulty the user
+  // happens to be practising: it is about the words they got wrong, wherever
+  // those words came from. It is built the first time a drill asks for it rather
+  // than while the page hydrates — the vocabulary is a pure function of the
+  // shipped texts, so nothing is lost by waiting (`buildVocabulary` caches it).
+  const fullVocabulary = () => buildVocabulary("all");
   // Funbox only twists a generated stream: a pasted text or a lesson drill is the
   // user's own target and is shown exactly as it was written.
   const activeFunbox: FunboxMode = infinite ? funbox : "none";
@@ -262,6 +285,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setFocusMode(stored.focusMode);
     setCapsLockWarning(stored.capsLockWarning);
     setFunbox(stored.funbox);
+    setKeyboard(stored.keyboard);
+    setKeyboardLayout(stored.keyboardLayout);
+    setFingerColors(stored.fingerColors);
   }, []);
 
   // The settings drawer can change the input mode while a run is on screen.
@@ -298,6 +324,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         setWordHistory(settings.wordHistory);
         setFocusMode(settings.focusMode);
         setCapsLockWarning(settings.capsLockWarning);
+        setKeyboard(settings.keyboard);
+        setKeyboardLayout(settings.keyboardLayout);
+        setFingerColors(settings.fingerColors);
         setFunbox((current) => {
           if (current === settings.funbox) return current;
           // The rebuild effect below restarts the run with the new twist, so
@@ -499,6 +528,56 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   };
 
   /**
+   * Show or hide the on-screen keyboard. Written through `updateSettings` like
+   * every other preference, so the choice survives a reload and reaches the
+   * settings drawer through the same broadcast.
+   */
+  const toggleKeyboard = () => {
+    const snapshot: Settings = { ...settingsRef.current, keyboard: !settingsRef.current.keyboard };
+    settingsRef.current = snapshot;
+    updateSettings(snapshot);
+  };
+
+  /**
+   * Copy a link that reproduces this test.
+   *
+   * A daily challenge already *is* a link, so the address bar is copied as it
+   * stands; any other run writes its text, goal, funbox, difficulty and layout
+   * into the query string so the link opens the same exercise. Clipboard access
+   * can be refused, in which case the URL is left in the address bar instead and
+   * the button says so rather than claiming a copy that did not happen.
+   */
+  const copyTestLink = async () => {
+    const preset: Preset = {
+      text: customRun?.text,
+      // A word goal wins over a timer, here as everywhere: the two cannot both
+      // apply to one run, and the encoder writes only whichever is set.
+      words: wordGoal ?? undefined,
+      time:
+        wordGoal === null && model.durationMs !== null
+          ? Math.round(model.durationMs / 1000)
+          : undefined,
+      funbox: activeFunbox !== "none" ? activeFunbox : undefined,
+      difficulty: difficulty !== "all" ? difficulty : undefined,
+      layout: keyboardLayout,
+    };
+
+    const url = dailyKey === null ? presetUrl(window.location.href, preset) : window.location.href;
+
+    let state: "copied" | "address" = "copied";
+    try {
+      if (navigator.clipboard === undefined) throw new Error("no clipboard");
+      await navigator.clipboard.writeText(url);
+    } catch {
+      state = "address";
+    }
+
+    if (dailyKey === null) window.history.replaceState(null, "", url);
+    setLinkState(state);
+    window.setTimeout(() => setLinkState("idle"), 2500);
+  };
+
+  /**
    * Stream-twist toggle for the config bar. Writing through `updateSettings`
    * stores the choice, applies it and broadcasts it, and the rebuild effect
    * above restarts the run with the new twist.
@@ -571,6 +650,31 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     );
   };
 
+  /**
+   * The adaptive drill: words you missed, words carrying your weakest clusters,
+   * and fresh vocabulary, woven together by `lib/adaptive`. It is the mistake
+   * notebook and the weak-key drill in one session, weighted by your own data.
+   */
+  const startAdaptiveDrill = () => {
+    const drill = buildAdaptiveText(loadErrorMap(), loadRuns(), fullVocabulary());
+    if (drill === null) return;
+
+    engineRef.current.reset();
+    setOsKeyboard(false);
+    setFailReason(null);
+    setWordGoal(null);
+    setDailyKey(null);
+    setWeakDrill(drill);
+    setModel(
+      createRun({
+        pool: [drill],
+        durationMs: null,
+        seed: Date.now() % 0x7fff_ffff,
+        stopOnError: stopOnErrorWord ? "word" : stopOnError ? "letter" : "off",
+      }),
+    );
+  };
+
   /** One drill over the words the notebook says this browser keeps missing. */
   const startMistakeDrill = () => {
     const drill = buildMistakeText(loadRuns());
@@ -593,35 +697,94 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   };
 
   //
-  // Custom text (Section 4.8). Starting one stores the paste, switches the pool
-  // to it and starts a fresh untimed run - a pasted passage is a fixed target,
-  // and a timer on it would only cut the user off before the end.
-  const startCustomRun = (text: string) => {
+  // Custom text (Section 4.8). Starting one keeps the paste in the library,
+  // switches the pool to it and starts the run. A paste is a fixed target, so it
+  // can be bounded by a timer or a word goal - and by default it runs to its own
+  // last word, because cutting a learner off mid-passage is nobody's idea of
+  // practice.
+  const startCustomRun = (
+    text: string,
+    durationMs: number | null = null,
+    goal: number | null = null,
+    // The name from the paste panel. A preset link has none, so the library
+    // names that one after its first words.
+    name?: string,
+  ) => {
     const item = customPracticeText(text);
+    const added = addCustomItem(library, {
+      text: item.text,
+      ...(name === undefined ? {} : { name }),
+      savedAt: Date.now(),
+    });
 
     setCustomRun(item);
-    setCustomSaved({ text: item.text, savedAt: Date.now() });
-    setCustomStorageOk(saveCustomText(text) !== null);
+    if (added !== null) {
+      // Keep what was just typed in the list. A refused write is reported; a
+      // full library is already visible as `19/20` in the panel.
+      setLibrary(added.library);
+      setCustomStorageOk(saveCustomLibrary(added.library));
+    }
     setCustomPanelOpen(false);
-    // A custom run is its own test type: any words/time goal left over from the
-    // mode the user was in must go, or the results screen and the progress page
-    // would record the paste as `words 25` instead of `custom`.
-    setWordGoal(null);
+    // The run's own goal is the panel's or the link's: everything the previous
+    // mode was carrying must go, or the results screen and the progress page
+    // would record the paste as `words 25`.
+    setWordGoal(goal);
     setDailyKey(null);
     engineRef.current.reset();
     setOsKeyboard(false);
     setModel(
       createRun({
         pool: [item],
-        durationMs: null,
+        durationMs,
+        // A word goal trims the passage to its first N words, exactly as it
+        // trims a lesson drill.
+        wordGoal: goal,
         seed: Date.now() % 0x7fff_ffff,
         difficulty: "all",
       }),
     );
   };
 
+  /** The paste panel's own start: it hands over the text, its limits and its name. */
+  const startPanelRun = (text: string, options: CustomRunOptions, name: string) => {
+    startCustomRun(text, options.durationMs, options.wordGoal, name);
+  };
+
+  /** Save a paste without starting it. False means the library is full. */
+  const saveCustomItem = (name: string, text: string): boolean => {
+    const added = addCustomItem(library, { name, text, savedAt: Date.now() });
+    if (added === null) return false;
+
+    setLibrary(added.library);
+    setCustomStorageOk(saveCustomLibrary(added.library));
+    return true;
+  };
+
+  /** Forget one stored paste, and leave the run if it was that one on screen. */
+  const deleteCustomItem = (id: string) => {
+    const removed = library.items.find((item) => item.id === id);
+    const next = removeCustomItem(library, id);
+
+    setLibrary(next);
+    setCustomStorageOk(saveCustomLibrary(next));
+    if (removed !== undefined && customRun !== null && removed.text === customRun.text) {
+      leaveCustomRun();
+    }
+  };
+
   const useBuiltinTexts = () => {
     startBuiltinRun({ durationMs: model.durationMs, wordGoal: null });
+  };
+
+  /**
+   * Leave a custom run for the built-in texts, keeping the paste panel open if it
+   * was: a learner tidying the library must not be thrown out of it by deleting
+   * the passage that happened to be on screen.
+   */
+  const leaveCustomRun = () => {
+    const panelWasOpen = customPanelOpen;
+    startBuiltinRun({ durationMs: model.durationMs, wordGoal: null });
+    if (panelWasOpen) setCustomPanelOpen(true);
   };
 
   // The test type recorded with a run, so personal bests can be grouped the way
@@ -634,7 +797,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         lesson !== undefined
           ? "lesson"
           : weakDrill !== null
-            ? "weak"
+            ? weakDrill.id === "adaptive"
+              ? "adaptive"
+              : "weak"
             : customRun !== null
               ? "custom"
               : dailyKey !== null
@@ -678,12 +843,12 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
   useEffect(() => onRunCommand((command) => commandRef.current(command)), []);
 
-  /** Forget the stored paste, and stop practising it if it was on screen. */
-  const dropCustomText = () => {
-    clearCustomText();
-    setCustomSaved(null);
+  /** Forget every stored paste, and stop practising one if it was on screen. */
+  const dropAllCustomText = () => {
+    clearCustomLibrary();
+    setLibrary(emptyLibrary());
     setCustomStorageOk(true);
-    if (customRun !== null) useBuiltinTexts();
+    if (customRun !== null) leaveCustomRun();
   };
 
   // The best result for this lesson so far, read once on mount.
@@ -692,11 +857,44 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setLessonRecord(loadLessonProgress()[lesson.id] ?? null);
   }, [lesson]);
 
-  // The text this browser kept from an earlier paste, if any. Read after mount,
-  // never during it, so the first paint matches what the server rendered.
+  // The pastes this browser kept earlier, if any. Read after mount, never during
+  // it, so the first paint matches what the server rendered.
   useEffect(() => {
-    setCustomSaved(loadCustomText());
+    setLibrary(loadCustomLibrary());
   }, []);
+
+  //
+  // A preset link: text, timer, word goal, funbox, difficulty and layout can all
+  // live in the query string. Written through the same settings path as the
+  // drawer, so a preset behaves exactly like the user having set it by hand.
+  const applyPreset = (preset: Preset) => {
+    if (preset.funbox !== undefined || preset.difficulty !== undefined) {
+      const snapshot: Settings = {
+        ...settingsRef.current,
+        ...(preset.funbox === undefined ? {} : { funbox: preset.funbox }),
+        ...(preset.difficulty === undefined ? {} : { difficulty: preset.difficulty }),
+      };
+      settingsRef.current = snapshot;
+      updateSettings(snapshot);
+    }
+    if (preset.layout !== undefined) setKeyboardLayout(preset.layout);
+
+    if (preset.text !== undefined) {
+      // The same "a word goal wins over a timer" rule the panel and the encoder
+      // use, so a share link cannot turn a bounded drill into a different test.
+      const options = customRunOptions({
+        durationSeconds: preset.time ?? null,
+        wordGoal: preset.words ?? null,
+      });
+      startCustomRun(preset.text, options.durationMs, options.wordGoal);
+      return;
+    }
+    if (preset.words !== undefined) {
+      chooseWordGoal(preset.words);
+      return;
+    }
+    if (preset.time !== undefined) chooseDuration(preset.time * 1000);
+  };
 
   // The query string can ask for a specific run: `?daily=YYYY-MM-DD` opens that
   // day's challenge (which makes a shared link real — the seed comes from the
@@ -709,7 +907,13 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       startDaily(requested);
       return;
     }
-    if (params.get("mistakes") !== null) startMistakeDrill();
+    if (params.get("mistakes") !== null) {
+      startMistakeDrill();
+      return;
+    }
+
+    const preset = decodePreset(window.location.search);
+    if (preset !== null) applyPreset(preset);
     // Mount-only: the query string does not change under a running island.
   }, []);
 
@@ -827,6 +1031,16 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // The island loads on the first interaction, and the page's loader queues
+  // keystrokes until this component can hear them. "Attached the window
+  // listener above" is exactly what ready means, and the effects run in
+  // declaration order — so announce it from an effect declared after that one.
+  // The loader then replays its queue, and no keystroke typed during the load
+  // is ever dropped.
+  useEffect(() => {
+    document.dispatchEvent(new CustomEvent(PRACTICE_READY_EVENT));
+  }, []);
+
   // The tick drives the clock display, ends a timed run, and applies the
   // minimum speed and accuracy the user asked to be held to.
   useEffect(() => {
@@ -920,7 +1134,38 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   // The notebook is only drillable once at least one word has been missed.
   const mistakeAvailable =
     lesson === undefined && customRun === null && mistakeWords(loadRuns()).length > 0;
+  // The adaptive drill needs something to build from: any miss at all.
+  const adaptiveAvailable =
+    lesson === undefined && customRun === null && (weakAvailable || mistakeAvailable);
   const stats = sessionStats(session, now);
+
+  // The on-screen keyboard: which key to press next, and which keys have let the
+  // learner down. The target word comes from the session, so the hint always
+  // points at where the caret actually is.
+  const keyboardTarget = currentTargetWord(session) ?? "";
+  const keyboardHint = useMemo(() => {
+    if (!keyboard || finished) return { codes: [] as string[], shift: false };
+    if (mode === "avro-phonetic") {
+      return { codes: romanKeyHint(session.composing, keyboardTarget), shift: false };
+    }
+    const hint = nextKeyHint(layoutById(keyboardLayout), keyboardTarget, session.active);
+    return { codes: hint === null ? [] : [hint.code], shift: hint?.shift ?? false };
+  }, [
+    keyboard,
+    finished,
+    mode,
+    keyboardLayout,
+    session.composing,
+    session.active,
+    keyboardTarget,
+  ]);
+
+  const keyboardHeat = useMemo(
+    () =>
+      keyboard && mode !== "avro-phonetic" ? keyHeat(layoutById(keyboardLayout), loadErrorMap()) : {},
+    [keyboard, mode, keyboardLayout],
+  );
+  const keyboardPeak = useMemo(() => peakHeat(keyboardHeat), [keyboardHeat]);
 
   // Words typed correctly with no break, counting back from the caret.
   let combo = 0;
@@ -1077,6 +1322,21 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           )}
         </span>
 
+        {/* Built-in mode is rule-driven, so the rule table is the lesson: the
+            cheat sheet opens in a new tab, which is also the only way the
+            learner can read it without losing the run in progress. */}
+        {mode === "avro-phonetic" && (
+          <a
+            href={localizePath("/keyboard", lang)}
+            target="_blank"
+            rel="noreferrer"
+            title={t("practice.cheatsheetHint")}
+            class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
+          >
+            {t("practice.cheatsheet")}
+          </a>
+        )}
+
         {lesson !== undefined && (
           <>
             <span class="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
@@ -1209,6 +1469,17 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           <>
             <button
               type="button"
+              onClick={startAdaptiveDrill}
+              disabled={!adaptiveAvailable}
+              title={t("practice.adaptiveHint")}
+              aria-label={t("practice.adaptive")}
+              class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t("practice.adaptive")}
+            </button>
+
+            <button
+              type="button"
               onClick={startWeakDrill}
               disabled={weakAvailable === false}
               title={t("practice.weakDrill")}
@@ -1249,6 +1520,37 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
         <button
           type="button"
+          onClick={copyTestLink}
+          title={t("practice.shareTestHint")}
+          class={`rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors duration-150 ease-out ${
+            linkState === "idle"
+              ? "border-border bg-surface text-muted hover:text-text"
+              : "border-accent bg-accent-soft text-text"
+          }`}
+        >
+          {linkState === "idle"
+            ? t("practice.shareTest")
+            : linkState === "copied"
+              ? t("practice.linkCopied")
+              : t("practice.linkInAddress")}
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleKeyboard}
+          aria-pressed={keyboard}
+          title={t("practice.keyboardHint")}
+          class={`rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors duration-150 ease-out ${
+            keyboard
+              ? "border-accent bg-accent text-on-accent"
+              : "border-border bg-surface text-muted hover:text-text"
+          }`}
+        >
+          {t("practice.keyboard")}
+        </button>
+
+        <button
+          type="button"
           onClick={restart}
           class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
         >
@@ -1273,13 +1575,27 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
         )}
 
         {customRun !== null && (
-          <button
-            type="button"
-            onClick={useBuiltinTexts}
-            class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
-          >
-            {t("custom.useBuiltin")}
-          </button>
+          <>
+            {/* The saved pastes are a library now, so the panel that manages it
+                needs a door of its own: the mode chip starts the last text
+                instead of opening it. */}
+            <button
+              type="button"
+              onClick={() => setCustomPanelOpen(true)}
+              title={t("custom.libraryHint")}
+              class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
+            >
+              {t("custom.library")}
+            </button>
+
+            <button
+              type="button"
+              onClick={useBuiltinTexts}
+              class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
+            >
+              {t("custom.useBuiltin")}
+            </button>
+          </>
         )}
       </div>
 
@@ -1287,12 +1603,14 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       {lesson === undefined && customPanelOpen && (
         <CustomText
           lang={lang}
-          saved={customSaved}
+          library={library}
           active={customRun !== null}
           storageOk={customStorageOk}
-          onStart={startCustomRun}
+          onStart={startPanelRun}
+          onSave={saveCustomItem}
+          onDelete={deleteCustomItem}
+          onClearAll={dropAllCustomText}
           onUseBuiltin={useBuiltinTexts}
-          onClear={dropCustomText}
           onClose={() => setCustomPanelOpen(false)}
         />
       )}
@@ -1394,12 +1712,43 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           autocapitalize="off"
           autocorrect="off"
           spellcheck={false}
-          onPaste={(event) => event.preventDefault()}
+          // Keystrokes are read from the window's `keydown`, never from this
+          // field, so pasting into it cannot cheat a test — and blocking the
+          // paste is a hostile signal to password managers and assistive tech
+          // (Lighthouse's paste-preventing-inputs audit). The paste is allowed
+          // and the field is emptied straight after, so nothing accumulates in
+          // the invisible input.
+          onInput={(event) => {
+            event.currentTarget.value = "";
+          }}
           onCompositionStart={() => setOsKeyboard(true)}
           onCompositionUpdate={() => setOsKeyboard(true)}
           class="absolute inset-0 h-full w-full cursor-text resize-none border-0 bg-transparent p-0 text-transparent caret-transparent outline-none"
         />
       </div>
+
+      {/* On-screen keyboard: the next key, finger colours and the learner's own
+          miss heat. It sits under the words, the way a physical keyboard would. */}
+      {keyboard && (
+        <>
+          <OnScreenKeyboard
+            mode={mode}
+            layoutId={keyboardLayout}
+            highlight={keyboardHint.codes}
+            heat={keyboardHeat}
+            peak={keyboardPeak}
+            fingerColors={fingerColors}
+            label={t("practice.keyboardLabel")}
+            lang={lang}
+          />
+
+          {keyboardHint.shift && (
+            <p class="mt-2 text-center text-xs text-muted">
+              <kbd class="keycap">{t("practice.shift")}</kbd>
+            </p>
+          )}
+        </>
+      )}
 
       {/* Built-in mode: the Roman keystrokes behind the current word (Section 5.3) */}
       {mode === "avro-phonetic" && session.composing.length > 0 && (
@@ -1496,9 +1845,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           aria-labelledby="results-heading"
           class="mt-6 rounded-card border border-border bg-surface p-6"
         >
-          <h3 id="results-heading" class="text-sm font-semibold uppercase tracking-wide text-muted">
+          <h2 id="results-heading" class="text-sm font-semibold uppercase tracking-wide text-muted">
             {t("results.heading")}
-          </h3>
+          </h2>
 
           {failReason !== null && (
             <p
@@ -1563,9 +1912,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
           </div>
 
           <div class="mt-5 border-t border-border pt-4">
-            <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
               {t("results.mistakes")}
-            </h4>
+            </h3>
             {mistakes.length === 0 ? (
               <p class="mt-2 text-sm text-muted">{t("results.noMistakes")}</p>
             ) : (
@@ -1598,9 +1947,9 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
 
           {wordHistory !== "off" && session.committed.length > 0 && (
             <div class="mt-5 border-t border-border pt-4">
-              <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
+              <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
                 {t("results.history")}
-              </h4>
+              </h3>
               <p
                 lang="bn"
                 class="mt-2 flex flex-wrap gap-x-2 gap-y-1 font-bangla text-sm leading-relaxed"
@@ -1643,6 +1992,26 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
                 {t("custom.useBuiltin")}
               </button>
             )}
+
+            {/* A shareable PNG of this run, painted locally in the browser. */}
+            <ShareResult
+              label={t("results.share")}
+              data={{
+                wpm: stats.wpm,
+                kpm: stats.kpm,
+                accuracy: stats.accuracy,
+                consistency: consistency(finalSamples),
+                elapsedMs: stats.elapsedMs,
+                testType: testTypeOf(model),
+                mistakes: mistakes.map((mistake) => ({
+                  target: mistake.target,
+                  expected: mistake.expected ?? "",
+                  typed: mistake.actual ?? "",
+                })),
+                lang,
+                numerals,
+              }}
+            />
           </div>
         </section>
       )}

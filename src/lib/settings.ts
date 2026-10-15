@@ -5,6 +5,7 @@
  */
 
 import type { InputEngineId } from "../engine/input/types";
+import type { LayoutId } from "../engine/layouts/types";
 import type { Difficulty } from "../engine/text/provider";
 import { languages, type Lang } from "../i18n";
 import { isFunboxMode, type FunboxMode } from "./funbox";
@@ -58,6 +59,9 @@ export const MIN_ACCURACY_CHOICES: readonly number[] = [0, 70, 80, 90, 95];
 export const SOUND_VOLUME_MIN = 0;
 export const SOUND_VOLUME_MAX = 100;
 
+/** The fixed layouts the on-screen keyboard can draw. */
+export const KEYBOARD_LAYOUTS: readonly LayoutId[] = ["national", "probhat"];
+
 export interface Settings {
   lang: Lang;
   /** `system` follows the OS; otherwise a concrete theme id from themes.ts. */
@@ -103,6 +107,12 @@ export interface Settings {
   funbox: FunboxMode;
   /** Starred theme ids, shown first in the picker. */
   themeFavourites: ThemeId[];
+  /** Draw the on-screen keyboard below the words. */
+  keyboard: boolean;
+  /** Which fixed layout the on-screen keyboard shows for the system keyboard. */
+  keyboardLayout: LayoutId;
+  /** Colour the key caps by the finger that reaches them. */
+  fingerColors: boolean;
 }
 
 export const FONT_SIZE_MIN = 20;
@@ -136,6 +146,11 @@ export const defaultSettings: Settings = {
   capsLockWarning: true,
   funbox: "none",
   themeFavourites: [],
+  // A Bangla trainer that never shows you the key is asking you to guess, so
+  // the board is on by default; it hides itself on touch-sized screens.
+  keyboard: true,
+  keyboardLayout: "national",
+  fingerColors: true,
 };
 
 export function clampFontSize(value: number): number {
@@ -173,6 +188,10 @@ function isThemeChoice(value: unknown): value is ThemeChoice {
 
 function isInputMode(value: unknown): value is InputEngineId {
   return value === "system" || value === "avro-phonetic";
+}
+
+function isLayoutId(value: unknown): value is LayoutId {
+  return value === "national" || value === "probhat";
 }
 
 function isDifficulty(value: unknown): value is Difficulty | "all" {
@@ -262,6 +281,12 @@ export function parseSettings(raw: unknown): Settings {
         : defaultSettings.capsLockWarning,
     funbox: isFunboxMode(value.funbox) ? value.funbox : defaultSettings.funbox,
     themeFavourites: parseFavourites(value.themeFavourites),
+    keyboard: typeof value.keyboard === "boolean" ? value.keyboard : defaultSettings.keyboard,
+    keyboardLayout: isLayoutId(value.keyboardLayout)
+      ? value.keyboardLayout
+      : defaultSettings.keyboardLayout,
+    fingerColors:
+      typeof value.fingerColors === "boolean" ? value.fingerColors : defaultSettings.fingerColors,
   };
 }
 

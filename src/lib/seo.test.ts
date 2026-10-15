@@ -18,14 +18,29 @@ const robots = read("public/robots.txt");
 const astroConfig = read("astro.config.mjs");
 
 describe("the social card", () => {
-  it("points og:image and twitter:image at a real 1200x630 card", () => {
-    expect(layout).toContain('absolute("/og.png")');
+  it("points og:image and twitter:image at this page's own 1200x630 card", () => {
+    // Per-page cards are generated at build time (scripts/generate-og.mjs) and
+    // named by src/lib/ogCard.ts, which the layout calls with its own path.
+    expect(layout).toContain("ogCardPath(path, lang)");
+    expect(layout).toContain("content={socialImage}");
     expect(layout).toContain('property="og:image:width" content="1200"');
     expect(layout).toContain('property="og:image:height" content="630"');
+  });
+
+  it("keeps the committed site-wide card, which structured data still names", () => {
     expect(() => read("public/og.png")).not.toThrow();
     // PNG magic, not an accidental text file.
     const png = readFileSync(`${root}/public/og.png`);
     expect(png.subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    for (const page of ["src/pages/index.astro", "src/pages/en/index.astro"]) {
+      expect(read(page), page).toContain("/og.png");
+    }
+  });
+
+  it("hands the generator the pages it needs to draw", () => {
+    const config = read("astro.config.mjs");
+    expect(config).toContain("generateCards");
+    expect(config).toContain('"astro:build:done"');
   });
 
   it("uses the large card on Twitter", () => {
@@ -166,6 +181,53 @@ describe("the page landmarks", () => {
     const header = read("src/components/SiteHeader.astro");
     expect(header).toContain("<nav aria-label={t(\"nav.primary\")}");
     expect(header).toContain("</nav>");
+  });
+});
+
+describe("the guide, FAQ and About pages", () => {
+  it("lists the guides and keeps each guide a free Article with a breadcrumb", () => {
+    for (const page of ["src/pages/guides.astro", "src/pages/en/guides.astro"]) {
+      expect(read(page), page).toContain('"@type": "ItemList"');
+    }
+    for (const page of ["src/pages/guide/[slug].astro", "src/pages/en/guide/[slug].astro"]) {
+      const source = read(page);
+      expect(source, page).toContain('"@type": "Article"');
+      expect(source, page).toContain('"@type": "BreadcrumbList"');
+      expect(source, page).toContain("isAccessibleForFree: true");
+      // Nothing claims an author or a rating it cannot back up.
+      expect(source, page).not.toContain("aggregateRating");
+    }
+  });
+
+  it("marks the FAQ up as a real FAQPage", () => {
+    for (const page of ["src/pages/faq.astro", "src/pages/en/faq.astro"]) {
+      const source = read(page);
+      expect(source, page).toContain('"@type": "FAQPage"');
+      expect(source, page).toContain("acceptedAnswer");
+    }
+  });
+
+  it("gives the About page a breadcrumb", () => {
+    for (const page of ["src/pages/about.astro", "src/pages/en/about.astro"]) {
+      expect(read(page), page).toContain('"BreadcrumbList"');
+    }
+  });
+
+  it("links every indexable route from the shared layout, so none is orphaned", () => {
+    for (const path of [
+      "/lessons",
+      "/guides",
+      "/faq",
+      "/about",
+      "/progress",
+      "/privacy",
+      "/keyboard",
+      "/game",
+    ]) {
+      expect(layout, path).toContain(`localizePath("${path}", lang)`);
+    }
+    // The link line is chrome, so focus mode fades it like the rest.
+    expect(layout).toMatch(/<nav[\s\S]*?aria-label=\{t\("nav.secondary"\)\}[\s\S]*?data-tk-chrome/);
   });
 });
 

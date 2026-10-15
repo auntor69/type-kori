@@ -1,0 +1,101 @@
+---
+import Prose from "../../../components/Prose.astro";
+import { guides, localized } from "../../../content/guides";
+import { localizePath, useTranslations } from "../../../i18n";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+export function getStaticPaths() {
+  return guides.map((guide) => ({ params: { slug: guide.slug }, props: { guide } }));
+}
+
+const { guide } = Astro.props;
+const lang = "en" as const;
+const t = useTranslations(lang);
+const absolute = (path: string) => new URL(localizePath(path, lang), Astro.site).href;
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: t("nav.home"), item: absolute("/") },
+    { "@type": "ListItem", position: 2, name: t("nav.guides"), item: absolute("/guides") },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: guide.title[lang],
+      item: absolute(`/guide/${guide.slug}`),
+    },
+  ],
+};
+
+const articleSchema = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: guide.title[lang],
+  description: guide.summary[lang],
+  inLanguage: "en-GB",
+  isAccessibleForFree: true,
+  url: absolute(`/guide/${guide.slug}`),
+  image: absolute("/og.png"),
+  publisher: { "@type": "Organization", name: "Afterclass Studio", url: Astro.site?.href },
+  mainEntityOfPage: { "@id": absolute(`/guide/${guide.slug}`) },
+};
+---
+
+<BaseLayout
+  lang={lang}
+  title={`${guide.title[lang]} | Type Kori`}
+  description={guide.summary[lang]}
+  path={`/guide/${guide.slug}`}
+>
+  <Prose
+    lang={lang}
+    title={guide.title[lang]}
+    description={guide.summary[lang]}
+    crumbs={[
+      { label: t("nav.home"), href: localizePath("/", lang) },
+      { label: t("nav.guides"), href: localizePath("/guides", lang) },
+      { label: guide.title[lang] },
+    ]}
+  >
+    {
+      guide.sections.map((section) => (
+        <section>
+          <h2 class="text-xl font-semibold text-text">{section.heading[lang]}</h2>
+          {section.paragraphs.map((paragraph) => (
+            <p class="mt-3 text-base leading-relaxed text-muted">{localized(paragraph, lang)}</p>
+          ))}
+        </section>
+      ))
+    }
+
+    <section>
+      <h2 class="text-lg font-semibold text-text">{t("guides.related")}</h2>
+      <ul class="mt-2 grid gap-2 text-sm">
+        <li>
+          <a href={localizePath("/", lang)} class="text-accent hover:opacity-80">{t("nav.practice")}</a>
+        </li>
+        {
+          guides
+            .filter((other) => other.slug !== guide.slug)
+            .map((other) => (
+              <li>
+                <a
+                  href={localizePath(`/guide/${other.slug}`, lang)}
+                  class="text-accent hover:opacity-80"
+                >
+                  {other.title[lang]}
+                </a>
+              </li>
+            ))
+        }
+        <li>
+          <a href={localizePath("/faq", lang)} class="text-accent hover:opacity-80">{t("nav.faq")}</a>
+        </li>
+      </ul>
+    </section>
+  </Prose>
+
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
+</BaseLayout>

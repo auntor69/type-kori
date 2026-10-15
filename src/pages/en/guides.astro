@@ -1,0 +1,76 @@
+---
+import Prose from "../../components/Prose.astro";
+import { guides } from "../../content/guides";
+import { localizePath, useTranslations } from "../../i18n";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const lang = "en" as const;
+const t = useTranslations(lang);
+const absolute = (path: string) => new URL(localizePath(path, lang), Astro.site).href;
+const guideLink = (slug: string) => localizePath(`/guide/${slug}`, lang);
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: t("guides.title"),
+  inLanguage: "en-GB",
+  itemListElement: guides.map((guide, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    name: guide.title[lang],
+    url: absolute(`/guide/${guide.slug}`),
+  })),
+};
+---
+
+<BaseLayout
+  lang={lang}
+  title={t("guides.meta.title")}
+  description={t("guides.meta.description")}
+  path="/guides"
+>
+  <Prose
+    lang={lang}
+    title={t("guides.title")}
+    description={t("guides.lead")}
+    crumbs={[{ label: t("nav.home"), href: localizePath("/", lang) }, { label: t("nav.guides") }]}
+  >
+    <ul class="grid gap-4">
+      {
+        guides.map((guide) => (
+          <li class="rounded-card border border-border bg-surface p-5">
+            <h2 class="text-lg font-semibold text-text">
+              <a
+                href={guideLink(guide.slug)}
+                class="transition-colors duration-150 ease-out hover:text-accent"
+              >
+                {guide.title[lang]}
+              </a>
+            </h2>
+            <p class="mt-2 text-sm leading-relaxed text-muted">{guide.summary[lang]}</p>
+            <p class="mt-3 text-sm">
+              <a
+                href={guideLink(guide.slug)}
+                class="font-medium text-accent transition-opacity duration-150 ease-out hover:opacity-80"
+              >
+                {t("guides.read")}
+              </a>
+            </p>
+          </li>
+        ))
+      }
+    </ul>
+
+    <section>
+      <h2 class="text-lg font-semibold text-text">{t("guides.related")}</h2>
+      <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <a href={localizePath("/keyboard", lang)} class="text-accent hover:opacity-80">{t("nav.keyboard")}</a>
+        <a href={localizePath("/faq", lang)} class="text-accent hover:opacity-80">{t("nav.faq")}</a>
+        <a href={localizePath("/about", lang)} class="text-accent hover:opacity-80">{t("nav.about")}</a>
+        <a href={localizePath("/lessons", lang)} class="text-accent hover:opacity-80">{t("nav.lessons")}</a>
+      </p>
+    </section>
+  </Prose>
+
+  <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+</BaseLayout>

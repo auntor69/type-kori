@@ -12,6 +12,7 @@ import { funboxModes } from "../lib/funbox";
 import {
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
+  KEYBOARD_LAYOUTS,
   MIN_ACCURACY_CHOICES,
   MIN_WPM_CHOICES,
   SOUND_VOLUME_MAX,
@@ -59,7 +60,7 @@ function Row({
   return (
     <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 border-b border-border py-4 last:border-b-0">
       <div class="min-w-0 max-w-md flex-1">
-        <h4 class="text-sm font-semibold text-text">{label}</h4>
+        <h3 class="text-sm font-semibold text-text">{label}</h3>
         {hint !== undefined && <p class="mt-1 text-xs leading-relaxed text-muted">{hint}</p>}
       </div>
       <div class="shrink-0">{children}</div>
@@ -424,6 +425,35 @@ export default function SiteControls({ lang }: Props) {
                     offLabel={t("command.off")}
                     onLabel={t("command.on")}
                     onChange={(capsLockWarning) => commit({ capsLockWarning })}
+                  />
+                </Row>
+
+                <Row label={t("settings.keyboard")} hint={t("settings.keyboardHint")}>
+                  <Switch
+                    value={settings.keyboard}
+                    label={t("settings.keyboard")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
+                    onChange={(keyboard) => commit({ keyboard })}
+                  />
+                </Row>
+
+                <Row label={t("settings.keyboardLayout")} hint={t("settings.keyboardLayoutHint")}>
+                  <Segmented
+                    value={settings.keyboardLayout}
+                    options={KEYBOARD_LAYOUTS}
+                    labels={(option) => t(`settings.keyboardLayout.${option}`)}
+                    onChange={(keyboardLayout) => commit({ keyboardLayout })}
+                  />
+                </Row>
+
+                <Row label={t("settings.fingerColors")} hint={t("settings.fingerColorsHint")}>
+                  <Switch
+                    value={settings.fingerColors}
+                    label={t("settings.fingerColors")}
+                    offLabel={t("command.off")}
+                    onLabel={t("command.on")}
+                    onChange={(fingerColors) => commit({ fingerColors })}
                   />
                 </Row>
 

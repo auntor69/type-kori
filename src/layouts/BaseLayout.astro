@@ -3,9 +3,11 @@ import "../styles/global.css";
 
 import SiteHeader from "../components/SiteHeader.astro";
 import { STORAGE_PREFIX } from "../lib/settings";
+import { ogCardPath } from "../lib/ogCard";
 import { localizePath, useTranslations, type Lang } from "../i18n";
 
 import bengaliFont from "@fontsource-variable/noto-sans-bengali/files/noto-sans-bengali-bengali-wght-normal.woff2?url";
+import bengaliLatinFont from "@fontsource-variable/noto-sans-bengali/files/noto-sans-bengali-latin-wght-normal.woff2?url";
 
 interface Props {
   lang: Lang;
@@ -15,9 +17,11 @@ interface Props {
   path: string;
   /** Error pages build to plain routes: keep them out of the index. */
   noindex?: boolean;
+  /** Description of the social-card image; defaults to the page title. */
+  imageAlt?: string;
 }
 
-const { lang, title, description, path, noindex = false } = Astro.props;
+const { lang, title, description, path, noindex = false, imageAlt } = Astro.props;
 const t = useTranslations(lang);
 
 const absolute = (sitePath: string) => new URL(sitePath, Astro.site).href;
@@ -27,6 +31,17 @@ const englishUrl = absolute(localizePath(path, "en"));
 
 // The other edition, so a social card can offer the reader their language.
 const otherLocale = lang === "bn" ? "en_US" : "bn_BD";
+
+// Every page has its own card, generated at build time with this page's own
+// title on it (see scripts/generate-og.mjs). The committed `/og.png` stays as the
+// site-wide image in structured data and as the safety net if the generator could
+// not run; this is the URL a crawler actually reads.
+const socialImage = absolute(ogCardPath(path, lang));
+
+// What that picture shows is described per page: a crawler or a screen reader
+// reads the alt text, not the image, so it must say what this page is rather than
+// repeat one generic sentence everywhere.
+const socialAlt = imageAlt ?? `${title} — Type Kori`;
 
 // The studio behind the app: the author meta here, and the publisher in the
 // homepage's WebApplication JSON-LD (structured data stays per-page — see
@@ -92,19 +107,16 @@ const themeBootstrap = `(function(){
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={absolute("/og.png")} />
+    <meta property="og:image" content={socialImage} />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Type Kori — a line of Bangla words with the gliding caret" />
+    <meta property="og:image:alt" content={socialAlt} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={absolute("/og.png")} />
-    <meta
-      name="twitter:image:alt"
-      content="Type Kori — a line of Bangla words with the gliding caret"
-    />
+    <meta name="twitter:image" content={socialImage} />
+    <meta name="twitter:image:alt" content={socialAlt} />
 
     <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#2c2e31" media="(prefers-color-scheme: dark)" />
@@ -112,7 +124,12 @@ const themeBootstrap = `(function(){
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Both subsets of the Bengali face, preloaded. The Latin one is not an
+         afterthought: the wordmark, the key-cap legends and every English label
+         are set in it, so without a preload the first paint swaps fonts and
+         moves the text it paints (a measurable layout shift). -->
     <link rel="preload" as="font" type="font/woff2" crossorigin href={bengaliFont} />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href={bengaliLatinFont} />
 
     <script is:inline set:html={themeBootstrap} />
   </head>
@@ -136,6 +153,27 @@ const themeBootstrap = `(function(){
     <main id="main" class="flex flex-1 flex-col">
       <slot />
     </main>
+
+    <!--
+      The site links. Every indexable page needs a crawlable path to it from
+      every other page, and the header is deliberately icon-only, so the routes
+      live here as plain text links (see docs/DECISIONS.md). They fade with the
+      rest of the chrome in focus mode, like the studio line below them.
+    -->
+    <nav
+      aria-label={t("nav.secondary")}
+      data-tk-chrome
+      class="mx-auto flex w-full max-w-[960px] flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 pb-1 pt-4 text-xs text-muted"
+    >
+      <a href={localizePath("/lessons", lang)} class="transition-colors duration-150 ease-out hover:text-text">{t("nav.lessons")}</a>
+      <a href={localizePath("/guides", lang)} class="transition-colors duration-150 ease-out hover:text-text">{t("nav.guides")}</a>
+      <a href={localizePath("/keyboard", lang)} class="transition-colors duration-150 ease-out hover:text-text">{t("nav.keyboard")}</a>
+      <a href={localizePath("/game", lang)} class="transition-colors duration-150 ease-out hover:text-text">{t("nav.game")}</a>
+      <a href={localizePath("/faq", lang)} class="transition-colors duration-150 ease-out hover:text-text">{t("nav.faq")}</a>
+      <a href={localizePath("/about", lang)} class="transition-colors duration-150 ease-out hover:text-text">{t("nav.about")}</a>
+      <a href={localizePath("/progress", lang)} class="transition-colors duration-150 ease-out hover:text-text">{t("nav.progress")}</a>
+      <a href={localizePath("/privacy", lang)} class="transition-colors duration-150 ease-out hover:text-text">{t("nav.privacy")}</a>
+    </nav>
 
     <!--
       The studio line. The old footer was removed on purpose (see

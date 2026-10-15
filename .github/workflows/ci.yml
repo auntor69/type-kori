@@ -61,3 +61,9 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      # The accessibility check reads the built HTML, so it runs after the build.
+      # Sections 11 and 13 of docs/MASTERPLAN.md make it an acceptance criterion,
+      # not an intention: a violation fails the job.
+      - name: Accessibility check (axe over every built page)
+        run: bun run test:a11y

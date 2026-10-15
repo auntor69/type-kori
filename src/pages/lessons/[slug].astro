@@ -1,5 +1,5 @@
 ---
-import Practice from "../../components/Practice.tsx";
+import PracticeIsland from "../../components/PracticeIsland.astro";
 import { textsByIds } from "../../content/drills";
 import {
   PASS_ACCURACY,
@@ -123,8 +123,7 @@ const lessonSchema = {
     </dl>
 
     <section class="mt-8" aria-label={copy.startLabel}>
-      <Practice
-        client:load
+      <PracticeIsland
         lang={lang}
         seed={lesson.order}
         lesson={{

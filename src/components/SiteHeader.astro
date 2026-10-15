@@ -35,7 +35,14 @@ const themePickerGlue = `
      Marked as chrome so focus mode can fade it away while a test is running. -->
 <header class="sticky top-0 z-30 bg-bg" data-tk-chrome style="padding-top: env(safe-area-inset-top)">
   <div class="flex h-14 w-full items-center gap-2 px-4 sm:px-6">
-    <a href={home} class="rounded-control" aria-label={`${t("nav.home")} — Type Kori`}>
+    <!-- The label names the home link and repeats both visible wordmark lines,
+         because an accessible name that drops visible text is a mismatch for
+         screen reader users (and fails Lighthouse's label-content-name check). -->
+    <a
+      href={home}
+      class="rounded-control"
+      aria-label={`${t("nav.home")} — ${t("brand.name")} ${t("brand.bangla")}`}
+    >
       <Logo />
     </a>
 
@@ -140,8 +147,11 @@ const themePickerGlue = `
         </svg>
       </button>
 
-      <CommandBar client:load lang={lang} />
-      <SiteControls client:load lang={lang} />
+      <!-- Header chrome, not the test: both hydrate in an idle callback so their
+           JavaScript stays out of the load window. The palette and the settings
+           drawer only exist after a click, so nothing is lost. -->
+      <CommandBar client:idle lang={lang} />
+      <SiteControls client:idle lang={lang} />
       </nav>
     </div>
   </div>

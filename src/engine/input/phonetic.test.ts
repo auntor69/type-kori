@@ -55,31 +55,48 @@ describe("cases from the published guide", () => {
  * ending in the same letter can need different Bangla, and a rule engine has no
  * way to know which. `kemon` is the example that proves it — the reference
  * writes কেমন with the inherent vowel unwritten, while `bhalo` really is spelled
- * with an explicit ো. Every entry here is a real gap, recorded on purpose so it
- * cannot be mistaken for working behaviour, and listed in docs/VERIFY.md.
+ * with an explicit ো. The rule table cannot decide that, so the grammar carries
+ * a small curated exception list for the words it gets wrong; every entry is
+ * listed in docs/VERIFY.md for a native speaker.
  */
-const KNOWN_DIVERGENCES = [
-  {
-    roman: "kemon",
-    ours: "কেমোন",
-    reference: "কেমন",
-    reason: "word-final inherent vowel: the rules spell the o that the dictionary leaves unwritten",
-  },
-];
-
-describe("known divergences from the reference", () => {
-  it.each(KNOWN_DIVERGENCES.map((entry) => [entry.roman, entry.ours, entry.reference]))(
-    "documents that %s produces %s rather than %s",
-    (roman, ours, reference) => {
-      expect(transliterate(roman, { grammar, compiled })).toBe(ours);
-      expect(ours).not.toBe(reference);
+describe("the word dictionary", () => {
+  it.each(grammar.dictionary.map((row) => [row.latin, row.bangla]))(
+    "spells %s as %s",
+    (roman, bangla) => {
+      expect(transliterate(roman, { grammar, compiled })).toBe(bangla);
     },
   );
 
-  it("keeps the divergence list short enough to be honest about", () => {
-    // A rule engine cannot match a dictionary word for word. This is a tripwire:
-    // if the list grows a lot, the mode is not ready to leave preview.
-    expect(KNOWN_DIVERGENCES.length).toBeLessThan(10);
+  it("resolves the reference's word-final kemon case", () => {
+    // The rules alone spell this কেমোন; the dictionary entry is what makes it
+    // match the reference spelling. See docs/VERIFY.md item 13.
+    expect(transliterate("kemon", { grammar, compiled })).toBe("কেমন");
+  });
+
+  it("only overrides a whole word, never a half-typed one", () => {
+    // kemo is not an entry, so the provisional rule output stands while typing.
+    expect(transliterate("kemo", { grammar, compiled })).toBe("কেমো");
+  });
+
+  it("is case-insensitive, because shift should not change which word it is", () => {
+    expect(transliterate("Kemon", { grammar, compiled })).toBe("কেমন");
+  });
+
+  it("keeps the exception list short enough to be honest about", () => {
+    // A tripwire: if this list grows without bound, the mode is not ready to
+    // leave preview.
+    expect(grammar.dictionary.length).toBeLessThan(25);
+  });
+
+  it("puts every entry on the review ledger", () => {
+    // allRuleRows feeds the provenance and review tests, so a dictionary row
+    // cannot slip past a source or a review flag.
+    const rows = allRuleRows();
+    for (const row of grammar.dictionary) {
+      expect(rows).toContainEqual(row);
+      expect(row.nativeReviewed).toBe(false);
+      expect(row.source.length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -153,10 +170,43 @@ describe("digits", () => {
   });
 });
 
+describe("punctuation", () => {
+  it("makes the danda typeable, which a Roman keyboard cannot produce", () => {
+    // Half the shipped practice texts end a sentence with a danda. Without this
+    // row those runs would be impossible to finish in built-in mode.
+    expect(transliterate(".", { grammar, compiled })).toBe("।");
+    expect(transliterate("k.", { grammar, compiled })).toBe("ক।");
+  });
+
+  it("keeps the dictionary working on the last word of a sentence", () => {
+    // `kemon` is a dictionary exception (কেমন, not কেমোন). Punctuation is typed
+    // into the same buffer, so the lookup has to ignore the trailing danda or
+    // every sentence-final word would fall back to the rules.
+    expect(transliterate("kemon", { grammar, compiled })).toBe("কেমন");
+    expect(transliterate("kemon.", { grammar, compiled })).toBe("কেমন।");
+  });
+
+  it("splits punctuation the grammar does not map as well", () => {
+    // The punctuation funbox appends `,` and `!`, which the grammar passes
+    // through; the word before them keeps its dictionary entry either way.
+    expect(transliterate("kemon,", { grammar, compiled })).toBe("কেমন,");
+    expect(transliterate("bhalo!", { grammar, compiled })).toBe(
+      transliterate("bhalo", { grammar, compiled }) + "!",
+    );
+  });
+
+  it("does not treat the danda as a consonant", () => {
+    // A danda ends a word, so the automatic hasanta must not reach across it.
+    expect(transliterate("k.t", { grammar, compiled })).toBe("ক।ত");
+  });
+});
+
 describe("input the grammar does not know", () => {
-  it("passes unknown characters through instead of dropping them", () => {
-    expect(transliterate("k?", { grammar, compiled })).toBe("ক?");
-    expect(transliterate("...", { grammar, compiled })).toBe("...");
+  it("passes unknown characters through instead of dropping them", () => {      expect(transliterate("k?", { grammar, compiled })).toBe("ক?");
+      // A period is deliberately *not* unknown any more: it types the danda (see
+      // the punctuation block above), which is why the unknown-character case
+      // uses punctuation the grammar really does not map.
+      expect(transliterate("@#", { grammar, compiled })).toBe("@#");
     expect(transliterate("", { grammar, compiled })).toBe("");
   });
 });

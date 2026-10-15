@@ -43,6 +43,11 @@
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    /* The gutter is reserved whether or not the page scrolls. Without it the
+       bar appears the moment a run grows the typing block, the layout viewport
+       narrows by its width, and the whole page reflows at once — a layout shift
+       the browser scores against every element on screen. */
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -189,5 +194,36 @@
   .tk-caret {
     transition: none;
     animation: none;
+  }
+}
+
+/* Falling words (the game island). The fall itself is one CSS animation per
+   word, so the game's clock only decides when a word enters and when it has
+   escaped: no per-frame JavaScript, and no visual judder if a frame is dropped.
+   Animating `top` as a percentage of the field keeps the distance out of the
+   markup, and with at most six words on screen the cost is nothing. */
+@keyframes tk-fall {
+  from {
+    top: -14%;
+  }
+  to {
+    top: 100%;
+  }
+}
+
+.tk-falling-word {
+  position: absolute;
+  animation-name: tk-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  will-change: top;
+}
+
+/* The island switches these readers to its list view; this is the belt to that
+   pair of braces, so the words cannot fall for anyone who asked them not to. */
+@media (prefers-reduced-motion: reduce) {
+  .tk-falling-word {
+    animation: none;
+    top: 0;
   }
 }

@@ -1,5 +1,5 @@
 ---
-import Practice from "./Practice.tsx";
+import PracticeIsland from "./PracticeIsland.astro";
 import { homeCopy } from "../content/home";
 import type { Lang } from "../i18n";
 
@@ -21,6 +21,6 @@ const copy = homeCopy[lang];
   <h1 class="font-bangla text-center text-lg font-medium text-muted">{copy.h1}</h1>
 
   <div class="mt-8">
-    <Practice client:load lang={lang} seed={1} />
+    <PracticeIsland lang={lang} seed={1} />
   </div>
 </section>

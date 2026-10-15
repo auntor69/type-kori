@@ -40,11 +40,25 @@ export interface PhoneticGrammar {
   marks: RuleRow[];
   conjuncts: RuleRow[];
   digits: RuleRow[];
+  /**
+   * Punctuation the target text can contain but a Roman keyboard cannot
+   * produce: today only the danda (।), the Bangla full stop. Without a row for
+   * it, a run whose target carries one would be impossible to finish in
+   * built-in mode. It is the grammar's only unsourced punctuation entry and is
+   * listed in `docs/VERIFY.md`.
+   */
+  punctuation: RuleRow[];
+  /**
+   * Whole-word exceptions: a Roman spelling that a rule engine gets wrong, with
+   * the Bangla a dictionary would pick instead. Consulted only for a complete
+   * Roman word, never for a half-typed one.
+   */
+  dictionary: RuleRow[];
   autoHasanta: boolean;
   digitsAreBengali: boolean;
 }
 
-type RuleKind = "vowel" | "consonant" | "mark" | "conjunct" | "digit";
+type RuleKind = "vowel" | "consonant" | "mark" | "conjunct" | "digit" | "punctuation";
 
 interface CompiledRule {
   latin: string;
@@ -75,6 +89,8 @@ export function allRuleRows(): (RuleRow | VowelRow)[] {
     ...grammar.marks,
     ...grammar.conjuncts,
     ...grammar.digits,
+    ...grammar.punctuation,
+    ...grammar.dictionary,
   ];
 }
 
@@ -85,6 +101,8 @@ export function loadGrammar(raw: unknown = rules): PhoneticGrammar {
     marks?: RuleRow[];
     conjuncts?: RuleRow[];
     digits?: RuleRow[];
+    punctuation?: RuleRow[];
+    dictionary?: RuleRow[];
     behavior?: { autoHasanta?: { enabled?: boolean }; digitsAreBengali?: { enabled?: boolean } };
   };
 
@@ -94,6 +112,8 @@ export function loadGrammar(raw: unknown = rules): PhoneticGrammar {
     marks: source.marks ?? [],
     conjuncts: source.conjuncts ?? [],
     digits: source.digits ?? [],
+    punctuation: source.punctuation ?? [],
+    dictionary: source.dictionary ?? [],
     autoHasanta: source.behavior?.autoHasanta?.enabled ?? true,
     digitsAreBengali: source.behavior?.digitsAreBengali?.enabled ?? true,
   };
@@ -123,6 +143,11 @@ export function compileRules(grammar: PhoneticGrammar = loadGrammar()): Compiled
       compiled.push({ latin: row.latin, kind: "digit", value: row.bangla });
     }
   }
+  // Punctuation is never gated on the numerals setting: a danda is not a digit,
+  // and a target containing one must stay typeable in every configuration.
+  for (const row of grammar.punctuation) {
+    compiled.push({ latin: row.latin, kind: "punctuation", value: row.bangla });
+  }
 
   return compiled.sort((a, b) => b.latin.length - a.latin.length);
 }
@@ -133,13 +158,74 @@ export interface TransliterateOptions {
 }
 
 /**
+ * The dictionary entry for a complete Roman word, or null. Matching is
+ * case-insensitive because a learner's shift state should not change which word
+ * the dictionary recognises.
+ */
+export function dictionaryWord(
+  roman: string,
+  grammar: PhoneticGrammar = loadGrammar(),
+): string | null {
+  const key = roman.toLowerCase();
+  for (const row of grammar.dictionary) {
+    if (row.latin.toLowerCase() === key) return row.bangla;
+  }
+  return null;
+}
+
+/** True when `roman` is the beginning of a dictionary spelling. */
+export function isDictionaryPrefix(
+  roman: string,
+  grammar: PhoneticGrammar = loadGrammar(),
+): boolean {
+  const key = roman.toLowerCase();
+  return grammar.dictionary.some((row) => row.latin.toLowerCase().startsWith(key));
+}
+
+/**
  * Convert one Roman word to Bangla. Never throws and never drops input: anything
  * the grammar does not know is passed through unchanged.
  */
+/**
+ * Split a typed buffer into the word and the punctuation that trails it.
+ *
+ * Punctuation is typed into the same buffer as the word — the engine has no
+ * other place to put it — but only the word has a dictionary entry, so
+ * `kotha.` must be resolved as `kotha` plus a danda or the sentence-final word
+ * of every text would fall back to the rules and come out wrong. A trailing
+ * character that is not a letter or a digit ends the word; that covers both the
+ * danda's Roman key and punctuation the grammar passes through unchanged.
+ */
+export function splitTrailingPunctuation(buffer: string): [string, string] {
+  let index = buffer.length;
+  while (index > 0 && !/[A-Za-z0-9]/.test(buffer[index - 1] as string)) index -= 1;
+  return [buffer.slice(0, index), buffer.slice(index)];
+}
+
 export function transliterate(roman: string, options: TransliterateOptions = {}): string {
   const grammar = options.grammar ?? loadGrammar();
   const compiled = options.compiled ?? compileRules(grammar);
 
+  // A complete word the dictionary knows wins over the rules: this is how a
+  // word-final inherent vowel (kemon → কেমন) comes out right, which no rule
+  // table can decide. Only a whole word is looked up, so a half-typed one still
+  // shows the provisional rule output.
+  const [word, trailing] = splitTrailingPunctuation(roman);
+  const known = dictionaryWord(word, grammar);
+  if (known !== null) return known + rulesOnly(trailing, grammar, compiled);
+
+  return rulesOnly(roman, grammar, compiled);
+}
+
+/**
+ * The rule table applied to one buffer, with no dictionary step: the part of the
+ * conversion that has nothing to consult but the grammar.
+ */
+function rulesOnly(
+  roman: string,
+  grammar: PhoneticGrammar,
+  compiled: CompiledRule[],
+): string {
   let output = "";
   let previous: "none" | "consonant" | "other" = "none";
   let index = 0;
