@@ -1,3 +1,4 @@
+import { Fragment } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
 
 import { formatDuration } from "../engine/metrics";
@@ -5,6 +6,7 @@ import { localizePath, useTranslations, type Lang } from "../i18n";
 import { earnedCount, evaluateBadges, currentStreak, longestStreak } from "../lib/badges";
 import { mistakeWords } from "../lib/mistakes";
 import { parseTestType } from "../lib/run";
+import { retryUrl, runConsistency, runSamples } from "../lib/runDetail";
 import {
   applyBackup,
   averageAccuracy,
@@ -64,6 +66,16 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** One labelled number inside a run's detail panel. */
+function DetailStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt class="text-xs font-medium uppercase tracking-wide text-muted">{label}</dt>
+      <dd class="mt-0.5 tabular-nums text-text">{value}</dd>
+    </div>
+  );
+}
+
 /**
  * The speed trend, drawn by hand: a polyline is a handful of bytes and needs no
  * chart library (Section 12's budget).
@@ -114,6 +126,9 @@ export default function Progress({ lang }: Props) {
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  // The run whose detail panel is open, if any. One at a time: the panel is
+  // tall, and two open panels turn the history into a wall.
+  const [openRun, setOpenRun] = useState<string | null>(null);
 
   const goHome = () => {
     window.location.assign(localizePath("/", lang));
@@ -530,27 +545,184 @@ export default function Progress({ lang }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {runs.slice(0, HISTORY_ROWS).map((run) => (
-                    <tr key={run.id} class="border-t border-border">
-                      <td class="py-2 pr-4 whitespace-nowrap text-muted">
-                        {dateFormat.format(run.ts)}
-                      </td>
-                      <td class="py-2 pr-4 text-text">
-                        {run.mode === "avro-phonetic"
-                          ? t("practice.mode.builtin")
-                          : t("practice.mode.system")}
-                      </td>
-                      <td class="py-2 pr-4 text-right font-medium tabular-nums text-text">
-                        {run.wpm}
-                      </td>
-                      <td class="py-2 pr-4 text-right tabular-nums text-muted">
-                        {run.accuracy}%
-                      </td>
-                      <td class="py-2 text-right tabular-nums text-muted">
-                        {formatDuration(run.durationMs)}
-                      </td>
-                    </tr>
-                  ))}
+                  {runs.slice(0, HISTORY_ROWS).map((run) => {
+                    const open = openRun === run.id;
+                    const detailId = `run-detail-${run.id}`;
+
+                    // The panel is the only place a browser is needed, and it can
+                    // only be open after mount, so the prerendered pages never
+                    // touch `window`.
+                    const repeat =
+                      open && typeof window !== "undefined"
+                        ? retryUrl(`${window.location.origin}${localizePath("/", lang)}`, run)
+                        : null;
+                    const samples = open ? runSamples(run) : [];
+                    const runConsistencyScore = open ? runConsistency(run) : null;
+
+                    return (
+                      <Fragment key={run.id}>
+                        <tr class="border-t border-border">
+                          <td class="py-2 pr-4 whitespace-nowrap text-muted">
+                            <button
+                              type="button"
+                              aria-expanded={open}
+                              aria-controls={detailId}
+                              onClick={() => setOpenRun(open ? null : run.id)}
+                              class="flex items-center gap-1.5 rounded-control px-1 py-0.5 text-start transition-colors duration-150 ease-out hover:text-text"
+                            >
+                              <span
+                                aria-hidden="true"
+                                class={`inline-block transition-transform duration-150 ease-out ${
+                                  open ? "rotate-90" : ""
+                                }`}
+                              >
+                                ›
+                              </span>
+                              {dateFormat.format(run.ts)}
+                              <span class="sr-only">
+                                {open ? t("progress.detail.hide") : t("progress.detail.open")}
+                              </span>
+                            </button>
+                          </td>
+                          <td class="py-2 pr-4 text-text">
+                            {run.mode === "avro-phonetic"
+                              ? t("practice.mode.builtin")
+                              : t("practice.mode.system")}
+                          </td>
+                          <td class="py-2 pr-4 text-right font-medium tabular-nums text-text">
+                            {run.wpm}
+                          </td>
+                          <td class="py-2 pr-4 text-right tabular-nums text-muted">
+                            {run.accuracy}%
+                          </td>
+                          <td class="py-2 text-right tabular-nums text-muted">
+                            {formatDuration(run.durationMs)}
+                          </td>
+                        </tr>
+
+                        {open && (
+                          <tr id={detailId} class="border-t border-border">
+                            <td colSpan={5} class="rounded-control bg-surface-2 px-4 py-5">
+                              <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
+                                {t("progress.detail.title")}
+                              </h3>
+
+                              <div class="mt-4 grid gap-6 lg:grid-cols-2">
+                                <div>
+                                  <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
+                                    <DetailStat
+                                      label={t("practice.wpm")}
+                                      value={String(run.wpm)}
+                                    />
+                                    <DetailStat
+                                      label={t("practice.kpm")}
+                                      value={String(run.kpm)}
+                                    />
+                                    <DetailStat
+                                      label={t("practice.accuracy")}
+                                      value={`${run.accuracy}%`}
+                                    />
+                                    {/* The run's own consistency, not the average
+                                        across runs that the summary tiles show. */}
+                                    <DetailStat
+                                      label={t("progress.detail.consistency")}
+                                      value={
+                                        runConsistencyScore === null
+                                          ? "—"
+                                          : `${runConsistencyScore}%`
+                                      }
+                                    />
+                                    <DetailStat
+                                      label={t("practice.time")}
+                                      value={formatDuration(run.durationMs)}
+                                    />
+                                    <DetailStat
+                                      label={t("progress.detail.testType")}
+                                      value={testTypeLabel(run.testType ?? "")}
+                                    />
+                                    <DetailStat
+                                      label={t("progress.detail.inputMode")}
+                                      value={
+                                        run.mode === "avro-phonetic"
+                                          ? t("practice.mode.builtin")
+                                          : t("practice.mode.system")
+                                      }
+                                    />
+                                    <DetailStat
+                                      label={t("progress.detail.text")}
+                                      value={run.textId}
+                                    />
+                                  </dl>
+
+                                  {repeat !== null && (
+                                    <a href={repeat} class={`mt-5 inline-block ${SECONDARY_BUTTON}`}>
+                                      {t("progress.detail.retry")}
+                                      <span class="sr-only"> — {t("progress.detail.retryHint")}</span>
+                                    </a>
+                                  )}
+                                </div>
+
+                                <div>
+                                  {samples.length >= 2 ? (
+                                    <TrendChart
+                                      points={samples}
+                                      label={t("progress.detail.curve")}
+                                      note={t("progress.detail.curveNote")}
+                                    />
+                                  ) : (
+                                    <p class="text-xs leading-relaxed text-muted">
+                                      {t("progress.detail.noSamples")}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <h3 class="mt-6 text-xs font-semibold uppercase tracking-wide text-muted">
+                                {t("progress.detail.mistakes")}
+                              </h3>
+
+                              {run.errors.length === 0 ? (
+                                <p class="mt-2 text-xs text-muted">
+                                  {t("progress.detail.noMistakes")}
+                                </p>
+                              ) : (
+                                <ul class="mt-2 flex flex-wrap gap-2">
+                                  {run.errors.map((error, index) => (
+                                    <li
+                                      key={`${error.expected}-${error.typed}-${index}`}
+                                      class="inline-flex items-center gap-2 rounded-pill border border-border bg-surface px-3 py-1 text-sm"
+                                    >
+                                      <span lang="bn" class="font-bangla text-text">
+                                        {error.expected}
+                                      </span>
+                                      <span aria-hidden="true" class="text-muted">
+                                        →
+                                      </span>
+                                      <span lang="bn" class="font-bangla text-wrong">
+                                        {error.typed}
+                                      </span>
+                                      <span class="sr-only">
+                                        {t("progress.detail.expected")} {error.expected}{", "}
+                                        {t("progress.detail.typed")} {error.typed}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setOpenRun(null)}
+                                class={`mt-6 ${SECONDARY_BUTTON}`}
+                              >
+                                {t("progress.detail.hide")}
+                              </button>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

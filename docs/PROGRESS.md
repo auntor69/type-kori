@@ -127,16 +127,55 @@ real browser is the owner's check. The 26 practice texts are still
 
 ## Phase 6 — SEO, PWA, performance
 
-- [ ] Prerendered content pages and guides (home and privacy are already
-      prerendered; the guides are not written yet)
+- [x] Prerendered content pages and guides — 2026-10-11 · working tree
+      (`/guides` + `/guide/<slug>`, `/faq`, `/about` and `/keyboard`, each with its
+      `/en/` mirror; the copy lives in `src/content/` and `src/content/guides.test.ts`
+      holds the structural rules)
 - [x] Sitemap and structured data — 2026-09-28 · `2abf86d` (sitemap, canonical,
-      hreflang, `WebApplication` and `FAQPage` JSON-LD are in; re-check when the
-      guide pages exist)
-- [ ] OG images
-- [ ] Service worker
-- [ ] Performance budget
+      hreflang, `WebApplication` and `FAQPage` JSON-LD are in; the FAQ page and
+      its JSON-LD are now generated from the same `src/content/faq.ts`, so the two
+      cannot disagree)
+- [x] OG images — 2026-10-11 · working tree (one 1200x630 card per built page,
+      title in either script, generated into `dist/og/` by `scripts/generate-og.mjs`
+      at build time — resvg + a shipped Noto Sans Bengali TTF, so no Bengali font
+      has to be installed on the build machine; `public/og.png` stays the
+      site-wide fallback)
+- [x] Service worker — 2026-10-02 · `public/sw.js` (hand-written, production-only:
+      network-first navigations, stale-while-revalidate assets; `src/lib/pwa.test.ts`
+      and `scripts/sw.test.mjs` cover the precache list and the registration gate)
+- [x] Performance budget — 2026-10-15 · working tree (the mobile gap was the
+      last piece; see below)
 
 *Done when:* Lighthouse ≥ 95 in all four categories on home and a lesson page.
+The accessibility half of that is now enforced (axe over every built page in CI).
+A real-browser run on 2026-10-13 (built `dist/`, desktop preset) gives:
+
+| page | Performance | Accessibility | Best practices | SEO |
+|---|---|---|---|---|
+| `/` (home) | 99 | 100 | 100 | 100 |
+| `/lessons/vowels/` | 100 | 100 | 100 | 100 |
+| `/en/` | 100 | 100 | 100 | 100 |
+
+The four fixes that run drove are in `docs/DECISIONS.md` (the settled first frame,
+`scrollbar-gutter: stable`, the two font preloads, the light muted token, the
+decorative logo mark).
+
+**The mobile gap is closed, and it was a *when*, not a *what*.** Mobile-emulated
+*Performance* had been 76–89, everything else 100, with 480–1,170 ms of Total
+Blocking Time from hydrating the practice island under Lighthouse's 4× CPU
+throttle. Nothing on the page needs the engine until a key is pressed, so
+`src/lib/deferredHydration.ts` now keeps its modules off the load path: the
+server-rendered words *are* the page, and the first key, tap or focus starts one
+dynamic import that hydrates onto the existing markup. Keystrokes pressed while
+it loads are buffered and replayed on their original targets, so typing waits at
+worst and is never dropped. On 2026-10-15, same built `dist/` and same sandbox:
+desktop 100/100/100/100 on all three pages, mobile Performance 96–98 with every
+other category at 100 and TBT down to ~200 ms. The product decision the earlier
+note flagged is taken and recorded in `docs/DECISIONS.md`; the invariants are
+held by `scripts/verify-layout.mjs`, which asserts that the engine is not
+fetched before an interaction, that a run typed while it loads still finishes,
+and that the practice block — words, on-screen board and live stats — sits
+inside the first viewport.
 
 ## Phase 7 — QA and launch
 
@@ -195,3 +234,37 @@ judgement. Phase 4 follows, and Phase 3's sign-off can happen in parallel.
   a **new personal best** moment on the results screen, and a live clean-word
   **combo** counter. `RunRecord.errors` now also carries the target word, which
   is what makes the notebook about words rather than clusters.
+- 2026-10-11 — the second batch, all verified in a real browser before landing:
+  - **Content pages.** `/guides` with a page per guide in both locales, a real
+    `/faq` (the same rows feed the `FAQPage` JSON-LD), an `/about`, and a
+    `/keyboard` whose tables are generated from `phonetic-rules.json` — the
+    cheat sheet and the engine cannot drift because they share one source.
+  - **Result share card.** A finished run becomes a 1200x630 PNG painted on a
+    canvas in the browser; nothing is uploaded and no service is called.
+  - **Shareable test links.** Time, words, funbox, difficulty, layout and a
+    custom text all encode into the query string, so one link opens one exact
+    exercise; a broken field is dropped rather than taking the link down.
+  - **A per-run detail view** on the progress page: the run's own stats, its
+    consistency recomputed from the samples, and a link that repeats the test
+    when the test type has a preset worth encoding.
+  - **Custom text grew up** into a named library (the old single-paste key is
+    migrated) with digit repair, so an exam question carrying `25 নম্বর` is
+    usable instead of rejected.
+  - **A typing game** (`/game`): falling words, three speeds, one point per
+    cluster, drawn from the same curated vocabulary as the endless stream.
+  - **Accessibility became a gate.** `bun run test:a11y` runs axe-core over every
+    built page and fails the build on a violation; CI runs it after `bun run build`.
+  - **Per-page social cards**, generated into `dist/` at build time from a
+    shipped Bengali TTF.
+
+  Verification of the batch turned up a real hole in the built-in phonetic
+  preview: a Roman keyboard could not produce `।` at all, while 14 of the 26
+  practice texts, one drill and the punctuation funbox all contain one, so those
+  runs could not be finished. The grammar now maps the period key to the danda
+  (one `unsourced` row, listed in `docs/VERIFY.md` item 42) and the dictionary
+  step ignores trailing punctuation, so the sentence-final word keeps its
+  exception (`kemon.` is কেমন।, not কেমোন।).
+
+  The suite is 665 tests across 39 files plus the `scripts/` helpers, and
+  `bun tsc -b --noEmit` is clean. The Bangla these features introduced is a first
+  draft and is listed in `docs/VERIFY.md` (items 23–42).

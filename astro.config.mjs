@@ -2,6 +2,34 @@ import { defineConfig } from "astro/config";
 import preact from "@astrojs/preact";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath } from "node:url";
+
+import { generateCards } from "./scripts/generate-og.mjs";
+
+/**
+ * Per-page social cards, written into the build output after the pages exist.
+ *
+ * They go into `dist/` rather than `public/` on purpose: nothing generated is
+ * ever committed, and every deploy regenerates the cards from the pages it
+ * actually shipped. If the optional renderer is missing the build still
+ * succeeds — the layout's `og:image` then simply points at a file that was not
+ * written, so this logs a warning rather than failing a deploy over a card.
+ */
+function socialCards() {
+  return {
+    name: "type-kori-social-cards",
+    hooks: {
+      "astro:build:done": async ({ dir, logger }) => {
+        try {
+          const written = await generateCards(fileURLToPath(dir));
+          logger.info(`social cards: ${written.length} written`);
+        } catch (error) {
+          logger.warn(`social cards skipped: ${error instanceof Error ? error.message : error}`);
+        }
+      },
+    },
+  };
+}
 
 /**
  * The canonical URL the layout emits for a site-root-relative path: Bangla at
@@ -26,6 +54,7 @@ export default defineConfig({
   trailingSlash: "ignore",
   integrations: [
     preact(),
+    socialCards(),
     sitemap({
       // An error page is crawlable, not recommendable: keep every 404 route
       // out of the sitemap (the localised one builds to /en/404/).

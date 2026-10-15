@@ -8,13 +8,22 @@ interface Props {
 const { size = 34, wordmark = true, class: className = "" } = Astro.props;
 ---
 
+<!--
+  With the wordmark the mark is decoration: the two lines of text beside it
+  already say the name, and the `ট` inside the tile is visible text, so an
+  accessible name on the mark as well would make the tile's letter part of the
+  link's visible text without being part of its name (axe's
+  label-content-name-mismatch). Standalone — the icon on its own, as the install
+  card uses it — it carries the name itself.
+-->
 <span class={`inline-flex items-center gap-2.5 ${className}`}>
   <svg
     width={size}
     height={size}
     viewBox="0 0 32 32"
     role="img"
-    aria-label="Type Kori"
+    aria-label={wordmark ? undefined : "Type Kori"}
+    aria-hidden={wordmark ? "true" : undefined}
     class="shrink-0"
   >
     <rect

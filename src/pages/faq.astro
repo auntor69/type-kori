@@ -1,0 +1,67 @@
+---
+import Prose from "../components/Prose.astro";
+import { faqItems } from "../content/faq";
+import { localizePath, useTranslations } from "../i18n";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const lang = "bn" as const;
+const t = useTranslations(lang);
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: t("nav.home"),
+      item: new URL(localizePath("/", lang), Astro.site).href,
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: t("nav.faq"),
+      item: new URL(localizePath("/faq", lang), Astro.site).href,
+    },
+  ],
+};
+
+// A real FAQ, so FAQPage markup is honest here (Section 11).
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  inLanguage: "bn-BD",
+  mainEntity: faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.question[lang],
+    acceptedAnswer: { "@type": "Answer", text: item.answer[lang] },
+  })),
+};
+---
+
+<BaseLayout
+  lang={lang}
+  title={t("faq.meta.title")}
+  description={t("faq.meta.description")}
+  path="/faq"
+>
+  <Prose
+    lang={lang}
+    title={t("faq.title")}
+    description={t("faq.lead")}
+    reviewNote={t("content.reviewNote")}
+    crumbs={[{ label: t("nav.home"), href: localizePath("/", lang) }, { label: t("nav.faq") }]}
+  >
+    {
+      faqItems.map((item) => (
+        <section>
+          <h2 class="text-lg font-semibold text-text">{item.question[lang]}</h2>
+          <p class="mt-2 text-base leading-relaxed text-muted">{item.answer[lang]}</p>
+        </section>
+      ))
+    }
+  </Prose>
+
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+</BaseLayout>

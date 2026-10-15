@@ -142,7 +142,8 @@ with the reason. Newest last.
   change only — which also means the `layout` and `sound` fields in the Section 9
   settings schema are not implemented. If the feature is ever revived, the
   interface already carries `KeyboardEvent.code` through to the engine, which is
-  the first half of Section 7.8.
+  the first half of Section 7.8. (**Revived 2026-10-15** — see the on-screen
+  keyboard entry below.)
 - 2026-09-28 — **Phase 5 was built before Phase 4.** The plan works phase by
   phase. Phase 3's outstanding criterion is a native speaker signing off the first
   100 rules, and Phase 4's is 12 lessons plus ~150 native-reviewed texts; both are
@@ -544,3 +545,192 @@ with the reason. Newest last.
   og:image and the sitemap) and the sitemap line in `public/robots.txt` both
   point there; the old `type-kori.pages.dev` URL is gone. The SEO contract
   test keeps robots.txt and the config from drifting apart.
+- 2026-10-11 — **The guide, FAQ and About pages are content modules, not
+  hand-written HTML.** `/guides` indexes them, `/guide/<slug>` renders one, and
+  `/faq` and `/about` follow the same pattern, in both locales. The FAQ rows live
+  in `src/content/faq.ts` and feed *both* the visible page and the `FAQPage`
+  JSON-LD, so a question can never be answered one way on screen and another way
+  to a crawler. `src/content/guides.test.ts` checks the structural rules that
+  prose tends to break: unique slugs, a title, a summary, real headings, and
+  reciprocal links between languages.
+- 2026-10-11 — **The share card is drawn in the browser and uploaded nowhere.**
+  A finished run can be turned into a 1200x630 PNG by `src/lib/shareCard.ts`,
+  which paints a canvas locally and hands the user a file (or the OS share
+  sheet). There is no image service and no network call — the project's whole
+  promise is that nothing leaves the device, and a "share" button is exactly
+  where that promise is easiest to break. The drawing takes a structural
+  context interface, so the layout and every string on the card are unit tested
+  without a real canvas.
+- 2026-10-11 — **A test can live entirely in the URL.** `src/lib/presets.ts`
+  encodes time, words, funbox, difficulty, layout and a custom text into the
+  query string, which is what lets a teacher hand out one link that opens the
+  exercise they set. Decoding is per-field defensive: a bad or hand-edited value
+  is dropped and the rest of the link still opens a usable test, rather than
+  taking the page down. This is also the mechanism behind the daily challenge —
+  the same encoder, seeded from the date.
+- 2026-10-11 — **Accessibility is a build gate, not an aspiration.**
+  `scripts/axe-check.mjs` runs axe-core (jsdom) over every page in `dist/` and
+  fails on a violation; CI runs it as `bun run test:a11y` *after* the build,
+  because it checks the shipped HTML rather than the source. The script is a
+  `.mjs` run with `node` so it stays usable outside Bun, and
+  `axe-check.test.mjs` covers its own filtering so the gate cannot be widened
+  by accident.
+- 2026-10-11 — **The phonetic cheat sheet is generated from the grammar.**
+  `/keyboard`'s tables come from `phonetic-rules.json` through
+  `src/lib/phoneticGuide.ts`, not from prose. The tool and its documentation
+  must never disagree about what `kkh` types, and one source is the only way to
+  guarantee that: a corrected rule appears in the guide with nobody remembering
+  to edit a page. Rows keep the grammar's own order (vowels অ→ঔ, then the
+  traditional places of articulation) because that is the pedagogical order, and
+  `phoneticGuide.test.ts` pins the group layout and the ordering rule.
+- 2026-10-11 — **A run's consistency is derived, never stored.** The detail view
+  recomputes it from the run's per-second speed samples. Storing it would give
+  two places to disagree, and runs recorded before sampling existed have no
+  samples at all: they report "not measured" rather than a 0 that would read as
+  a measurement. The run's "repeat this test" link is built through the same
+  preset encoder the share button uses; a test type with no preset worth
+  encoding (a lesson, a paste, an endless run, a drill) gets no link instead of
+  one that opens something else.
+- 2026-10-11 — **Your own text is a named library, and digits are repaired
+  rather than rejected.** A single stored paste meant a new exam question
+  overwrote the last one, so pastes are a small named list now (the pre-library
+  key is migrated on read, not dropped). Digits are accepted in either numeral
+  system and can be converted to the other on request: an exam question carries
+  its date and marks (`২৫ নম্বর`), so rejecting a paste over an ASCII `25` was
+  never the rule anyone wanted — but numerals the learner's keyboard cannot
+  produce can never be typed correctly either, so the conversion is offered, not
+  silent. The library is deliberately not content: no `reviewed` flag, and the
+  build-time validator never sees it.
+- 2026-10-11 — **The typing game reuses the practice stream's vocabulary.**
+  Falling words (`/game`) draws from the same curated bank as the endless test
+  (`buildVocabulary` + `drawWords`) instead of a second, thinner word list, so
+  the arcade drills the words the site actually teaches. The rulebook is a pure
+  module with time passed in as an argument, which is what makes its timing
+  testable; a complete word scores one point per cluster, so a long word is
+  worth more. One deliberate exception: in built-in phonetic mode the engine
+  re-converts the whole word as keys arrive, so a half-typed word can look wrong
+  for a moment — a miss is only counted when the typed buffer can lead to *no*
+  word in play, and that forgiveness is documented on `setTyped`'s option.
+- 2026-10-11 — **Social cards are generated per page at build time, into
+  `dist/`.** One wordless `public/og.png` was the right answer while no Bengali
+  font was available to the build; it is available now, because
+  `@expo-google-fonts/noto-sans-bengali` ships a real TTF and `@resvg/resvg-js`
+  takes font *files* directly, so a card can carry the page's own title in
+  either script without trusting the build machine's installed fonts. Cards are
+  written into the build output and never committed: every deploy regenerates
+  them from the pages it shipped. The naming rule exists in two runtimes (the
+  layout's meta tags and the Node generator), so `src/lib/ogCard.test.ts` runs
+  both over the same page list and fails if they drift; `public/og.png` stays as
+  the site-wide card, so a missing per-page file degrades to a real image rather
+  than a broken one.
+- 2026-10-11 — **The period key types the danda in built-in mode.** Verification
+  found that a Roman keyboard could not produce `।` at all, while 14 of the 26
+  practice texts, one lesson drill and the punctuation funbox all contain one —
+  those runs were literally impossible to finish in the built-in preview, and the
+  keyboard guide claimed otherwise. `phonetic-rules.json` therefore has one
+  `punctuation` row (`"."` → `।`, marked `unsourced`, listed in `docs/VERIFY.md`),
+  rendered as its own table on `/keyboard` like every other group. It is the
+  project's usual compromise: a rule the reference guide does not document is
+  still a rule the tool needs, so it ships flagged rather than silently. The
+  trade-off is deliberate and recorded: an ASCII period is no longer typeable in
+  built-in mode, which only affects a pasted passage mixing Bangla with an ASCII
+  `.` (no shipped text contains one). The same fix needed one more piece: the
+  danda lands in the same buffer as the word, and the whole-word dictionary step
+  only matched a buffer with no punctuation on it, so the last word of a sentence
+  — the one the funbox, the drills and 14 texts all end on — silently fell back to
+  the rules and came out wrong (`kemon.` gave কেমোন। instead of কেমন।).
+  `transliterate` now resolves the word and its trailing punctuation separately
+  (`splitTrailingPunctuation`), which fixes the same defect for the `,` and `!`
+  the funbox appends.
+- 2026-10-13 — **The stream's first frame holds a whole batch, not one line.**
+  A Lighthouse run showed the home page shifting 0.099 as it hydrated: the
+  server-rendered island carried one line (`STREAM_BUFFER`, 12 words), and the
+  top-up effect then grew the typing block to the 36 words the render window
+  shows — 122px of content arriving after paint, which the browser scores as a
+  layout shift against every element the growth pushes down. `STREAM_HEAD`
+  (`= STREAM_EXTENSION`) makes the first frame the settled frame: the server
+  renders exactly what hydration renders, so the top-up that follows is
+  invisible because it lands outside the rendered window. The words themselves
+  do not change — `drawWords` is a pure function of the seed, which is why the
+  server and the client already agreed on the text; only the *count* disagreed.
+- 2026-10-13 — **`scrollbar-gutter: stable` on the root.** With the block now
+  the right height at first paint, the desktop audit still showed CLS 0.709:
+  the moment the page grows past the viewport the scrollbar appears, the layout
+  viewport narrows by its width, and the whole page reflows at once — a single
+  shift Chrome scores against a near-full-viewport element. Reserving the gutter
+  whether or not the page scrolls removes the reflow at its cause. It is the one
+  genuinely viewport-shaped fix here, and it also stops the `dvh`-centred home
+  page from twitching as the chrome grows. Home went 0.099 → 0.005, and the
+  lesson page, which never scrolled, was unaffected.
+- 2026-10-13 — **Both subsets of the Bengali face are preloaded.** The Latin
+  subset (`noto-sans-bengali-latin-wght-normal.woff2`) is not decoration on a
+  Bangla site: the wordmark, the key-cap legends (`Tab`, `Shift`) and every
+  English label are set in it, since it is what the stack falls back to for
+  Latin code points. Preloading only the Bengali subset left the first paint
+  swapping fonts for all of that text — the "web font loaded" layout shift.
+  The fix costs one more preload hint and 26 KB, and it fetches only what the
+  page would load anyway.
+- 2026-10-13 — **Light-mode `--muted` is darker than a grey-500: `#5f6673`.**
+  The small Latin legends on the on-screen keyboard sit on tinted key caps —
+  a 10% finger colour over white, and `--accent-soft` for the key to press —
+  where `#6b7280` measured 3.97:1, below the 4.5:1 the size needs. The token
+  moved two steps darker, which clears every surface those legends land on
+  (≥4.75:1) without touching the hierarchy: `--muted` still reads grey against
+  `--text`. Dark mode keeps the serika grey, which already passed. This is the
+  theme tokens' own rule — a token has to work everywhere it is used, not just
+  on the canvas it was picked against — and it is the one colour change that
+  fixes the whole family of tinted surfaces rather than one label.
+- 2026-10-13 — **The logo mark is decoration when the wordmark is beside it.**
+  The `ট` inside the icon tile is visible text, so an `aria-label` on the SVG
+  made the home link's visible text (`ট Type Kori টাইপ করি`) something its
+  accessible name (`হোম — Type Kori টাইপ করি`) did not contain — axe's
+  `label-content-name-mismatch`. With the wordmark the mark is now
+  `aria-hidden`; standalone (the icon on its own, as the install card uses it)
+  it still carries the name.
+- 2026-10-15 — **The on-screen keyboard workstream is back, and the homepage no
+  longer fits one viewport.** The 2026-09-28 entry above dropped Sections 3.2,
+  4 (v1.1), 5.3 and 7.8 — the national (BDS 1738) and Probhat layouts with a
+  rendered board, finger colours and key hints — on the owner's call that a
+  rendered keyboard was unnecessary, since every user already has a system one.
+  That call is reversed in the code that now ships: the board
+  (`src/components/OnScreenKeyboard.tsx`, the layouts in `src/engine/layouts/`)
+  is on by default (`keyboard`, `keyboardLayout`, `fingerColors` in
+  `src/lib/settings.ts`) and hides itself only below `sm`, because a Bangla
+  trainer that never shows the key is asking a beginner to guess it — the point
+  the old call did not weigh. The `layout` field the earlier entry listed as
+  unimplemented is now real, and `/keyboard` documents the layouts it draws.
+  The cost is recorded rather than hidden. The homepage's rule was never "one
+  viewport always": it is a full-height column that fits exactly when its own
+  content fits and scrolls otherwise (`c4aa9ce`). The words-only page fitted
+  900px; the board adds ~240px and the content nav 41px, so the column now
+  grows past the fold and scrolls. `scripts/verify-layout.mjs` therefore
+  asserts what the page exists for rather than a fixed height: the practice
+  block — the words, the board and the live stats — is inside the first
+  viewport so a run starts without scrolling, the page never overflows
+  sideways, the studio line is reachable, and a run still finishes.
+- 2026-10-15 — **The practice island hydrates on the first interaction, not on
+  load.** Phase 6's open item was mobile performance: 76–89, with 480–1,170 ms
+  of Total Blocking Time under Lighthouse's 4× CPU throttle. The measurement
+  said the engine's own modules were the whole of it, and nothing on the page
+  needs them until a key is pressed — so the cost was *when* they ran, not what
+  they weigh. `src/lib/deferredHydration.ts` keeps them off the load path: the
+  server-rendered words are the page, and the first key, tap or focus starts one
+  dynamic import that `hydrate`s onto the markup already there, so the words do
+  not move when the engine arrives. A keystroke pressed while it loads is
+  buffered and replayed on its original target — one microtask apart, because a
+  synchronous burst would hand a run-ending `Tab` the state the island hydrated
+  with instead of the run the keys before it just started. Typing therefore
+  waits for the chunk at worst and is never dropped; a failed import says so on
+  the console rather than failing silently; and a link that already carries its
+  run (`?daily=…`, `?mistakes=1`, a preset) hydrates immediately, because its
+  target is in the query string rather than behind an interaction. Measured on
+  the built site: mobile Performance 96–98 on `/`, `/lessons/vowels/` and `/en/`,
+  desktop 100 in all four categories, TBT ~200 ms, and a page nobody touches
+  never fetches the engine at all. `scripts/verify-layout.mjs` holds all of it —
+  it records every script the page asks for, fails if the engine's module is
+  fetched before an interaction, holds that module's fetch open while fifteen
+  keys are typed to check that all fifteen are replayed and the run finishes,
+  and asserts the practice block is inside the first viewport. The one thing
+  given up on purpose: on a cold load the first keystroke is handled a
+  chunk-latency later, which is exactly why the fallback is a replay rather than
+  a "please wait".

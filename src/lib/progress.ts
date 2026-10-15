@@ -11,9 +11,13 @@ import { clustersOf, type WordResult } from "../engine/compare";
 import type { InputEngineId } from "../engine/input/types";
 import {
   clearCustomText,
+  libraryWithText,
+  loadCustomLibrary,
   loadCustomText,
+  parseCustomLibrary,
   parseStoredCustomText,
-  saveCustomText,
+  saveCustomLibrary,
+  type CustomLibrary,
   type StoredCustomText,
 } from "./customText";
 import { loadSettings, parseSettings, saveSettings, type Settings } from "./settings";
@@ -471,6 +475,12 @@ export interface Backup {
   lessons: LessonProgressMap;
   /** Text the user pasted for custom practice, if there is one. */
   customText: StoredCustomText | null;
+  /**
+   * The named library of pasted texts. Added after the first release, so a file
+   * exported before it existed simply has none — and then `customText` above is
+   * migrated into the library on import rather than dropped.
+   */
+  customLibrary: CustomLibrary | null;
 }
 
 export function createBackup(storage: StorageAdapter = availableStorage()): Backup {
@@ -483,6 +493,7 @@ export function createBackup(storage: StorageAdapter = availableStorage()): Back
     errorMap: loadErrorMap(storage),
     lessons: loadLessonProgress(storage),
     customText: loadCustomText(storage),
+    customLibrary: loadCustomLibrary(storage),
   };
 }
 
@@ -509,6 +520,7 @@ export function parseBackup(raw: unknown): Backup | null {
     lessons: parseLessonProgress(value.lessons),
     // Same for a file exported before custom text existed: absent reads as none.
     customText: parseStoredCustomText(value.customText),
+    customLibrary: parseCustomLibrary(value.customLibrary),
   };
 }
 
@@ -525,8 +537,12 @@ export function parseBackupText(text: string): Backup | null {
 }
 
 /**
- * Replace the current state with a validated backup. A backup with no custom
+ * Replace the current state with a validated backup. A backup with no pasted
  * text clears the stored one: this function replaces, it does not merge.
+ *
+ * An older file has no library, only the single `customText`; that one becomes a
+ * one-item library so importing a file from the previous version keeps the paste
+ * instead of discarding it.
  */
 export function applyBackup(
   backup: Backup,
@@ -537,11 +553,15 @@ export function applyBackup(
   const mapStored = saveErrorMap(backup.errorMap, storage);
   const lessonsStored = saveLessonProgress(backup.lessons, storage);
 
+  const library =
+    backup.customLibrary ??
+    (backup.customText === null
+      ? null
+      : libraryWithText(backup.customText.text, backup.customText.savedAt));
+
   let customStored = true;
-  if (backup.customText === null) clearCustomText(storage);
-  else if (saveCustomText(backup.customText.text, backup.customText.savedAt, storage) === null) {
-    customStored = false;
-  }
+  if (library === null) clearCustomText(storage);
+  else if (!saveCustomLibrary(library, storage)) customStored = false;
 
   return settingsStored && runsStored && mapStored && lessonsStored && customStored;
 }

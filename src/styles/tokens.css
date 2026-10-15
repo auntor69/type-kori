@@ -16,7 +16,12 @@
   --bg: light-dark(#fafaf9, #2c2e31);
   --surface: light-dark(#ffffff, #323437);
   --text: light-dark(#1a1d20, #d1d0c9);
-  --muted: light-dark(#6b7280, #646669);
+  /* Light muted is deliberately darker than a plain grey-500: it also lands on
+     the tinted on-screen key caps (a 10% finger colour over white, and the
+     accent-soft of the next key), where the smaller Latin legends need 4.5:1.
+     #5f6673 clears every one of those surfaces.
+     Dark mode keeps the serika grey, which already passes on its canvas. */
+  --muted: light-dark(#5f6673, #646669);
   --accent: light-dark(#0e7c5a, #e2b714);
   --accent-2: light-dark(#e0364b, #ca4754);
   --correct: light-dark(#0e7c5a, #d1d0c9);

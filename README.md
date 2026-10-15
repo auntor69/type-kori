@@ -9,7 +9,8 @@ speed tests and honest progress tracking, **free, no sign-up, no ads**, and no
 data leaves your device.
 
 *structured lessons · endless stream · 12 lessons · 261 themes · 21 badges ·
-custom text · weak-key drills — instantly, in the browser, in English or বাংলা*
+custom text · weak-key drills · a typing game · generated keyboard guide —
+instantly, in the browser, in English or বাংলা*
 
 [![CI](https://github.com/auntor69/type-kori/actions/workflows/ci.yml/badge.svg)](https://github.com/auntor69/type-kori/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -54,7 +55,11 @@ them as one JSON file.
 | **Endless stream** | Untimed runs never run out — a fresh line of words is generated whenever the caret gets near the end, keeping up with 100+ WPM typists without a single visual jump. |
 | **Time / words / zen** | 15/30/60/120-second runs, 10/25/50/100-word goals that end exactly at the goal, or the endless zen stream (`Tab` ends it). |
 | **12 lessons** | A path from the vowels to conjuncts, numbers and real-world text — fixed drills, untimed, passed at 90% accuracy. |
-| **Your own text** | Paste an exam question or book paragraph (Bangla only, 12–1200 characters) and practise exactly that — stored on your device, never uploaded. |
+| **Your own text** | A small named library of your own Bangla passages (12–1200 characters, ASCII or Bengali numerals — the other set can be repaired in with one click). Stored on your device, never uploaded. |
+| **Typing game** | `/game`: words fall, you type them before they land. Three speeds, one point per cluster, three lives. Same vocabulary as the endless stream. |
+| **Share a result** | A finished run becomes a 1200x630 PNG card, painted in the browser. No upload, no service — the file is yours. |
+| **Shareable links** | Time, words, funbox, difficulty, layout and a custom text all fit in the query string, so one link opens one exact exercise. |
+| **Keyboard guide** | `/keyboard` documents both input modes, and its tables are generated from the phonetic grammar — the tool and its documentation cannot disagree. |
 | **Funboxes** | Twist the stream: Bengali numerals, punctuation, reversed words, or a memory mode that hides the words ahead. |
 | **261 themes** | Built-ins, community classics, and one palette for every country flag — every one contrast checked. Star them, export them. |
 | **Command bar** | `Ctrl+K` palette and `Ctrl+/` command line share one grammar: `theme dracula · time 60 · words 25 · funbox numbers · goto progress`. |
@@ -78,9 +83,14 @@ texts in `content/lessons/drills.json`, and every drill carries the same
 
 On the practice page, **Your own text** opens a paste box: paste an exam question
 or a paragraph from a book and, once it passes the checks (Bangla only, 12–1200
-characters in 3–200 words), it becomes the target of one untimed run. The text is
-kept in `localStorage` (never uploaded), it travels with the export/import file,
-and "reset all data" on the progress page removes it too.
+characters in 3–200 words), it becomes the target of one run. Paste as many as you
+like — they are kept as a small named library rather than overwriting each other.
+
+Punctuation and numerals are allowed in either numeral system, and a passage
+whose digits are ASCII while your keyboard produces Bengali ones can be repaired
+in one click (`25 নম্বর` → `২৫ নম্বর`) rather than rejected. Everything is kept in
+`localStorage` (never uploaded), it travels with the export/import file, and
+"reset all data" on the progress page removes it too.
 
 ## Beyond the basics
 
@@ -122,7 +132,27 @@ checked, so none of them can be unreadable. Themes can be starred and exported a
 JSON.
 
 The progress page keeps personal bests per test type, streaks, 21 badges, a
-miss-rate heat grid and the speed trend.
+miss-rate heat grid and the speed trend. Any run in the history table opens a
+detail view with its own stats, the consistency score recomputed from that run's
+per-second speed samples, its per-cluster breakdown, and — when the test type has
+one — a link that repeats exactly that test.
+
+Two more pages serve typing rather than practice:
+
+- **`/game`** is the arcade mode: words fall, you type them before they land.
+  Points are one per cluster, so a long word is worth more; three speeds, three
+  lives, and a pause button. It draws from the same curated vocabulary the
+  endless stream does, so it drills the words the site actually teaches.
+- **`/keyboard`** documents both input modes — the system keyboard and the
+  built-in phonetic preview — including the conjunct and hasanta rules the engine
+  follows. Its cheat sheet is generated from `phonetic-rules.json` at build time,
+  so a corrected rule shows up in the guide without anyone editing prose.
+
+Content pages: `/guides` collects three guides — how to type Bangla on a computer,
+an Avro phonetic cheat sheet, and preparing for a job typing test — each with its
+own page; `/faq` answers the questions a new learner asks; `/about` says who
+makes it and why. The FAQ answers are also the page's `FAQPage` structured data, so the
+screen and the search result cannot disagree.
 
 ## Requirements
 
@@ -161,23 +191,31 @@ Other scripts:
 | `bun run typecheck` | `tsc -b --noEmit` |
 | `bun run test` | Unit tests (Vitest) |
 | `bun run test:scripts` | Unit tests for the `scripts/` helpers |
+| `bun run test:a11y` | axe over every page in `dist/` (run it after `bun run build`) |
 | `bun run check:attribution` | Authorship guard: tracked files + commit messages |
+| `node scripts/generate-og.mjs` | Regenerate the per-page social cards in `dist/` (the build runs it for you) |
 | `bun run validate:text` | Content validator: characters, encodings, review flags |
 
 Pages: `/` (practice), `/lessons` (the twelve-lesson path, one page per lesson),
-`/progress` (history and data), `/privacy`. Every page has an English mirror under
-`/en/`.
+`/game` (the arcade mode), `/progress` (history and data), `/keyboard` (input
+modes and the cheat sheet), `/guides` and `/guide/<slug>`, `/faq`, `/about`,
+`/privacy`. Every page has an English mirror under `/en/`, and every built page
+gets its own 1200x630 social card with its title on it.
 
 ## Test
 
 ```sh
-bun run test           # engine, metrics, storage
-bun run test:scripts   # the attribution guard
+bun run test           # engine, metrics, storage, the app's own logic
+bun run test:scripts   # the attribution guard, the OG generator, the service worker
 bun run typecheck
+bun run build && bun run test:a11y   # axe over every built page
 ```
 
-Pure logic (the typing engine, metrics, cluster splitting, storage) is unit
-tested. Tests are written together with the code, not afterwards.
+Pure logic (the typing engine, metrics, cluster splitting, storage, the game
+rules, preset links, the share card) is unit tested. Tests are written together
+with the code, not afterwards. Accessibility is not a promise here but a gate:
+`bun run test:a11y` reads the built HTML and fails on an axe violation, and CI
+runs it after the build.
 
 ## Git hook
 
@@ -221,6 +259,13 @@ where it came from in the file's own `meta.sources`, and a row is only marked
 `nativeReviewed: true` once a human has checked it against a real keyboard.
 Built-in mode therefore ships as an opt-in preview, not the default. The full
 licence analysis is in `docs/DECISIONS.md`.
+
+One row exists for a different reason: the period key types the danda (`।`).
+Nothing in the published guide documents that, but a Roman keyboard cannot
+produce the character any other way, and it appears in half the practice texts,
+the punctuation funbox and the numbers lesson — without the row those runs could
+not be finished in built-in mode. It is marked `unsourced` and listed in
+`docs/VERIFY.md` like every other rule a native speaker has still to confirm.
 
 ## License
 

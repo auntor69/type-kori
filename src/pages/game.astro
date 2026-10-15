@@ -1,0 +1,82 @@
+---
+import Game from "../components/Game.tsx";
+import Prose from "../components/Prose.astro";
+import { localizePath, useTranslations } from "../i18n";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const lang = "bn" as const;
+const t = useTranslations(lang);
+const absolute = (path: string) => new URL(localizePath(path, lang), Astro.site).href;
+
+const notes = ["vocabulary", "motion", "phonetic"] as const;
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: t("nav.home"), item: absolute("/") },
+    { "@type": "ListItem", position: 2, name: t("nav.game"), item: absolute("/game") },
+  ],
+};
+
+const pageSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: t("game.title"),
+  description: t("game.meta.description"),
+  inLanguage: "bn-BD",
+  url: absolute("/game"),
+  isAccessibleForFree: true,
+  breadcrumb: breadcrumbSchema,
+};
+---
+
+<BaseLayout
+  lang={lang}
+  title={t("game.meta.title")}
+  description={t("game.meta.description")}
+  path="/game"
+>
+  <Prose
+    lang={lang}
+    title={t("game.title")}
+    description={t("game.lead")}
+    reviewNote={t("content.reviewNote")}
+    crumbs={[{ label: t("nav.home"), href: localizePath("/", lang) }, { label: t("nav.game") }]}
+  >
+    {/* The game itself: one island, mounted here so the page around it is plain
+        HTML that a crawler can read. */}
+    <Game client:load lang={lang} />
+
+    <section>
+      <h2 class="text-xl font-semibold text-text">{t("game.page.how.title")}</h2>
+      <ul class="mt-4 space-y-3">
+        {
+          notes.map((note) => (
+            <li class="flex gap-2 text-base leading-relaxed text-muted">
+              <span class="mt-2 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+              <span>{t(`game.page.how.${note}`)}</span>
+            </li>
+          ))
+        }
+      </ul>
+
+      <p class="mt-4 text-sm leading-relaxed text-muted">{t("game.page.privacy")}</p>
+
+      <p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <a href={localizePath("/", lang)} class="font-medium text-accent hover:opacity-80">
+          {t("game.page.practice")}
+        </a>
+        <a href={localizePath("/lessons", lang)} class="text-accent hover:opacity-80">
+          {t("nav.lessons")}
+        </a>
+        <a href={localizePath("/keyboard", lang)} class="text-accent hover:opacity-80">
+          {t("nav.keyboard")}
+        </a>
+      </p>
+    </section>
+  </Prose>
+
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(pageSchema)} />
+</BaseLayout>

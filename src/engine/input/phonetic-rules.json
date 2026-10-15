@@ -7,6 +7,7 @@
     "sources": {
       "masterplan": "docs/MASTERPLAN.md Section 7.6 starter test cases (authoritative for this project)",
       "guide": "published third-party Avro Phonetic guide (learntype.app, Avro Phonetic Bangla Typing: Complete Guide)",
+      "curated": "a curated exception list in this file's dictionary section, for whole words a rule engine cannot spell; each entry needs a native speaker's confirmation (docs/VERIFY.md item 28)",
       "unsourced": "not attested by a written source; needs a native speaker before this mode can be trusted"
     }
   },
@@ -84,6 +85,19 @@
     { "latin": "7", "bangla": "৭", "source": "masterplan", "nativeReviewed": false },
     { "latin": "8", "bangla": "৮", "source": "masterplan", "nativeReviewed": false },
     { "latin": "9", "bangla": "৯", "source": "masterplan", "nativeReviewed": false }
+  ],
+
+  "punctuation": [
+    { "latin": ".", "bangla": "।", "source": "unsourced", "nativeReviewed": false }
+  ],
+
+  "dictionary": [
+    { "latin": "kemon", "bangla": "কেমন", "source": "curated", "nativeReviewed": false },
+    { "latin": "ekhon", "bangla": "এখন", "source": "curated", "nativeReviewed": false },
+    { "latin": "kore", "bangla": "করে", "source": "curated", "nativeReviewed": false },
+    { "latin": "hobe", "bangla": "হবে", "source": "curated", "nativeReviewed": false },
+    { "latin": "kotha", "bangla": "কথা", "source": "curated", "nativeReviewed": false },
+    { "latin": "onek", "bangla": "অনেক", "source": "curated", "nativeReviewed": false }
   ],
 
   "behavior": {

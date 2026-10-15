@@ -63,6 +63,22 @@ describe("built-in mode end to end", () => {
     expect(stats.words).toBe(4);
   });
 
+  it("finishes a sentence that ends in a danda", () => {
+    // The shipped texts end sentences with `।`, which a Roman keyboard cannot
+    // type: the period key has to produce it and the sentence-final word must
+    // keep its dictionary entry after the punctuation is appended.
+    const engine = createPhoneticEngine();
+    const target = wordsOf("আমি বাংলায় গান গাই।");
+    expect(target.at(-1)).toBe("গাই।");
+
+    let state = createSession({ targetWords: target });
+    state = typeKeys(engine, state, "ami banglay gan gai.".split(""));
+
+    expect(state.state).toBe("finished");
+    expect(state.committed.map((word) => word.typed)).toEqual(target);
+    expect(sessionStats(state, state.finishedAt ?? 0).accuracy).toBe(100);
+  });
+
   it("shows the Roman buffer for the word in progress", () => {
     const engine = createPhoneticEngine();
     let state = createSession({ targetWords: wordsOf(sentence) });

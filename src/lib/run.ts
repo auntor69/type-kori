@@ -31,6 +31,18 @@ export const STREAM_BUFFER = 12;
  * thread to catch the stream.
  */
 export const STREAM_EXTENSION = 3 * STREAM_BUFFER;
+/**
+ * How many words the first frame holds: one whole batch, not one line.
+ *
+ * The top-up effect above extends the moment the surplus is back down to
+ * `STREAM_EXTENSION`, and the island renders at most that many words at once.
+ * Drawing a full batch up front therefore makes the server-rendered block
+ * *identical* to the hydrated one: hydration fills the same lines instead of
+ * growing the typing area by a line and pushing everything below it down — a
+ * layout shift the browser scores, from a render whose only effect is to move
+ * text around.
+ */
+export const STREAM_HEAD = STREAM_EXTENSION;
 /** How many recent text ids are excluded when drawing the next fixed text. */
 export const HISTORY_LIMIT = 6;
 
@@ -84,7 +96,21 @@ export interface RunOptions {
  * built from them types the alphabet instead of language. Lessons drill those
  * shapes themselves; the stream only ever offers real words.
  */
+/**
+ * The vocabulary per difficulty, built once per session.
+ *
+ * Every text is split into words on every call, and the practice island asks
+ * for two buckets while it hydrates (the difficulty on screen and the whole
+ * library the adaptive drill draws from). Caching is safe because the result is
+ * read-only: nothing in the app mutates it (`drawWords`, the adaptive plan and
+ * the game only iterate).
+ */
+const vocabularyCache = new Map<Difficulty | "all", string[]>();
+
 export function buildVocabulary(difficulty: Difficulty | "all"): string[] {
+  const cached = vocabularyCache.get(difficulty);
+  if (cached !== undefined) return cached;
+
   const texts =
     difficulty === "all" ? practiceTexts : practiceTexts.filter((text) => text.difficulty === difficulty);
 
@@ -96,6 +122,8 @@ export function buildVocabulary(difficulty: Difficulty | "all"): string[] {
   if (words.length === 0) {
     for (const text of practiceTexts) words.push(...wordsOf(text));
   }
+
+  vocabularyCache.set(difficulty, words);
   return words;
 }
 
@@ -132,6 +160,7 @@ export type TestTypeKind =
   | "lesson"
   | "custom"
   | "weak"
+  | "adaptive"
   | "daily"
   | "unknown";
 
@@ -151,7 +180,7 @@ export interface ParsedTestType {
 export function testTypeFor(options: {
   durationMs: number | null;
   wordGoal: number | null;
-  kind?: "lesson" | "custom" | "weak" | "daily";
+  kind?: "lesson" | "custom" | "weak" | "adaptive" | "daily";
   funbox?: FunboxMode;
 }): string {
   const { durationMs, wordGoal, kind, funbox = "none" } = options;
@@ -183,7 +212,13 @@ export function parseTestType(testType: string | undefined): ParsedTestType {
   if (words !== null) return { kind: "words", value: Number(words[1]), funbox };
 
   if (base === "∞") return { kind: "endless", value: null, funbox };
-  if (base === "lesson" || base === "custom" || base === "weak" || base === "daily") {
+  if (
+    base === "lesson" ||
+    base === "custom" ||
+    base === "weak" ||
+    base === "adaptive" ||
+    base === "daily"
+  ) {
     return { kind: base, value: null, funbox };
   }
 
@@ -214,7 +249,7 @@ export function createRun(options: RunOptions): RunModel {
 
   if (infinite && vocabulary !== undefined && vocabulary.length > 0) {
     const bank = createWordBank(vocabulary);
-    const first = applyFunbox(drawWords(bank, STREAM_BUFFER, seed), funbox, createRng(seed));
+    const first = applyFunbox(drawWords(bank, STREAM_HEAD, seed), funbox, createRng(seed));
 
     return {
       text,

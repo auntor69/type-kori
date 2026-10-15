@@ -1,0 +1,46 @@
+---
+import type { Lang } from "../i18n";
+import Practice, { type LessonRun } from "./Practice.tsx";
+
+interface Props {
+  lang: Lang;
+  /** Fixed seed keeps the first text identical on the server and after hydration. */
+  seed?: number;
+  /** Lesson mode: a fixed drill set with a pass criterion instead of a timed test. */
+  lesson?: LessonRun;
+}
+
+const { lang, seed, lesson } = Astro.props;
+// The props travel with the markup, so the deferred loader hydrates with the
+// exact values the server rendered — hydration is a re-attach, not a re-render.
+const islandProps = JSON.stringify({ lang, seed, lesson });
+---
+
+<!-- The practice island, loaded on the first interaction instead of on page
+     load: the server-rendered words *are* the page, and the engine that types
+     them joins at the first key, tap or focus. Measured on the built site, the
+     engine's modules are the whole of the mobile blocking time, so keeping
+     them off the load path is what makes the page fast; the loader replays
+     keystrokes pressed while they load, so nothing typed is lost. -->
+<div data-tk-practice={islandProps}>
+  <Practice lang={lang} seed={seed} lesson={lesson} />
+</div>
+
+<script>
+  import { deferHydration, PRACTICE_READY_EVENT } from "../lib/deferredHydration";
+
+  const root = document.querySelector<HTMLElement>("[data-tk-practice]");
+  if (root !== null) {
+    const props = JSON.parse(root.dataset.tkPractice ?? "{}") as Record<string, unknown>;
+    deferHydration({
+      root,
+      props,
+      load: () => import("./Practice.tsx"),
+      readyEvent: PRACTICE_READY_EVENT,
+      // A share link carries its run in the query string (`?daily=…`,
+      // `?mistakes=1`, a preset); opening one must show that run at once
+      // rather than waiting for the first keystroke.
+      immediate: window.location.search.length > 1,
+    });
+  }
+</script>

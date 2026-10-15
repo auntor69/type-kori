@@ -12,6 +12,7 @@ import {
   parseTestType,
   STREAM_BUFFER,
   STREAM_EXTENSION,
+  STREAM_HEAD,
   testTypeFor,
   type WordBankHandle,
 } from "./run";
@@ -83,7 +84,9 @@ describe("createRun", () => {
 
     expect(run.bank).not.toBeNull();
     expect(run.session.infinite).toBe(true);
-    expect(run.session.target.length).toBe(STREAM_BUFFER);
+    // A whole batch, not one line: the first frame has to be the settled
+    // stream, or hydration grows the block and shifts the page.
+    expect(run.session.target.length).toBe(STREAM_HEAD);
     expect(run.session.state).toBe("idle");
   });
 
@@ -399,7 +402,7 @@ describe("the endless stream", () => {
       target = [...target, ...stream.words];
     }
 
-    expect(target.length).toBe(STREAM_BUFFER + STREAM_EXTENSION * 40);
+    expect(target.length).toBe(STREAM_HEAD + STREAM_EXTENSION * 40);
     expect(target.every((word) => vocabulary.includes(word))).toBe(true);
   });
 

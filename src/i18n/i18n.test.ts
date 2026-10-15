@@ -17,6 +17,20 @@ const DANDA = String.fromCodePoint(0x0964);
 const DEVANAGARI_OUTSIDE_DANDA = /[\u0900-\u0963\u0965-\u097f]/u;
 const BENGALI = /[\u0980-\u09ff]/u;
 
+/**
+ * English strings allowed to carry Bengali text: the wordmark, and the phonetic
+ * cheat-sheet bullets that quote the engine's output as an example.
+ */
+const BENGALI_IN_ENGLISH_ALLOWED = new Set([
+  "brand.bangla",
+  "keyboard.how.context",
+  "keyboard.how.hasanta",
+  "keyboard.how.dictionary",
+  "keyboard.how.digits",
+  // The numeral-system choice has to show which glyphs it means.
+  "custom.numerals.bengali",
+]);
+
 describe("dictionaries", () => {
   it("holds the same keys in every language", () => {
     const reference = Object.keys(dictionaries[defaultLang]).sort();
@@ -43,10 +57,22 @@ describe("dictionaries", () => {
     expect(bn["results.noMistakes"]).toContain(DANDA);
   });
 
-  it("keeps English strings free of Bengali text, except the wordmark", () => {
+  it("keeps English strings free of Bengali text, except the quoted examples", () => {
+    // Two documented exceptions. `brand.bangla` is the wordmark, and the
+    // phonetic cheat-sheet bullets quote the engine's own output as data
+    // (`kemon → কেমন`) — that quote is the whole point of the sentence, so the
+    // Bangla is content rather than an untranslated string.
     for (const [key, value] of Object.entries(en)) {
-      if (key === "brand.bangla") continue;
+      if (BENGALI_IN_ENGLISH_ALLOWED.has(key)) continue;
       expect(BENGALI.test(value), `en:${key}`).toBe(false);
+    }
+
+    // The list has to stay honest in both directions: a stale exemption would
+    // quietly widen the rule, so every entry must exist and must still need it.
+    const english: Record<string, string> = en;
+    for (const key of BENGALI_IN_ENGLISH_ALLOWED) {
+      expect(english[key], `en:${key} must exist`).toBeTruthy();
+      expect(BENGALI.test(english[key] ?? ""), `en:${key} no longer quotes Bangla`).toBe(true);
     }
   });
 });
