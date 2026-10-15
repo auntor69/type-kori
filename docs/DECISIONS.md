@@ -767,3 +767,50 @@ with the reason. Newest last.
   but that word. `docs/VERIFY.md` item 13 is answered; item 11 still stands, and
   the rows stay `nativeReviewed: false` until a native speaker checks them
   against a real keyboard — which is now more worth doing, not less.
+- 2026-10-15 — **A real word list ships after all, and the rules stay the mode.**
+  The entry above that put a dictionary out of scope is reversed deliberately, at
+  the owner's request, because the gap it described is real: a rule table can
+  spell Bangla but cannot know which spellings are words, and the reference
+  implementation's own documentation puts its dictionary at ~150,000 words with
+  auto-correct. What ships is not that file and not anyone's: `content/dictionary/
+  bn_BD.dic` is the LibreOffice Bengali spell-check dictionary, vendored verbatim
+  at a pinned revision (`e7b6108`, sha256 recorded in its notice) with its licence
+  beside it, and `scripts/build-dictionary.ts` derives the index the engine reads
+  (`public/dictionary/bn.txt`: 11,221 spellings, 370 KiB raw, ~100 KiB gzip,
+  fetched on demand the first time built-in mode is used and cached by the service
+  worker). Three decisions carry the rest:
+  - **Corrections only.** An entry ships only when the rules alone produce a
+    non-word from its spelling. Where the rules already produce a real word, the
+    list's other word is a *preference*, and a word list is not a frequency table,
+    so those 78,000 spellings are dropped — the whole index would be 2.8 MiB. It
+    also means the list can only ever fix a spelling, never break one that
+    already worked.
+  - **The app's own targets count as words, whatever the source list thinks.**
+    Verification found the failure this prevents: ক্র appears in a shipped text,
+    the source list has never heard of it, and the relaxed o-kar entry for ক্রো
+    answered `kro` instead — a lesson target no sequence of keystrokes could then
+    produce. So the content's words are folded into the "the rules already spell a
+    real word here" test at build time (they are counted, not overridden), and the
+    shipped index is held to it by test. It is a build-time guarantee, so it
+    covers the shipped texts and drills, not a passage the learner pastes
+    themselves: such a text is checked in the app for script and length, never for
+    typeability, and a word it contains that the source list does not know can in
+    principle still be answered with another word. That is the same class of gap
+    as a spelling the rules get wrong, and it is listed in `docs/VERIFY.md`.
+  - **The engine gets a view, not a snapshot.** Conversion is synchronous and the
+    list arrives after the first keystroke is possible, so `dictionarySource.ts`
+    hands the engine one object that reads whatever has arrived by the time a word
+    is finished; until then it behaves exactly like no list at all. A failed
+    fetch, an offline first visit or a build without the asset costs corrections
+    and nothing else. The fetch is same-origin, so the promise that nothing is
+    fetched from a third party at run time still holds.
+  The licence is the price of using someone else's data, and it is recorded in
+  full: `bn_BD.dic` is GPL-2.0-only (Copyright 2018 Jacob Thomas, Bengal Creative
+  Media LTD), the app's own code and grammar stay MIT, and
+  `content/dictionary/NOTICE.md` states exactly what the derived index inherits
+  and how to delete the whole thing — the engine falls back to its rules, which is
+  the behaviour that shipped before this. `public/dictionary/bn.txt` is committed
+  rather than generated into `dist/` because the dev server has to serve it and
+  hosting must not need a build step of its own; `bun run build` regenerates it
+  first, and `bun run check:dictionary` (a CI step) fails when it has drifted from
+  the grammar that produced it.

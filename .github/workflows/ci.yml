@@ -47,6 +47,12 @@ jobs:
       - name: Content validation
         run: bun run validate:text
 
+      # The word list built-in mode consults is committed, so it can go stale
+      # against the grammar that produced it. The build regenerates it; this step
+      # is what fails when someone forgets to.
+      - name: Word list is up to date
+        run: bun run check:dictionary
+
       - name: Authorship check (changed commits)
         if: github.event_name == 'pull_request'
         env:

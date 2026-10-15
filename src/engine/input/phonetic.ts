@@ -17,6 +17,7 @@
 
 import { classifyCodePoint, HASANTA } from "../unicode";
 import rules from "./phonetic-rules.json";
+import type { WordDictionary } from "./phoneticDictionary";
 import type { EngineAction, InputEngine, KeyInput } from "./types";
 
 export interface RuleRow {
@@ -155,6 +156,14 @@ export function compileRules(grammar: PhoneticGrammar = loadGrammar()): Compiled
 export interface TransliterateOptions {
   grammar?: PhoneticGrammar;
   compiled?: CompiledRule[];
+  /**
+   * The shipped word list, consulted only when the rules spell a non-word.
+   *
+   * It is optional and absent by default, because it is a large asset that is
+   * fetched separately (`dictionarySource.ts`) rather than bundled: a call site
+   * that has it passes it, and every call site keeps working without it.
+   */
+  dictionary?: WordDictionary;
 }
 
 /**
@@ -213,6 +222,14 @@ export function transliterate(roman: string, options: TransliterateOptions = {})
   const [word, trailing] = splitTrailingPunctuation(roman);
   const known = dictionaryWord(word, grammar);
   if (known !== null) return known + rulesOnly(trailing, grammar, compiled);
+
+  // Then the shipped word list. A hit here is a correction, never a preference:
+  // the build keeps a spelling only when the rules alone produce a non-word from
+  // it (see `buildDictionary`), so this step can only fix a spelling the grammar
+  // gets wrong. Entries order the word that this spelling inverts to first,
+  // which is what keeps every listed word typeable.
+  const corrected = options.dictionary?.candidates(word)[0];
+  if (corrected !== undefined) return corrected + rulesOnly(trailing, grammar, compiled);
 
   return rulesOnly(roman, grammar, compiled);
 }
@@ -284,7 +301,7 @@ export function createPhoneticEngine(
 
   const emit = (): EngineAction => ({
     type: "compose",
-    text: transliterate(buffer, { grammar, compiled }),
+    text: transliterate(buffer, { grammar, compiled, dictionary: options.dictionary }),
     composing: buffer,
   });
 
