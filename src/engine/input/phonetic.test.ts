@@ -27,6 +27,7 @@ describe("the shipped word list", () => {
   const dictionary: WordDictionary = {
     candidates: (roman) =>
       roman === "Da^Talo" ? ["ডাঁটালো"] : roman === "kemon" ? ["কেমন"] : [],
+    spellings: (word) => (word === "ডাঁটালো" ? ["Da^Talo"] : []),
     size: 2,
   };
   const withList = { grammar, compiled, dictionary };
@@ -49,7 +50,11 @@ describe("the shipped word list", () => {
 
   it("lets a reviewed grammar row win over the list", () => {
     // `bhalo` is a hand-checked row in the grammar; the list must not override it.
-    const rival: WordDictionary = { candidates: () => ["ভাল"], size: 1 };
+    const rival: WordDictionary = {
+      candidates: () => ["ভাল"],
+      spellings: () => [],
+      size: 1,
+    };
     expect(transliterate("bhalo", { grammar, compiled, dictionary: rival })).toBe("ভালো");
   });
 

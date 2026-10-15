@@ -812,5 +812,85 @@ with the reason. Newest last.
   the behaviour that shipped before this. `public/dictionary/bn.txt` is committed
   rather than generated into `dist/` because the dev server has to serve it and
   hosting must not need a build step of its own; `bun run build` regenerates it
-  first, and `bun run check:dictionary` (a CI step) fails when it has drifted from
+  first, and  `bun run check:dictionary` (a CI step) fails when it has drifted from
   the grammar that produced it.
+- 2026-10-15 — **The built-in mode's key hint walks a spelling instead of reading
+  the engine's output, and the way in is one click from where it is needed.** The
+  owner's report was that the on-screen keyboard suggestion had to work
+  perfectly, and the honest reading of it was that the hint was guessing. In
+  built-in mode the tempting hint is "which letters keep the rendered word
+  compatible with the target", which is not how a composing engine works: a
+  half-typed word renders as a *different* word, not as a prefix of the finished
+  one. `kem` renders কেমো on the way to কেমন, `ng` is two keys for the one
+  character ং, `S` produces শ where `s` produces স, and a word can be finished by
+  a rule that rewrites a vowel the learner has not typed yet. Measured over the
+  words the app teaches, that approach gave a wrong or missing suggestion for
+  **134 of 249 words** — barely better than not showing a board.
+  The fix is to stop predicting from output. `spellingsFor` collects every Roman
+  spelling *known* to produce the target word — the word list's own keys for it
+  (`Da^Talo`), then the rules' inverse of it and the relaxed o-kar a learner is
+  likely to write — and keeps only the spellings the engine really does produce
+  that word from. `nextRomanKeys` then walks whichever of those spellings the
+  learner is already on and reports the next keypress, with the shift state the
+  scheme needs (ট is `T`, not `t`) and the mark keys it uses (`` ` `` for a
+  hasanta, `^` for the candrabindu, `.` for the danda). A wrong turn yields no
+  suggestion rather than a confident wrong one, because pointing out a wrong turn
+  is the session's job. `src/engine/input/phoneticHint.test.ts` walks every word
+  the app teaches to completion through the hint alone, and
+  `phoneticHintAsset.test.ts` does the same against the shipped dictionary asset,
+  so a rule change cannot quietly break the board.
+  Three smaller things had to follow. The Roman board could not draw every key
+  the hint can name, so the highlight had nowhere to land: it now carries the
+  number row (the shipped texts contain Bengali numerals), Backquote,
+  Semicolon, and the two Shift caps — `OnScreenKeyboard.test.ts` holds the board
+  and the hint's own key table together, so a future key cannot be suggested
+  without a cap to colour. Digit spellings (০–৯) were added to the dictionary so
+  a numeral target is walkable at all. And the hint reads `invertWord` rather
+  than `romanKeys`, because the latter filters for *dictionary-key* spellings and
+  silently dropped words ending in ৎ (`…t`` `), which are perfectly typeable.
+  **The way in.** With the input mode still defaulting to `system` (the entry of
+  2026-09-28 stands, and nothing here reverses it), a visitor who has no Bangla
+  keyboard installed types English and watches nothing convert — the app's whole
+  premise failing at the first keystroke, with the remedy buried in a settings
+  drawer. So the alternative is now one click from the place the failure appears:
+  the mode pill above the words offers "Convert Roman for me" while the system
+  keyboard is selected, and the Latin-letters notice — which used to spend itself
+  telling the learner to go and install something — carries the same button.
+  Both go through `updateSettings`, so the existing settings listener swaps the
+  engine and restarts the run: the next keystroke is already Bangla, no reload,
+  no drawer. The stored default is unchanged; what changed is that the second
+  option is reachable at the moment it is wanted rather than only by someone who
+  already knows it exists.
+- 2026-10-15 — **The three input worlds are documented for learners, because they
+  are not the same thing and the names invite exactly that mistake.** A guide
+  (`avro-probhat-national-layouts`, in both locales) now answers what Avro
+  phonetic, Probhat and the national keyboard are, and how they relate:
+  - **Avro phonetic is a transliteration engine, not a layout.** OmicronLab's
+    software converts Roman keystrokes to Bangla and reaches users as Avro
+    Keyboard (Windows), ibus-avro (Linux) and Avro-style software on macOS. It is
+    not a fixed keymap, so "learn the Avro layout" is the wrong way to think
+    about it — and the same installer also bundles fixed layouts, which is why
+    "Avro" and "Probhat" get conflated. The site's own built-in mode is our
+    grammar of the conventions Avro publishes; no Avro code is copied, and the
+    guide says so plainly, along with the two ways this differs from the real
+    thing (our exception list is small next to Avro's own dictionary, and every
+    row still awaits a native speaker).
+  - **Probhat is a fixed, Unicode-based layout.** It comes from the Ekushey
+    Bangla computing project, ships as an optional layout in Avro Keyboard and in
+    almost every Linux distribution (`bd(probhat)` in XKB), and is learned by
+    position even though the arrangement looks sound-based. Conjuncts are typed
+    consonant, hasanta (`/`), consonant.
+  - **BDS 1738 is a layout standard, not an encoding.** The national (Jatiyo)
+    layout from the Bangladesh Computer Council's initiative became BDS
+    1738:2004, and it has four levels (normal, Shift, AltGr, Shift+AltGr) — one
+    more than the two-level picture most learners carry. The 2004 national layout
+    and Bijoy are *not* the same mapping, yet the 2018 revision of the standard
+    is widely described as Bijoy-derived, so "the national standard" needs a year
+    attached to mean anything. The guide says that rather than picking a side.
+  The claims come from the sources recorded in the layout files themselves (the
+  BCC 2006 user guide for `national.ts`, the Probhat key tables for `probhat.ts`)
+  plus the published Avro material; the copy avoids the one thing it cannot
+  verify, which is a design year for Probhat that no readable source establishes.
+  Both fixed layouts stay `nativeReviewed: false` and the guide tells the reader
+  to compare them against a real keyboard, because that is still true.
+

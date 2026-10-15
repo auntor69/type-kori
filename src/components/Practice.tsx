@@ -4,7 +4,7 @@ import { practiceTexts } from "../content/texts";
 import { collectMistakes, renderProgress, type ClusterState, type WordStatus } from "../engine/compare";
 import { liveWordDictionary, loadWordDictionary } from "../engine/input/dictionarySource";
 import { createPhoneticEngine } from "../engine/input/phonetic";
-import { romanKeyHint } from "../engine/input/phoneticHint";
+import { nextRomanKeys } from "../engine/input/phoneticHint";
 import { createSystemEngine } from "../engine/input/system";
 import type { EngineAction, InputEngine, InputEngineId } from "../engine/input/types";
 import { keyHeat, layoutById, nextKeyHint, peakHeat, type LayoutId } from "../engine/layouts";
@@ -599,6 +599,24 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   };
 
   /**
+   * Switch between the installed Bangla keyboard and the built-in phonetic
+   * engine, from the practice screen itself.
+   *
+   * The two mode buttons exist because the moment a learner needs them is the
+   * moment they are stuck: arriving with no Bangla keyboard installed, every
+   * Roman key they press is wrong output and the settings drawer is somewhere
+   * else. Writing through `updateSettings` stores the choice, applies it and
+   * broadcasts it, and the listener above swaps the engine and restarts the
+   * run, so one click converts the very next keystroke.
+   */
+  const switchInputMode = (next: InputEngineId) => {
+    if (next === settingsRef.current.inputMode) return;
+    const snapshot: Settings = { ...settingsRef.current, inputMode: next };
+    settingsRef.current = snapshot;
+    updateSettings(snapshot);
+  };
+
+  /**
    * Stream-twist toggle for the config bar. Writing through `updateSettings`
    * stores the choice, applies it and broadcasts it, and the rebuild effect
    * above restarts the run with the new twist.
@@ -1167,9 +1185,16 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const keyboardHint = useMemo(() => {
     if (!keyboard || finished) return { codes: [] as string[], shift: false };
     if (mode === "avro-phonetic") {
+      // The hint follows a spelling that reaches the target word, and reports the
+      // keys with the shift state each one needs. Shift is highlighted as its own
+      // key cap so `T` for ট cannot be mistaken for `t` for ত.
+      const keys = nextRomanKeys(session.composing, keyboardTarget, {
+        dictionary: liveWordDictionary,
+      });
+      const shift = keys.some((key) => key.shift);
       return {
-        codes: romanKeyHint(session.composing, keyboardTarget, { dictionary: liveWordDictionary }),
-        shift: false,
+        codes: [...keys.map((key) => key.code), ...(shift ? ["ShiftLeft"] : [])],
+        shift,
       };
     }
     const hint = nextKeyHint(layoutById(keyboardLayout), keyboardTarget, session.active);
@@ -1346,6 +1371,21 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
             </span>
           )}
         </span>
+
+        {/* Nothing installed, nothing converts: with the system keyboard the
+            sentence “type English and Bangla comes out” is only true if a
+            Bangla keyboard is already installed, so the offer to do the
+            conversion here sits next to the mode it replaces. */}
+        {mode === "system" && (
+          <button
+            type="button"
+            title={t("practice.mode.builtinHint")}
+            onClick={() => switchInputMode("avro-phonetic")}
+            class="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors duration-150 ease-out hover:text-text"
+          >
+            {t("practice.switchToBuiltin")}
+          </button>
+        )}
 
         {/* Built-in mode is rule-driven, so the rule table is the lesson: the
             cheat sheet opens in a new tab, which is also the only way the
@@ -1799,12 +1839,21 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
       )}
 
       {session.warning === "latin" && (
-        <p
+        <div
           role="status"
-          class="mt-3 rounded-card border border-accent-2/40 bg-surface-2 px-4 py-2.5 text-sm text-text"
+          class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-accent-2/40 bg-surface-2 px-4 py-2.5 text-sm text-text"
         >
-          {t("practice.latinWarning")}
-        </p>
+          <span>{t("practice.latinWarning")}</span>
+          {mode === "system" && (
+            <button
+              type="button"
+              onClick={() => switchInputMode("avro-phonetic")}
+              class="rounded-pill border border-border bg-surface px-3 py-1 text-xs font-medium text-text transition-colors duration-150 ease-out hover:border-accent"
+            >
+              {t("practice.switchToBuiltin")}
+            </button>
+          )}
+        </div>
       )}
 
       {osKeyboard && mode === "avro-phonetic" && (

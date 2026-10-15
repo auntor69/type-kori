@@ -50,6 +50,14 @@ export interface DictionaryEntry {
 export interface WordDictionary {
   /** The word this Roman form should produce instead. Empty when there is none. */
   candidates(roman: string): string[];
+  /**
+   * The spellings the list holds for a word: the other direction, for the hint.
+   *
+   * The on-screen hint has to follow a spelling that reaches the target word, and
+   * for a word the rules get wrong that spelling exists only here — so the hint
+   * needs the lookup the engine never does.
+   */
+  spellings(word: string): string[];
   /** How many spellings the list holds, for the docs and the tests. */
   readonly size: number;
 }
@@ -57,10 +65,11 @@ export interface WordDictionary {
 /** Nothing known: the engine behaves exactly as it does with no word list. */
 export const EMPTY_DICTIONARY: WordDictionary = {
   candidates: () => [],
+  spellings: () => [],
   size: 0,
 };
 
-type UnitKind = "letter" | "sign" | "independent" | "mark" | "hasanta";
+type UnitKind = "letter" | "sign" | "independent" | "mark" | "hasanta" | "digit";
 
 interface InverseUnit {
   bangla: string;
@@ -108,6 +117,11 @@ export function compileInverse(grammar: PhoneticGrammar = loadGrammar()): Invers
       latin: row.latin,
       kind: row.bangla === HASANTA ? "hasanta" : "mark",
     });
+  }
+  // Digits are spelled like marks — one key, no context — so a numeral in the
+  // shipped texts is typeable and can be hinted like any other character.
+  for (const row of grammar.digits) {
+    units.push({ bangla: row.bangla, latin: row.latin, kind: "digit" });
   }
 
   // A Bangla form claimed by two rows keeps its shortest Latin spelling: `শ` is
@@ -377,10 +391,20 @@ export function parseDictionary(text: string): DictionaryEntry[] {
  */
 export function createWordDictionary(entries: DictionaryEntry[]): WordDictionary {
   const byRoman = new Map<string, string[]>();
-  for (const entry of entries) byRoman.set(entry.roman, entry.words);
+  const byWord = new Map<string, string[]>();
+
+  for (const entry of entries) {
+    byRoman.set(entry.roman, entry.words);
+    for (const word of entry.words) {
+      const keys = byWord.get(word);
+      if (keys === undefined) byWord.set(word, [entry.roman]);
+      else if (!keys.includes(entry.roman)) keys.push(entry.roman);
+    }
+  }
 
   return {
     candidates: (roman) => byRoman.get(roman) ?? [],
+    spellings: (word) => byWord.get(word) ?? [],
     size: byRoman.size,
   };
 }

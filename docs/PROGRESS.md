@@ -203,6 +203,15 @@ in one place; the reasoning is in `DECISIONS.md`.
   wrong and never one of the app's own targets. The data is GPL-2.0-only while the
   code stays MIT; `content/dictionary/NOTICE.md` has the provenance and the
   removal steps.
+- 2026-10-15 — the Roman-typing path works wherever it is met. Built-in mode's
+  on-screen key hint now walks a spelling that provably reaches the target word
+  instead of predicting from the engine's half-typed output (that prediction was
+  wrong or missing for 134 of the 249 taught words), reports the shift and mark
+  keys the scheme needs, and the Roman board draws every key it can name; the
+  practice screen offers the switch to built-in mode in the mode pill and in the
+  Latin-letters notice, so the first keystroke can become Bangla without a trip
+  to the settings drawer; and a new guide sets out what Avro phonetic, Probhat
+  and the national (BDS 1738) layout each are.
 - 2026-09-29 — minimal, monkeytype-only interface: footer removed, icon-only
   header, borderless typing area, ~250 themes including one derived from every
   country flag, a deeper settings drawer, a `Ctrl+K` command palette with a

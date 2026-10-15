@@ -95,6 +95,107 @@ export const guides: Guide[] = [
     ],
   },
   {
+    slug: "avro-probhat-national-layouts",
+    title: {
+      bn: "অভ্র ফোনেটিক, প্রভাত ও জাতীয় কীবোর্ড",
+      en: "Avro phonetic, Probhat and the national keyboard",
+    },
+    summary: {
+      bn: "তিনটি ভিন্ন জিনিস: অভ্র ফোনেটিক একটি অনুবাদ ইঞ্জিন, প্রভাত ও জাতীয় (বিডিএস ১৭৩৮) নির্দিষ্ট লেআউট — কোনটি কী, আর কোনটি বেছে নেবেন।",
+      en: "Three different things: Avro phonetic is a transliteration engine, while Probhat and the national layout (BDS 1738) are fixed layouts.",
+    },
+    sections: [
+      {
+        heading: {
+          bn: "অভ্র ফোনেটিক আসলে কী",
+          en: "What Avro phonetic really is",
+        },
+        paragraphs: [
+          {
+            bn: "অভ্র ফোনেটিক একটি নির্দিষ্ট কীবোর্ড লেআউট নয়, বরং একটি অনুবাদ (ট্রান্সলিটারেশন) ইঞ্জিন। আপনি সাধারণ ইংরেজি অক্ষরে টাইপ করেন, আর সফটওয়্যার সেটিকে বাংলা বানায়। যেমন ami bangla likhi লিখলে আমি বাংলা লিখি হয়। এটি OmicronLab-এর তৈরি, এবং উইন্ডোজে Avro Keyboard নামে, লিনাক্সে ibus-avro নামে আর ম্যাকে Avro-ধরণের সফটওয়্যার হিসেবে পাওয়া যায়।",
+            en: "Avro phonetic is not a fixed keyboard layout but a transliteration engine. You type ordinary Roman letters and the software converts them to Bangla: ami bangla likhi becomes আমি বাংলা লিখি. It comes from OmicronLab, and reaches you as Avro Keyboard on Windows, ibus-avro on Linux, and Avro-style software on macOS.",
+          },
+          {
+            bn: "মনে রাখার মতো একটি পার্থক্য: Avro Keyboard সফটওয়্যারটি ফোনেটিক ইঞ্জিনের সাথে প্রভাত ও জাতীয় (Jatiya) নামের নির্দিষ্ট লেআউটও দেয়। অর্থাৎ ‘অভ্র’ আর ‘প্রভাত’ এক জিনিস নয় — একই ইনস্টলারে দুটো ভিন্ন পদ্ধতি থাকতে পারে।",
+            en: "One difference worth holding on to: the Avro Keyboard application ships fixed layouts — Probhat and National (Jatiya) — alongside its phonetic engine. So Avro and Probhat are not the same thing; one installer can give you both kinds of typing.",
+          },
+        ],
+      },
+      {
+        heading: {
+          bn: "এই সাইটে ইংরেজি লিখে বাংলা পাওয়া",
+          en: "Typing English and getting Bangla on this site",
+        },
+        paragraphs: [
+          {
+            bn: "এই সাইটের নিজের ফোনেটিক মোডে কিছুই ইনস্টল করতে হয় না: সেটিংস খুলে ইনপুট মোড ‘বিল্ট-ইন ফোনেটিক’ বেছে নিলেই রোমান অক্ষরে টাইপ করা বাংলা হয়ে যাবে। প্র্যাকটিসের উপরে থাকা মোড বাটন থেকেও এক ক্লিকে বদলানো যায়, আর সিস্টেম কীবোর্ড মোডে ইংরেজি অক্ষর ঢুকতে থাকলে যে সতর্কবার্তা আসে, তার পাশের বাটনেই এক ক্লিকে এই মোড চালু হয়।",
+            en: "This site's own phonetic mode needs nothing installed: open Settings, pick Built-in phonetic as the input mode, and Roman keystrokes become Bangla. The mode button above the practice area switches it in one click, and if you are in system-keyboard mode while Roman letters keep arriving, the notice that appears carries the same one-click switch.",
+          },
+          {
+            bn: "এই মোডে অন-স্ক্রিন কীবোর্ড পরের যে কী-টি চাপতে হবে তা দেখায় — রোমান অক্ষর, আর দরকার হলে শিফট কী-টিও আলাদা করে, যাতে T (ট) আর t (ত) গুলিয়ে না যায়। কোন অক্ষরে কোন বাংলা আসে, তার পুরো তালিকা আছে কীবোর্ড গাইড পাতায়, আর সেটি ইঞ্জিনের নিজের নিয়ম ফাইল থেকেই তৈরি হয় — তাই গাইড আর ইঞ্জিন কখনো আলাদা কথা বলবে না।",
+            en: "In this mode the on-screen keyboard shows the next Roman key to press, and highlights Shift as its own key cap when a capital is needed, so T for ট cannot be confused with t for ত. The complete press-this-get-that table lives on the phonetic keyboard guide, generated from the engine's own rule file — so the guide and the engine can never disagree.",
+          },
+          {
+            bn: "সৎভাবে একটি কথা: এই ইঞ্জিন আমাদের নিজের লেখা নিয়ম, যা অভ্র ফোনেটিকের প্রকাশিত নিয়মগুলো অনুসরণ করে — অভ্রর কোড নকল করা নয়। অভ্রর নিজের অভিধানে দেড় লাখেরও বেশি শব্দ থাকে; এখানে ব্যতিক্রমী শব্দের তালিকা ছোট, আর প্রতিটি নিয়ম এখনো একজন নেটিভ স্পিকারের চূড়ান্ত যাচাইয়ের অপেক্ষায়। তাই গতি বাড়ানোর আগে নিয়মগুলো একবার চোখ বুলিয়ে নিন।",
+            en: "One honest note: this engine is our own grammar of the conventions Avro publishes — no Avro code is copied. Avro's own dictionary holds well over a hundred thousand words; the exception list here is small, and every rule still awaits a native speaker's final check. Read the rule table once before you chase speed.",
+          },
+        ],
+      },
+      {
+        heading: {
+          bn: "প্রভাত লেআউট",
+          en: "The Probhat layout",
+        },
+        paragraphs: [
+          {
+            bn: "প্রভাত একটি নির্দিষ্ট, ইউনিকোডভিত্তিক লেআউট — অনুবাদ ইঞ্জিন নয়। এটি একুশে (Ekushey) নামের বাংলা কম্পিউটিং প্রকল্পের কাজ, আর অভ্র কীবোর্ডের সাথে ঐচ্ছিক লেআউট হিসেবে এবং লিনাক্সের প্রায় সব ডিস্ট্রিবিউশনে (XKB-এ bd(probhat)) পাওয়া যায়।",
+            en: "Probhat is a fixed, Unicode-based layout — not a transliteration engine. It comes from the Ekushey Bangla computing project and travels with Avro Keyboard as an optional layout and with almost every Linux distribution (as bd(probhat) in XKB).",
+          },
+          {
+            bn: "এর সাজসজ্জা ফোনেটিকের মতো শোনায়, কিন্তু ব্যবহার করতে হয় মুখস্থ করেই: প্রতিটি কী-তে একটি নির্দিষ্ট অক্ষর বসানো। স্বরচিহ্নগুলো উপরের ও ডান দিকের সারিতে থাকে, আর একটি বর্ণের পাশেই তার কার-চিহ্ন — তাই অক্ষর ও চিহ্ন একসাথে চোখে পড়ে। যুক্তাক্ষর লেখা হয় ব্যঞ্জন, হসন্ত (/), ব্যঞ্জন — এই ক্রমে।",
+            en: "Its arrangement may look sound-based, but you still learn it by position: every key carries one fixed character. Vowel signs sit on the top and right rows, next to the vowel letters they belong to, so a letter and its sign are read together. A conjunct is typed as consonant, hasanta (/), consonant.",
+          },
+        ],
+      },
+      {
+        heading: {
+          bn: "জাতীয় কীবোর্ড ও বিডিএস ১৭৩৮",
+          en: "The national keyboard and BDS 1738",
+        },
+        paragraphs: [
+          {
+            bn: "বিডিএস ১৭৩৮ একটি কীবোর্ড লেআউটের মান — কোন কী-তে কোন অক্ষর বসবে তা ঠিক করে দেয়। এটি কোনো এনকোডিং মান নয়; অক্ষরগুলো ইউনিকোডে না অন্য কোথাও থাকবে, সেটি ইনপুট সফটওয়্যারের ব্যাপার। বাংলাদেশ কম্পিউটার কাউন্সিলের উদ্যোগে যে জাতীয় লেআউট তৈরি হয়, সেটিই ২০০৪ সালে বিডিএস ১৭৩৮:২০০৪ হিসেবে দাঁড়ায়, আর এতে চারটি স্তর থাকে: সাধারণ, শিফট, AltGr এবং Shift+AltGr।",
+            en: "BDS 1738 is a keyboard-layout standard: it fixes which character sits on which key. It is not an encoding standard — whether the characters are Unicode or something else is the input software's business. The layout produced by the Bangladesh Computer Council initiative became BDS 1738:2004, and it has four levels: normal, Shift, AltGr and Shift+AltGr.",
+          },
+          {
+            bn: "এখানেই সবচেয়ে বড় বিভ্রান্তি। ২০০৪-এর জাতীয় লেআউট আর বিজয় এক নয়; বিজয় একটি আলাদা লেআউট ও সফটওয়্যার, যা মুনির ধাঁচের টাইপরাইটার লেআউট থেকে এসেছে। অথচ পরবর্তী সংস্করণ ২০১৮-এর মানটিকে অনেক সূত্র বিজয়-ভিত্তিক বলে বর্ণনা করে, তাই ‘জাতীয় মান’ বললে কোন বছরের, আর কোন ম্যাপিং — সেটি স্পষ্ট করা জরুরি।",
+            en: "This is where most of the confusion lives. The 2004 national layout and Bijoy are not the same mapping: Bijoy is a separate layout and software family descended from Munir-style typewriter layouts. Yet the later revision, the 2018 standard, is widely described as Bijoy-derived — so when someone says “the national standard”, it is worth asking which year and which mapping they mean.",
+          },
+          {
+            bn: "এই সাইটের অন-স্ক্রিন কীবোর্ড জাতীয় (বিডিএস ১৭৩৮) ও প্রভাত — দুটো লেআউটই আঁকতে পারে, সেটিংসে বেছে নিলে। প্রতিটি সারি একটি সূত্র ধরে লেখা হয়েছে এবং একজন নেটিভ স্পিকার যাচাই করার আগে ‘যাচাই বাকি’ হিসেবেই থাকে, তাই আসল কীবোর্ডে মিলিয়ে দেখা ভালো।",
+            en: "This site's on-screen keyboard can draw both fixed layouts — National (BDS 1738) and Probhat — once you pick one in Settings. Each row was written from a documented source and stays marked as awaiting a native speaker's check, so do compare it against a real keyboard.",
+          },
+        ],
+      },
+      {
+        heading: {
+          bn: "কোনটি শিখবেন",
+          en: "Which one to learn",
+        },
+        paragraphs: [
+          {
+            bn: "ফোনেটিক দিয়ে শুরু করা সহজ — ইনস্টল ছাড়াই এখনই শুরু করা যায়, আর হাত ইংরেজি কীবোর্ড চেনে। নির্দিষ্ট লেআউট (প্রভাত বা জাতীয়) শিখতে বেশি সময় লাগে, কিন্তু অভ্যস্ত হলে গতি অনেক বাড়ে, আর চাকরির টাইপিং পরীক্ষায় বেশিরভাগ প্রার্থী নির্দিষ্ট লেআউটই ব্যবহার করেন।",
+            en: "Phonetic is the easy start — nothing to install, and your hands already know the English keyboard. A fixed layout (Probhat or the national one) takes longer to learn but pays off in speed, and most candidates in job typing tests use one.",
+          },
+          {
+            bn: "একটি পরামর্শ: একটির উপরেই ভরসা রাখুন। একবার যেটি বেছে নিলেন, সেটিতেই অন্তত কয়েক সপ্তাহ অনুশীলন করুন; মাঝে মাঝে বদলালে কোনো পদ্ধতিই আঙুলে বসে না।",
+            en: "One piece of advice: commit to one. Whichever you pick, give it a few weeks; switching every other day keeps neither method in your fingers.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     slug: "avro-phonetic-cheat-sheet",
     title: {
       bn: "ফোনেটিক টাইপিং চিটশিট",
