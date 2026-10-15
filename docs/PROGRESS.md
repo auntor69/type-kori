@@ -196,6 +196,13 @@ in one place; the reasoning is in `DECISIONS.md`.
 - 2026-09-29 · `faf6b7b` — monkeytype-style endless word stream: the untimed
   practice test generates its target instead of using a fixed passage, and Tab
   ends the run.
+- 2026-10-15 — built-in phonetic mode consults a real Bangla word list. The
+  LibreOffice `bn_BD` spell-check dictionary is vendored at a pinned revision and
+  `bun run build:dictionary` derives the 11,221-spelling correction index the
+  engine fetches on demand, filtered so it can only fix a spelling the rules get
+  wrong and never one of the app's own targets. The data is GPL-2.0-only while the
+  code stays MIT; `content/dictionary/NOTICE.md` has the provenance and the
+  removal steps.
 - 2026-09-29 — minimal, monkeytype-only interface: footer removed, icon-only
   header, borderless typing area, ~250 themes including one derived from every
   country flag, a deeper settings drawer, a `Ctrl+K` command palette with a

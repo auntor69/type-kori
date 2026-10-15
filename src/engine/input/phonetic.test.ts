@@ -5,6 +5,7 @@ import easyTexts from "../../../content/texts/easy.json";
 import hardTexts from "../../../content/texts/hard.json";
 import mediumTexts from "../../../content/texts/medium.json";
 import { classifyCodePoint } from "../unicode";
+import type { WordDictionary } from "./phoneticDictionary";
 import {
   allRuleRows,
   compileRules,
@@ -19,6 +20,44 @@ const compiled = compileRules(grammar);
 
 /** The app converts one word at a time; spaces never reach the engine. */
 const phrase = (text: string) => text.split(" ").map((word) => transliterate(word, { grammar, compiled })).join(" ");
+
+describe("the shipped word list", () => {
+  // A stand-in for the real index, so the engine's use of it is tested without a
+  // megabyte of data: `Da^Talo` is the kind of spelling the rules get wrong.
+  const dictionary: WordDictionary = {
+    candidates: (roman) =>
+      roman === "Da^Talo" ? ["ডাঁটালো"] : roman === "kemon" ? ["কেমন"] : [],
+    size: 2,
+  };
+  const withList = { grammar, compiled, dictionary };
+
+  it("changes the answer for a complete word it holds", () => {
+    // The rules spell a non-word; the list knows the real one.
+    expect(transliterate("Da^Talo", { grammar, compiled })).toBe("ডাঁটাল");
+    expect(transliterate("Da^Talo", withList)).toBe("ডাঁটালো");
+  });
+
+  it("leaves a half-typed word to the rules", () => {
+    // `Da^Tal` is on the way to a word in the list, but it is not the word yet.
+    expect(transliterate("Da^Tal", withList)).toBe(transliterate("Da^Tal", { grammar, compiled }));
+  });
+
+  it("keeps the punctuation that trails the word", () => {
+    expect(transliterate("Da^Talo.", withList)).toBe("ডাঁটালো।");
+    expect(transliterate("Da^Talo!", withList)).toBe("ডাঁটালো!");
+  });
+
+  it("lets a reviewed grammar row win over the list", () => {
+    // `bhalo` is a hand-checked row in the grammar; the list must not override it.
+    const rival: WordDictionary = { candidates: () => ["ভাল"], size: 1 };
+    expect(transliterate("bhalo", { grammar, compiled, dictionary: rival })).toBe("ভালো");
+  });
+
+  it("behaves exactly as before when there is no list", () => {
+    expect(transliterate("kemon", { grammar, compiled, dictionary: undefined })).toBe("কেমন");
+    expect(transliterate("Da^Talo", { grammar, compiled })).not.toBe("ডাঁটালো");
+  });
+});
 
 describe("Section 7.6 starter cases", () => {
   // These six are written into docs/MASTERPLAN.md, so they are authoritative for

@@ -8,7 +8,9 @@
   "author": "Auntor",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "bun run build:dictionary && astro build",
+    "build:dictionary": "bun scripts/build-dictionary.ts",
+    "check:dictionary": "bun scripts/build-dictionary.ts --check",
     "preview": "astro preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",

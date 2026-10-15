@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { practiceTexts } from "../content/texts";
 import { collectMistakes, renderProgress, type ClusterState, type WordStatus } from "../engine/compare";
+import { liveWordDictionary, loadWordDictionary } from "../engine/input/dictionarySource";
 import { createPhoneticEngine } from "../engine/input/phonetic";
 import { romanKeyHint } from "../engine/input/phoneticHint";
 import { createSystemEngine } from "../engine/input/system";
@@ -93,7 +94,11 @@ type TestMode = (typeof TEST_MODES)[number];
 const WORD_HISTORY_ROWS = 40;
 
 function createEngine(mode: InputEngineId): InputEngine {
-  return mode === "avro-phonetic" ? createPhoneticEngine() : createSystemEngine();
+  // The word list is handed over by reference rather than by value: it is fetched
+  // after the engine exists, and the engine sees it as it arrives.
+  return mode === "avro-phonetic"
+    ? createPhoneticEngine({ dictionary: liveWordDictionary })
+    : createSystemEngine();
 }
 
 function clusterClass(
@@ -289,6 +294,22 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     setKeyboardLayout(stored.keyboardLayout);
     setFingerColors(stored.fingerColors);
   }, []);
+
+  // The word list is fetched the first time built-in mode is in play, and never
+  // before: it is 370 KiB that no other mode has any use for. `ready` exists so the
+  // on-screen hint is recomputed once it arrives — the hint is derived from the
+  // engine, so it must not be built from a dictionary the engine never had.
+  const [dictionaryReady, setDictionaryReady] = useState(false);
+  useEffect(() => {
+    if (mode !== "avro-phonetic") return;
+    let cancelled = false;
+    void loadWordDictionary().then(() => {
+      if (!cancelled) setDictionaryReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
 
   // The settings drawer can change the input mode while a run is on screen.
   useEffect(
@@ -1146,7 +1167,10 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
   const keyboardHint = useMemo(() => {
     if (!keyboard || finished) return { codes: [] as string[], shift: false };
     if (mode === "avro-phonetic") {
-      return { codes: romanKeyHint(session.composing, keyboardTarget), shift: false };
+      return {
+        codes: romanKeyHint(session.composing, keyboardTarget, { dictionary: liveWordDictionary }),
+        shift: false,
+      };
     }
     const hint = nextKeyHint(layoutById(keyboardLayout), keyboardTarget, session.active);
     return { codes: hint === null ? [] : [hint.code], shift: hint?.shift ?? false };
@@ -1158,6 +1182,7 @@ export default function Practice({ lang, seed = 1, lesson }: Props) {
     session.composing,
     session.active,
     keyboardTarget,
+    dictionaryReady,
   ]);
 
   const keyboardHeat = useMemo(

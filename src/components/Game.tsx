@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 
+import { liveWordDictionary, loadWordDictionary } from "../engine/input/dictionarySource";
 import { transliterate } from "../engine/input/phonetic";
 import type { InputEngineId } from "../engine/input/types";
 import { createWordBank, drawWords } from "../engine/wordbank";
@@ -76,6 +77,13 @@ export default function Game({ lang }: Props) {
     setMode(loadAndApplySettings().inputMode);
     return onSettingsChange((settings) => setMode(settings.inputMode));
   }, []);
+
+  // Built-in mode's word list is fetched on demand, and the game asks for it as
+  // soon as that is the mode in play: a correction that arrives mid-game is worth
+  // more than one that never arrives.
+  useEffect(() => {
+    if (mode === "avro-phonetic") void loadWordDictionary();
+  }, [mode]);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -170,7 +178,7 @@ export default function Game({ lang }: Props) {
       setRoman(next);
       const at = Date.now();
       setGame((current) =>
-        current === null ? current : setTyped(current, transliterate(next), at, { forgiving: true }),
+        current === null ? current : setTyped(current, transliterate(next, { dictionary: liveWordDictionary }), at, { forgiving: true }),
       );
       return;
     }
@@ -188,7 +196,7 @@ export default function Game({ lang }: Props) {
       setRoman(next);
       const at = Date.now();
       setGame((current) =>
-        current === null ? current : setTyped(current, transliterate(next), at, { forgiving: true }),
+        current === null ? current : setTyped(current, transliterate(next, { dictionary: liveWordDictionary }), at, { forgiving: true }),
       );
     }
   };

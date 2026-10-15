@@ -37,9 +37,12 @@ Two input modes:
   an OS layout, …). The app compares the Unicode your keyboard produces against
   the target text. Any layout works, and the app scores what you actually typed.
 - **Built-in mode (preview)** — the app converts Roman keystrokes into Bangla
-  itself, so nothing needs to be installed. Native speakers have not signed off the
-  rules yet, so it stays an opt-in preview and the system keyboard remains the
-  default.
+  itself, so nothing needs to be installed. The rules are backed by a real Bangla
+  word list: the first time the mode is used, the page fetches a correction index
+  of 11,221 spellings and the engine consults it whenever the rules alone would
+  spell a non-word (`Da^Talo` is ডাঁটালো instead of ডাঁটাল). Native speakers have
+  not signed off the rules yet, so it stays an opt-in preview and the system
+  keyboard remains the default.
 
 A word counts as correct when its final Unicode text matches the target after
 normalization, no matter which keystrokes produced it.
@@ -195,6 +198,8 @@ Other scripts:
 | `bun run check:attribution` | Authorship guard: tracked files + commit messages |
 | `node scripts/generate-og.mjs` | Regenerate the per-page social cards in `dist/` (the build runs it for you) |
 | `bun run validate:text` | Content validator: characters, encodings, review flags |
+| `bun run build:dictionary` | Rebuild the word list built-in mode consults (`public/dictionary/bn.txt`) |
+| `bun run check:dictionary` | Fail when that file is out of date against the grammar (CI runs it) |
 
 Pages: `/` (practice), `/lessons` (the twelve-lesson path, one page per lesson),
 `/game` (the arcade mode), `/progress` (history and data), `/keyboard` (input
@@ -260,6 +265,26 @@ where it came from in the file's own `meta.sources`, and a row is only marked
 Built-in mode therefore ships as an opt-in preview, not the default. The full
 licence analysis is in `docs/DECISIONS.md`.
 
+### The word list
+
+A rule table can spell Bangla but cannot know which spellings are words — the one
+thing the reference implementation's own ~150,000-word dictionary does better. So
+built-in mode has a word list too, and it is not copied from anyone's:
+`content/dictionary/bn_BD.dic` is the LibreOffice Bengali spell-check dictionary,
+vendored verbatim at a pinned revision with its licence, and
+`bun run build:dictionary` derives the index the engine reads. Only *corrections*
+ship, which is why the index is 11,221 spellings rather than 90,000: a spelling
+whose rule output is already a real word is left alone, because preferring the
+other word would be a guess with no frequency data behind it. The app's own lesson
+and practice words are folded in as words at build time, so a correction can never
+make a target impossible to type.
+
+The list is fetched on demand and cached by the service worker, so built-in mode
+works offline after one visit and system-keyboard users never download it.
+`content/dictionary/NOTICE.md` records its provenance, its **GPL-2.0-only**
+licence (the rest of the project is MIT), and how to remove it — the engine falls
+back to its rules.
+
 One row exists for a different reason: the period key types the danda (`।`).
 Nothing in the published guide documents that, but a Roman keyboard cannot
 produce the character any other way, and it appears in half the practice texts,
@@ -273,6 +298,11 @@ not be finished in built-in mode. It is marked `unsourced` and listed in
 - Lesson and practice text: original content of this project, released under CC0
   (`content/`), unless a file states otherwise.
 - The phonetic grammar: original to this project, MIT, like the rest of the code.
+- The word list (`content/dictionary/`, `public/dictionary/bn.txt`): the LibreOffice
+  `bn_BD` Bengali spell-check dictionary and the index derived from it,
+  **GPL-2.0-only**. It is vendored data rather than code;
+  `content/dictionary/NOTICE.md` records the exact revision, the provenance and
+  how to remove it.
 
 ---
 
