@@ -47,10 +47,10 @@ describe("nextRomanLetters", () => {
   });
 
   it("follows a dictionary spelling the rules alone miss", () => {
-    // The rules give kem → কেম and kemo → কেমো; only kemon spells কেমন, so the
-    // dictionary is what keeps the hint suggesting letters on a word like this.
-    expect(nextRomanLetters("kem", "কেমন")).toContain("o");
-    expect(nextRomanLetters("kemo", "কেমন")).toContain("n");
+    // The rules give gel → গেল and leave the final `o` suppressed; only the
+    // dictionary spells গেলো, so it is what keeps the hint suggesting `o` here.
+    expect(nextRomanLetters("gel", "গেলো")).toContain("o");
+    expect(nextRomanLetters("gelo", "গেলো")).toHaveLength(0);
   });
 
   it("suggests a letter the engine can actually finish a word with", () => {

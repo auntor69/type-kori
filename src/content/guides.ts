@@ -112,12 +112,12 @@ export const guides: Guide[] = [
         },
         paragraphs: [
           {
-            bn: "ফোনেটিক ইঞ্জিনে a লিখলে আ, i লিখলে ই, u লিখলে উ, e লিখলে এ, o লিখলে ও আসে। কিন্তু এই বর্ণগুলো কোনো ব্যঞ্জনের পরে বসলে তারা বর্ণ হয়ে যায় না — বরং কার-চিহ্ন হয়ে যায়। যেমন k + a = কা, m + i = মি।",
-            en: "In the phonetic engine, a gives আ, i gives ই, u gives উ, e gives এ, o gives ও. But after a consonant these letters do not become separate letters — they become the vowel signs. So k + a is কা and m + i is মি.",
+            bn: "ফোনেটিক ইঞ্জিনে a লিখলে আ, i লিখলে ই, u লিখলে উ, e লিখলে এ, O লিখলে ও আসে। কিন্তু এই বর্ণগুলো কোনো ব্যঞ্জনের পরে বসলে তারা বর্ণ হয়ে যায় না — বরং কার-চিহ্ন হয়ে যায়। যেমন k + a = কা, m + i = মি, k + O = কো।",
+            en: "In the phonetic engine, a gives আ, i gives ই, u gives উ, e gives এ and O gives ও. But after a consonant these letters do not become separate letters — they become the vowel signs. So k + a is কা, m + i is মি and k + O is কো.",
           },
           {
-            bn: "দীর্ঘ স্বর দরকার হলে অক্ষরটি দুইবার লিখুন: ii লিখলে ঈ, uu লিখলে ঊ। এভাবে ক + ii = কী এবং ক + uu = কূ হয়।",
-            en: "For the long vowels, type the letter twice: ii gives ঈ and uu gives ঊ. So k + ii is কী and k + uu is কূ.",
+            bn: "ছোট হাতের o হলো অ-কার, অর্থাৎ বাংলার সহজ স্বরটি লেখা হয় না। ব্যঞ্জনের পরে বসলে এটি কোনো চিহ্ন লেখে না, কেবল দুটি ব্যঞ্জনকে আলাদা রাখে: kor = কর, sokale = সকালে, kemon = কেমন। আর দীর্ঘ স্বর দরকার হলে বড় হাতের অক্ষর লিখুন: I = ঈ, U = ঊ, অর্থাৎ ক + I = কী এবং ক + U = কূ।",
+            en: "A lowercase o is the inherent vowel — the ordinary Bangla vowel that is simply not written. After a consonant it writes nothing and only keeps two consonants apart: kor is কর, sokale is সকালে, kemon is কেমন. For the long vowels, use the capital letter: I is ঈ and U is ঊ, so k + I is কী and k + U is কূ.",
           },
         ],
       },
