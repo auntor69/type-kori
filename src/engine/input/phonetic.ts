@@ -61,7 +61,7 @@ export interface PhoneticGrammar {
 
 type RuleKind = "vowel" | "consonant" | "mark" | "conjunct" | "digit" | "punctuation";
 
-interface CompiledRule {
+export interface CompiledRule {
   latin: string;
   kind: RuleKind;
   /** The literal output, or both vowel forms. */

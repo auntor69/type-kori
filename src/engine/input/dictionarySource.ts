@@ -39,6 +39,7 @@ let pending: Promise<WordDictionary> | null = null;
  */
 export const liveWordDictionary: WordDictionary = {
   candidates: (roman) => loaded?.candidates(roman) ?? [],
+  spellings: (word) => loaded?.spellings(word) ?? [],
   get size(): number {
     return loaded?.size ?? 0;
   },
